@@ -20,28 +20,46 @@ with st.expander("Search settings", expanded=False):
     st.caption(f"Google Hotels' lowest rate across booking sites. About 2 seconds per new day. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
+MAX_DAYS = 90
+if not filt.strip():
+    st.warning("Enter part of the hotel name, for example Frankfurter Hof. Without it any hotel in the search could match.")
+    st.stop()
+if end < start:
+    st.error("The last check-in is before the first check-in. Swap the two dates.")
+    st.stop()
+if (end - start).days >= MAX_DAYS:
+    st.error(f"Choose a range of at most {MAX_DAYS} days.")
+    st.stop()
+
 route(filt.title(), None, f"{query} · {start:%d %b} – {end:%d %b %Y} · {nights} night{'s' * (nights > 1)}, {adults} adults")
 
 if fetch:
     key = (query, filt, int(nights), int(adults), cutoff())
     skip = set() if recheck else {r[0] for r in db.execute(
         "SELECT day FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND fetched>=?", key)}
-    bar, n = st.progress(0.0, text="Checking rates…"), max(1, (end - start).days + 1 - len(skip))
-    for i, (d, name, price) in enumerate(fetch_range(start, end, query, filt, nights, adults, skip=skip)):
-        if price is not None:
+    total = max(1, (end - start).days + 1 - len(skip))
+    bar, failed, empty = st.progress(0.0, text="Checking rates…"), 0, 0
+    for i, (d, name, price, status) in enumerate(fetch_range(start, end, query, filt, nights, adults, skip=skip)):
+        if status != "error":  # failed lookups are not saved, so the next run retries them
             db.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)",
                        (d.isoformat(), query, filt, nights, name, price, datetime.now().isoformat(), int(adults)))
             db.commit()
-        bar.progress(min(1.0, (i + 1) / n), text=f"Checking {d:%d %b}…")
+        failed, empty = failed + (status == "error"), empty + (status == "none")
+        bar.progress(min(1.0, (i + 1) / total), text=f"Checked {i + 1} of {total}")
     bar.empty()
+    if failed:
+        st.warning(f"{failed} lookups failed because Google did not answer. Press Update prices again to retry just those.")
+    if empty:
+        st.caption(f"{empty} dates show no listing for a hotel matching '{filt}'. Check the name filter.")
 
 p = pd.read_sql("SELECT * FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(query, filt, int(nights), int(adults), start.isoformat(), end.isoformat()))
-if p.empty:
+s = p.drop_duplicates("day", keep="last").set_index("day")[["hotel", "price"]].dropna(subset=["price"])
+if s.empty:
     kpis([("Cheapest check-in", "—", "No data yet", ECONOMY)])
-    st.info("No rates yet. Set your dates, then open **Search settings** above and press **Update prices**.")
+    st.info("No hotel matching that name was found on these dates. Check the name filter, or try other dates." if len(p)
+            else "No rates yet. Set your dates, then open **Search settings** above and press **Update prices**.")
 else:
-    s = p.groupby("day").agg(hotel=("hotel", "last"), price=("price", "last"))
     low, high = s.price.idxmin(), s.price.idxmax()
     ts = lambda i: f"{pd.Timestamp(i):%a %d %b}"
     kpis([("Cheapest check-in", f"€{s.price.min():.0f}", f"{ts(low)} · {s.hotel[low]}", ECONOMY),

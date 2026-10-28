@@ -1,8 +1,9 @@
 """Cash-fare collector: Google Flights via fast-flights (free, scraped, may break)."""
-import time
 from datetime import date, timedelta
 
 from fast_flights import FlightQuery, Passengers, create_query, get_flights
+
+from par import parallel
 
 
 def pick(flights, orig, dest, airline="aegean"):
@@ -21,21 +22,13 @@ def fetch_day(day, orig, dest, cabin):
     return None if best is None else (best.price, ", ".join(best.airlines))
 
 
-def fetch_range(start, end, orig, dest, cabins=("economy", "business"), pause=2.0, skip=frozenset()):
-    """Yield (day, cabin, price|None, airlines) politely, one request per day+cabin; `skip` holds (iso day, cabin) pairs to leave alone."""
-    d = start
-    while d <= end:
-        for cabin in cabins:
-            if (d.isoformat(), cabin) in skip:
-                continue
-            try:
-                r = fetch_day(d, orig, dest, cabin)
-            except Exception as e:  # ponytail: scraper breaks often; skip the day, keep going
-                r = None
-                print(f"{d} {cabin}: {e!r}")
-            yield d, cabin, *(r or (None, ""))
-            time.sleep(pause)
-        d += timedelta(days=1)
+def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=frozenset(), workers=3):
+    """Yield (day, cabin, price|None, airlines, status) as lookups finish.
+    status: ok, none (no AEGEAN flight) or error (Google didn't answer). `skip` holds (iso day, cabin) pairs to leave alone."""
+    days = [start + timedelta(i) for i in range((end - start).days + 1)]
+    todo = [(d, c) for d in days for c in cabins if (d.isoformat(), c) not in skip]
+    for (d, cabin), r, err in parallel(todo, lambda a: fetch_day(a[0], orig, dest, a[1]), workers):
+        yield d, cabin, *(r or (None, "")), "error" if err else "ok" if r else "none"
 
 
 if __name__ == "__main__":  # self-check, no network
@@ -45,8 +38,13 @@ if __name__ == "__main__":  # self-check, no network
     fl = [mk(408, ["Aegean"], "ATH", "FRA"), mk(300, ["Lufthansa"], "ATH", "FRA"),
           mk(200, ["Aegean"], "ATH", "SKG"), mk(380, ["Aegean", "Lufthansa"], "ATH", "FRA")]
     assert pick(fl, "ATH", "FRA").price == 380 and pick(fl, "ATH", "MUC") is None
-    fetch_day = lambda *a: (1, "Aegean")
     d0 = date(2026, 11, 1)
-    got = list(fetch_range(d0, d0, "ATH", "FRA", pause=0, skip={("2026-11-01", "economy")}))
-    assert [g[1] for g in got] == ["business"]
+    fetch_day = lambda *a: (1, "Aegean")
+    got = list(fetch_range(d0, d0, "ATH", "FRA", skip={("2026-11-01", "economy")}))
+    assert [(g[1], g[4]) for g in got] == [("business", "ok")]
+    fetch_day = lambda *a: None
+    assert next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[4] == "none"
+    def boom(*a): raise RuntimeError("x")
+    fetch_day = boom
+    assert next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[4] == "error"
     print("ok")

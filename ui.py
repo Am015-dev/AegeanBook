@@ -16,7 +16,7 @@ html, body, [class*="css"], .stApp {{ font-family: 'IBM Plex Sans', system-ui, s
 h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-spacing: -0.02em; color: {INK}; }}
 .route {{ display:flex; align-items:center; gap:18px; margin:4px 0 2px; }}
 .route .code {{ font: 700 clamp(2.4rem,9vw,3.8rem)/1 'Bricolage Grotesque'; letter-spacing:-0.04em; color:{INK}; }}
-.route .line {{ flex:1; height:2px; position:relative; background:repeating-linear-gradient(90deg,{ECONOMY} 0 6px,transparent 6px 12px); min-width:40px; }}
+.route .line {{ flex:1; height:0; position:relative; border-top:2px dashed {ECONOMY}; min-width:40px; }}
 .route .line::after {{ content:'✈'; position:absolute; left:50%; top:-13px; transform:translateX(-50%); background:#F5F7FB; padding:0 8px; color:{ECONOMY}; font-size:1.2rem; }}
 .sub {{ color:{MUTED}; margin:0 0 1.4rem; font-size:.95rem; }}
 .kpis {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:1.2rem; }}
@@ -25,15 +25,16 @@ h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-
 .kpi .dot {{ width:9px; height:9px; border-radius:50%; display:inline-block; }}
 .kpi .v {{ font: 700 2rem/1.15 'Bricolage Grotesque'; color:{INK}; margin-top:6px; }}
 .kpi .s {{ color:{MUTED}; font-size:.85rem; margin-top:2px; }}
+[data-testid="stCaptionContainer"] {{ color:#4B5B72 !important; opacity:1 !important; text-wrap:pretty; }}
 .card-title {{ font:600 1.05rem 'IBM Plex Sans'; color:{INK}; margin:.4rem 0 0; }}
 .stTabs [data-baseweb="tab-list"] {{ gap:6px; }}
-.stTabs button[data-baseweb="tab"] {{ border-radius:999px; padding:8px 20px !important; height:auto; background:#fff; border:1px solid {GRID}; }}
-.stTabs [data-baseweb="tab"] p {{ margin:0 14px !important; }}
+.stTabs [role="tab"] {{ border-radius:999px; padding:8px 20px !important; height:auto; background:#fff; border:1px solid {GRID}; }}
 .stTabs [aria-selected="true"] {{ background:{INK}; }}
 .stTabs [aria-selected="true"] p {{ color:#fff !important; }}
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display:none; }}
 .stButton > button, .stDownloadButton > button {{ border-radius:12px; font-weight:600; }}
 [data-testid="stExpander"] {{ background:#fff; border:1px solid {GRID}; border-radius:16px; }}
+@media (max-width: 640px) {{ .block-container {{ padding-top: 4rem; }} }}
 @media (prefers-reduced-motion: no-preference) {{ .kpi {{ transition: transform .15s; }} .kpi:hover {{ transform: translateY(-2px); }} }}
 </style>
 """
@@ -70,6 +71,6 @@ def price_chart(df, series, unit="€"):
     fig.update_layout(height=380, margin=dict(l=28, r=8, t=40, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                       font=dict(family="IBM Plex Sans", color=MUTED), hovermode="x unified",
                       legend=dict(orientation="h", x=0, y=1.12, font=dict(color=INK)),
-                      xaxis=dict(tickformat="%d %b", showgrid=False, linecolor=GRID),
+                      xaxis=dict(tickformat="%d %b", dtick=86400000 if len(df) <= 14 else None, showgrid=False, linecolor=GRID),
                       yaxis=dict(tickprefix=unit, automargin=True, gridcolor=GRID, zeroline=False, rangemode="tozero"))
     return fig

@@ -1,9 +1,10 @@
 """Hotel price collector: Google Hotels via `stays` (free, reverse-engineered, may break).
 Price = Google's lowest nightly rate across the sites it compares (Booking.com is usually one); not Booking-only."""
-import time
 from datetime import date, timedelta
 
 import stays
+
+from par import parallel
 
 
 def pick(hotels, name_filter):
@@ -20,21 +21,11 @@ def fetch_day(query, name_filter, day, nights=1, adults=2):
     return None if h is None else (h["name"], h["display_price"])
 
 
-def fetch_range(start, end, query, name_filter, nights=1, adults=2, pause=2.0, skip=frozenset()):
-    """Yield (day, hotel, price|None); `skip` holds iso days to leave alone."""
-    d = start
-    while d <= end:
-        if d.isoformat() in skip:
-            d += timedelta(days=1)
-            continue
-        try:
-            r = fetch_day(query, name_filter, d, nights, adults)
-        except Exception as e:  # ponytail: scraper breaks often; skip the day, keep going
-            r = None
-            print(f"{d}: {e!r}")
-        yield d, *(r or ("", None))
-        time.sleep(pause)
-        d += timedelta(days=1)
+def fetch_range(start, end, query, name_filter, nights=1, adults=2, skip=frozenset(), workers=3):
+    """Yield (day, hotel, price|None, status) as lookups finish. status: ok, none (hotel not listed) or error. `skip` holds iso days."""
+    todo = [start + timedelta(i) for i in range((end - start).days + 1) if (start + timedelta(i)).isoformat() not in skip]
+    for d, r, err in parallel(todo, lambda d: fetch_day(query, name_filter, d, nights, adults), workers):
+        yield d, *(r or ("", None)), "error" if err else "ok" if r else "none"
 
 
 if __name__ == "__main__":  # self-check, no network
@@ -43,7 +34,9 @@ if __name__ == "__main__":  # self-check, no network
           {"name": "Steigenberger Frankfurter Hof", "display_price": None}]
     assert pick(hs, "frankfurter hof")["display_price"] == 207 and pick(hs, "steigenberger")["display_price"] == 150
     assert pick(hs, "hilton") is None
-    fetch_day = lambda *a: ("H", 1)
     d0 = date(2026, 11, 1)
-    assert [g[0] for g in fetch_range(d0, d0 + timedelta(1), "q", "f", pause=0, skip={"2026-11-01"})] == [d0 + timedelta(1)]
+    fetch_day = lambda *a: ("H", 1)
+    assert [(g[0], g[3]) for g in fetch_range(d0, d0 + timedelta(1), "q", "f", skip={"2026-11-01"})] == [(d0 + timedelta(1), "ok")]
+    fetch_day = lambda *a: None
+    assert next(fetch_range(d0, d0, "q", "f"))[3] == "none"
     print("ok")
