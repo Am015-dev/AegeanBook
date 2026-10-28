@@ -3,3 +3,4 @@ fast-flights
 pandas
 plotly
 openpyxl
+stays

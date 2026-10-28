@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 .aegean_profile/
 award_recording.json
+hotel_export.xlsx
