@@ -1,0 +1,5 @@
+streamlit
+fast-flights
+pandas
+plotly
+openpyxl

@@ -1,0 +1,4 @@
+tracker.db
+export.xlsx
+__pycache__/
+.venv/
