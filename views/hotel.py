@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from db import RETENTION_DAYS, connect, cutoff
+from jobs import start_job, track
 from hotels import fetch_range
 from ui import ECONOMY, kpis, price_chart, route
 
@@ -20,7 +21,7 @@ with st.expander("Search settings", expanded=False):
     st.caption(f"Google Hotels' lowest rate across booking sites. About 2 seconds per new day. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
-MAX_DAYS = 90
+MAX_DAYS = 186
 if not filt.strip():
     st.warning("Enter part of the hotel name, for example Frankfurter Hof. Without it any hotel in the search could match.")
     st.stop()
@@ -33,24 +34,29 @@ if (end - start).days >= MAX_DAYS:
 
 route(filt.title(), None, f"{query} · {start:%d %b} – {end:%d %b %Y} · {nights} night{'s' * (nights > 1)}, {adults} adults")
 
+key = f"hotel|{query}|{filt}|{nights}|{adults}|{start}|{end}"
 if fetch:
-    key = (query, filt, int(nights), int(adults), cutoff())
     skip = set() if recheck else {r[0] for r in db.execute(
-        "SELECT day FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND fetched>=?", key)}
-    total = max(1, (end - start).days + 1 - len(skip))
-    bar, failed, empty = st.progress(0.0, text="Checking rates…"), 0, 0
-    for i, (d, name, price, status) in enumerate(fetch_range(start, end, query, filt, nights, adults, skip=skip)):
-        if status != "error":  # failed lookups are not saved, so the next run retries them
-            db.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)",
-                       (d.isoformat(), query, filt, nights, name, price, datetime.now().isoformat(), int(adults)))
-            db.commit()
-        failed, empty = failed + (status == "error"), empty + (status == "none")
-        bar.progress(min(1.0, (i + 1) / total), text=f"Checked {i + 1} of {total}")
-    bar.empty()
-    if failed:
-        st.warning(f"{failed} lookups failed because Google did not answer. Press Update prices again to retry just those.")
-    if empty:
-        st.caption(f"{empty} dates show no listing for a hotel matching '{filt}'. Check the name filter.")
+        "SELECT day FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND fetched>=?",
+        (query, filt, int(nights), int(adults), cutoff()))}
+    total = (end - start).days + 1 - len(skip)
+
+    def work(j):
+        tdb = connect()
+        for d, name, price, status in fetch_range(start, end, query, filt, nights, adults, skip=skip):
+            if status != "error":  # failed lookups are not saved, so the next run retries them
+                tdb.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)",
+                            (d.isoformat(), query, filt, nights, name, price, datetime.now().isoformat(), int(adults)))
+                tdb.commit()
+            j["done"] += 1
+            j["failed"] += status == "error"
+            j["empty"] += status == "none"
+
+    if total > 0:
+        start_job(key, total, work)
+    else:
+        st.info("Every date in this range is already saved. Tick Re-check days already saved to fetch again.")
+track(key)
 
 p = pd.read_sql("SELECT * FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(query, filt, int(nights), int(adults), start.isoformat(), end.isoformat()))

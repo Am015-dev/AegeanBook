@@ -5,6 +5,7 @@ import streamlit as st
 
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, cutoff
+from jobs import start_job, track
 from ui import BUSINESS, ECONOMY, MUTED, kpis, price_chart, route
 
 db = connect()
@@ -18,7 +19,7 @@ with st.expander("Search settings", expanded=False):
     st.caption(f"One-way, 1 passenger, AEGEAN flights only. About 4 seconds per new day. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
-MAX_DAYS = 90
+MAX_DAYS = 186
 if end < start:
     st.error("The last departure is before the first departure. Swap the two dates.")
     st.stop()
@@ -28,23 +29,28 @@ if (end - start).days >= MAX_DAYS:
 
 route(orig, dest, f"{start:%d %b} – {end:%d %b %Y} · one-way · AEGEAN")
 
+key = f"flights|{orig}|{dest}|{start}|{end}"
 if fetch:
     skip = set() if recheck else set(db.execute(
         "SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND fetched>=?", (orig, dest, cutoff())))
-    total = max(1, 2 * ((end - start).days + 1) - len(skip))
-    bar, failed, empty = st.progress(0.0, text="Checking fares…"), 0, 0
-    for i, (d, cabin, price, air, status) in enumerate(fetch_range(start, end, orig, dest, skip=skip)):
-        if status != "error":  # failed lookups are not saved, so the next run retries them
-            db.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?)",
-                       (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat()))
-            db.commit()
-        failed, empty = failed + (status == "error"), empty + (status == "none")
-        bar.progress(min(1.0, (i + 1) / total), text=f"Checked {i + 1} of {total}")
-    bar.empty()
-    if failed:
-        st.warning(f"{failed} lookups failed because Google did not answer. Press Update prices again to retry just those.")
-    if empty:
-        st.caption(f"{empty} day and cabin combinations have no AEGEAN flight on this route.")
+    total = 2 * ((end - start).days + 1) - len(skip)
+
+    def work(j):
+        tdb = connect()
+        for d, cabin, price, air, status in fetch_range(start, end, orig, dest, skip=skip):
+            if status != "error":  # failed lookups are not saved, so the next run retries them
+                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?)",
+                            (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat()))
+                tdb.commit()
+            j["done"] += 1
+            j["failed"] += status == "error"
+            j["empty"] += status == "none"
+
+    if total > 0:
+        start_job(key, total, work)
+    else:
+        st.info("Every day in this range is already saved. Tick Re-check days already saved to fetch again.")
+track(key)
 
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
 p = pd.read_sql(f"SELECT * FROM prices {q} ORDER BY fetched", db, params=args)
