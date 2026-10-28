@@ -21,11 +21,13 @@ def fetch_day(day, orig, dest, cabin):
     return None if best is None else (best.price, ", ".join(best.airlines))
 
 
-def fetch_range(start, end, orig, dest, cabins=("economy", "business"), pause=2.0, on_row=None):
-    """Yield (day, cabin, price|None, airlines) politely, one request per day+cabin."""
+def fetch_range(start, end, orig, dest, cabins=("economy", "business"), pause=2.0, skip=frozenset()):
+    """Yield (day, cabin, price|None, airlines) politely, one request per day+cabin; `skip` holds (iso day, cabin) pairs to leave alone."""
     d = start
     while d <= end:
         for cabin in cabins:
+            if (d.isoformat(), cabin) in skip:
+                continue
             try:
                 r = fetch_day(d, orig, dest, cabin)
             except Exception as e:  # ponytail: scraper breaks often; skip the day, keep going
@@ -43,4 +45,8 @@ if __name__ == "__main__":  # self-check, no network
     fl = [mk(408, ["Aegean"], "ATH", "FRA"), mk(300, ["Lufthansa"], "ATH", "FRA"),
           mk(200, ["Aegean"], "ATH", "SKG"), mk(380, ["Aegean", "Lufthansa"], "ATH", "FRA")]
     assert pick(fl, "ATH", "FRA").price == 380 and pick(fl, "ATH", "MUC") is None
+    fetch_day = lambda *a: (1, "Aegean")
+    d0 = date(2026, 11, 1)
+    got = list(fetch_range(d0, d0, "ATH", "FRA", pause=0, skip={("2026-11-01", "economy")}))
+    assert [g[1] for g in got] == ["business"]
     print("ok")

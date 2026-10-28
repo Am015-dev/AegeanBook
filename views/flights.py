@@ -1,35 +1,35 @@
-import sqlite3
 from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
 
 from collector import fetch_range
+from db import RETENTION_DAYS, connect, cutoff
 from ui import BUSINESS, ECONOMY, MUTED, kpis, price_chart, route
 
-db = sqlite3.connect("tracker.db", check_same_thread=False)
-db.executescript("""
-CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT);
-CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
-""")
+db = connect()
 
 with st.expander("Search settings", expanded=False):
     c = st.columns([1, 1, 1.4, 1.4])
     orig, dest = c[0].text_input("From (IATA)", "ATH").upper(), c[1].text_input("To (IATA)", "FRA").upper()
     start, end = c[2].date_input("First departure", date(2026, 11, 1)), c[3].date_input("Last departure", date(2026, 11, 30))
     fetch = st.button("Update prices", type="primary")
-    st.caption("One-way, 1 passenger, AEGEAN flights only. About 4 seconds per day.")
+    recheck = st.checkbox("Re-check days already saved")
+    st.caption(f"One-way, 1 passenger, AEGEAN flights only. About 4 seconds per new day. "
+               f"Results are saved for {RETENTION_DAYS} days and reused.")
 
 route(orig, dest, f"{start:%d %b} – {end:%d %b %Y} · one-way · AEGEAN")
 
 if fetch:
-    bar, n = st.progress(0.0, text="Checking fares…"), (end - start).days + 1
-    for i, (d, cabin, price, air) in enumerate(fetch_range(start, end, orig, dest)):
+    skip = set() if recheck else set(db.execute(
+        "SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND fetched>=?", (orig, dest, cutoff())))
+    bar, n = st.progress(0.0, text="Checking fares…"), max(1, 2 * ((end - start).days + 1) - len(skip))
+    for i, (d, cabin, price, air) in enumerate(fetch_range(start, end, orig, dest, skip=skip)):
         if price is not None:
             db.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?)",
                        (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat()))
             db.commit()
-        bar.progress((i + 1) / (2 * n), text=f"Checking {d:%d %b}…")
+        bar.progress(min(1.0, (i + 1) / n), text=f"Checking {d:%d %b}…")
     bar.empty()
 
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
