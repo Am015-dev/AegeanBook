@@ -2,3 +2,5 @@ tracker.db
 export.xlsx
 __pycache__/
 .venv/
+.aegean_profile/
+award_recording.json
