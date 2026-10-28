@@ -10,7 +10,7 @@ Self-check: `python collector.py`. Scraping may break whenever Google changes it
 
 ## Award recorder (optional, your own account, your own machine)
 
-    pip install playwright && playwright install chromium
+    pip install -r requirements-award.txt && playwright install chromium
     python award_collector.py login    # log in once, no password stored
     python award_collector.py record   # do one manual Business award search, then press Enter
 

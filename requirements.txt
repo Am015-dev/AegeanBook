@@ -3,4 +3,3 @@ fast-flights
 pandas
 plotly
 openpyxl
-playwright
