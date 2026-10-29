@@ -16,22 +16,23 @@ if runs.empty:
 answered = runs.ok + runs["empty"]
 lookups = runs.ok + runs["empty"] + runs.failed
 rate = answered.sum() / max(1, lookups.sum())
-kpis([("Updates", f"{len(runs)}", f"Flights {(runs.page == 'flights').sum()} · Hotels {(runs.page == 'hotel').sum()}", ECONOMY),
+kpis([("Updates", f"{len(runs)}", f"Flights {(runs.page == 'flights').sum()} · Hotels {(runs.page == 'hotel').sum()} · Daily {(runs.page == 'daily').sum()}", ECONOMY),
       ("Lookups", f"{int(lookups.sum()):,}", f"{int(runs.ok.sum()):,} priced · {int(runs['empty'].sum()):,} nothing found", MUTED),
       ("Answered", f"{rate:.0%}", f"{int(runs.failed.sum()):,} failed (Google or Xotelo did not answer)",
        ECONOMY if rate >= 0.9 else TIER_COLORS["high"]),
-      ("Typical update", f"{runs.seconds.median():.0f} s", f"slowest {runs.seconds.max():.0f} s", MUTED)])
+      ("Typical update", f"{runs.seconds.median():.0f} s" if runs.seconds.notna().any() else "—",
+       f"slowest {runs.seconds.max():.0f} s" if runs.seconds.notna().any() else "only daily runs so far", MUTED)])
 
 st.markdown('<p class="card-title">Each update: priced, nothing found, failed</p>', unsafe_allow_html=True)
 r = runs.sort_values("started")
 fig = go.Figure()
 for col, name, colour in (("ok", "Priced", ECONOMY), ("empty", "Nothing found", "#7D8AA0"), ("failed", "Failed", TIER_COLORS["high"])):
-    fig.add_bar(x=pd.to_datetime(r.started), y=r[col], name=name, marker=dict(color=colour, line=dict(color="#F5F7FB", width=1)),
+    fig.add_bar(x=pd.to_datetime(r.started).dt.strftime("%d %b %H:%M:%S"), y=r[col], name=name, marker=dict(color=colour, line=dict(color="#F5F7FB", width=1)),
                 customdata=r.label, hovertemplate=f"%{{customdata}}<br>{name}: %{{y}}<extra></extra>")
 fig.update_layout(barmode="stack", height=280, margin=dict(l=8, r=8, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
                   plot_bgcolor="rgba(0,0,0,0)", font=dict(family="IBM Plex Sans", color=MUTED),
                   legend=dict(orientation="h", x=0, y=1.15, traceorder="normal"), yaxis=dict(gridcolor=GRID, title=None),
-                  xaxis=dict(showgrid=False))
+                  xaxis=dict(showgrid=False, type="category"), bargap=0.5 if len(r) > 3 else 0.85)
 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 errors = runs[runs.error.notna()]

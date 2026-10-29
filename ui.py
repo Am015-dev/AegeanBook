@@ -55,7 +55,13 @@ h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-
 .chip {{ background:#fff; border:1px solid {GRID}; border-radius:999px; padding:4px 12px; font-size:.88rem; color:{INK}; }}
 .chip b {{ font-weight:600; margin-right:4px; }}
 .best .more {{ color:{MUTED}; font-size:.85rem; }}
-@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} }}
+/* selected pills: solid, like a segmented control (the tinted default was 4.0:1 contrast) */
+[data-testid="stButtonGroup"] button[aria-pressed="true"], [data-testid="stButtonGroup"] button[aria-checked="true"] {{ background:{ECONOMY} !important; border-color:{ECONOMY} !important; }}
+[data-testid="stButtonGroup"] button[aria-pressed="true"] *, [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color:#fff !important; }}
+/* a column with nothing in it (Nights away on a one-way trip) must not leave a gap on phones */
+[data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"]:empty) {{ display:none; }}
+@media (pointer: coarse) {{ [data-testid="stButtonGroup"] button, .chip {{ min-height:44px; }} .chip {{ display:inline-flex; align-items:center; }} }}
+@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} }}
 @media (prefers-reduced-motion: no-preference) {{ .kpi {{ transition: transform .15s; }} .kpi:hover {{ transform: translateY(-2px); }} }}
 </style>
 """

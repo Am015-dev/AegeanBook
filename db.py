@@ -74,6 +74,10 @@ def load_daily(db, path=None):
         db.executemany("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
                        [(r["day"], r["orig"], r["dest"], r["cabin"], float(r["price"]) if r["price"] else None, r["source"],
                          r["fetched"], int(r["nonstop"])) for r in rows if r["fetched"] == fetched])
+        got = [r for r in rows if r["fetched"] == fetched]
+        priced = sum(bool(r["price"]) for r in got)
+        db.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?)", ("daily", f"Daily: {len({(r['orig'], r['dest']) for r in got})} routes",
+                                                                 fetched, None, len(got), priced, len(got) - priced, 0, None))
 
 
 def connect(path="tracker.db"):
