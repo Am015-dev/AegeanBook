@@ -10,6 +10,8 @@ from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from award_view import STYLE as PLAN_STYLE, best_award, load_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
 from jobs import record, start_job, track
+from pass_value import assess, card_html, chart as pass_chart
+from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
 
@@ -194,7 +196,7 @@ if len(seen) < 2 * len(days):
                "Press Update prices to check the rest.")
 st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
            "automatically every morning.")
-t1, t2, t3 = st.tabs(["Prices", "Award miles", "Table"])
+t1, t2, t3, t4 = st.tabs(["Prices", "Award miles", "Table", "Trip cost"])
 with t1:
     if view[["economy", "business"]].notna().any().any():
         st.markdown(f'<p class="card-title">{orig} → {dest}, cheap days ringed</p>' if nights else
@@ -259,6 +261,29 @@ with t3:
         st.markdown(f'<p class="card-title">{orig} → {dest} by day</p>', unsafe_allow_html=True)
     st.dataframe(table, width="stretch")
     st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")
+with t4:
+    if not nights:
+        st.info("Set Trip to Return at the top to price a whole trip: the return flights plus the hotel for every night of the stay.")
+    elif not (saved_hotels := hotel_options(db)):
+        st.info("No one-night hotel prices are saved yet. Open Hotels and press Update prices, or wait for the daily run.")
+    else:
+        pick = st.selectbox("Hotel", range(len(saved_hotels)), key="trip-hotel", help="Only hotels with one-night prices saved are listed.",
+                            format_func=lambda i: f"{saved_hotels[i]['filt'] or saved_hotels[i]['query']} · {saved_hotels[i]['days']} nights priced")
+        trip_cabin = st.radio("Cabin", ["economy", "business"], format_func=str.capitalize, horizontal=True, key="trip-cabin")
+        hotel = saved_hotels[pick]
+        tc = trip_costs(trips[trips.cabin == trip_cabin], night_prices(db, hotel["query"], hotel["filt"], hotel["adults"], start, rend))
+        if tc.empty:
+            st.info("No trip has both flights and a hotel price for every night. Try other stay lengths, or update the hotel prices for these dates.")
+        else:
+            b = tc.iloc[0]
+            st.markdown(f'<p class="card-title">Cheapest {trip_cabin} trip: €{b.total:.0f}</p>', unsafe_allow_html=True)
+            st.caption(f"{pd.Timestamp(b.depart):%a %d %b} → {pd.Timestamp(b.back):%a %d %b} · {b.nights} nights · €{b.flights:.0f} flights + "
+                       f"€{b.hotel:.0f} hotel")
+            shown = tc.rename(columns={"depart": "Depart", "back": "Return", "nights": "Nights", "flights": "Flights €", "hotel": "Hotel €",
+                                       "total": "Total €"})
+            st.dataframe(shown.head(25), width="stretch", hide_index=True)
+            st.download_button("Download all trips", excel_bytes(shown), f"aegean_{orig}_{dest}_trips.xlsx")
+        st.caption(f"Hotel prices are for one night, added up night by night for {hotel['adults']} adults. Make sure this hotel is in {dest}.")
 
 # booking strategy: the cash fares and the award miles above, put together per cabin, one way and (when compared) return
 st.markdown('<p class="card-title">Booking strategy</p>', unsafe_allow_html=True)
@@ -279,3 +304,34 @@ st.caption("Cash fares come from Google Flights and award miles from AEGEAN's ow
            + ("the cash fare minus the cash taxes of the award ticket, divided by the miles." if has_taxes else
                  "the cash fare divided by the miles, before the cash taxes an award ticket also costs (not collected for these days).")
            + ("" if nights else " Set Trip to Return at the top to compare round trips too."))
+
+
+# Aegean Pass: a block of one-way flights at a fixed price. It only pays off if its cost per flight, taxes included, beats the cash fares you
+# could really book with it. The price is typed in (it depends on the pass and changes); the comparison uses the economy fares above.
+st.markdown('<p class="card-title">Is the Aegean Pass worth it?</p>', unsafe_allow_html=True)
+pc = st.columns(4)
+pass_price = pc[0].number_input("Pass price (€)", min_value=0.0, value=None, step=10.0, placeholder="from aegeanair.com", key="pass-price",
+                                help="The total price of the pass you are considering. Current prices: https://en.aegeanair.com/flight-deals/aegean-pass/")
+pass_flights = pc[1].number_input("Flights in the pass", min_value=1, max_value=40, value=12, key="pass-flights")
+pass_uses = pc[2].number_input("Flights you will use", min_value=1, max_value=40, value=12, key="pass-uses",
+                               help="Unused flights are lost after 12 months, so flying fewer makes each flight cost more.")
+pass_taxes = pc[3].number_input("Taxes per flight (€)", min_value=0.0, max_value=300.0, value=30.0, step=5.0, key="pass-taxes",
+                                help="Airport taxes and surcharges are paid on top of the pass, flight by flight. €30 is what AEGEAN's award "
+                                     "response showed for a nonstop flight Athens to Frankfurt: use the taxes of your own route.")
+pass_window = st.radio("Book each flight at least", [0, 7, 30], index=1, horizontal=True, key="pass-window",
+                       format_func=lambda d: "on the day" if d == 0 else f"{d} days ahead",
+                       help="The pass has a minimum booking window; Flex 7 days means 7 days or more before departure.")
+if not pass_price:
+    st.caption("Enter the price of the pass to compare it with the cash fares above. The pass price leaves out airport taxes and surcharges, "
+               "so they are added per flight.")
+else:
+    pa = assess(out["economy"], pass_price, pass_flights, pass_uses, pass_taxes, pass_window, today)
+    if pa is None:
+        st.info(f"No cash fare in this range is {pass_window} or more days ahead. Choose a longer range at the top.")
+    else:
+        te = trips[trips.cabin == "economy"].total if nights else pd.Series(dtype=float)
+        st.markdown(card_html(pa, pass_price, pass_flights, pass_uses, pass_taxes, pass_window,
+                              (int((te > 2 * pa["effective"]).sum()), len(te)) if len(te) else None), unsafe_allow_html=True)
+        st.plotly_chart(pass_chart(pa), width="stretch", config={"displayModeBar": False})
+        st.caption("Economy fares for the days in the range above, nonstop AEGEAN flights only. The pass covers direct AEGEAN and Olympic Air "
+                   "flights on the routes it was bought for.")

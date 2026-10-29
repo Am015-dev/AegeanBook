@@ -90,7 +90,8 @@ def test_job_never_dies_silently_and_can_stop():
     assert not jobs.JOBS["t-stop"]["running"] and jobs.JOBS["t-stop"]["done"] < 100
 
 
-def test_old_rows_are_deleted(tmp_path):
+def test_old_rows_are_deleted(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "RETENTION_DAYS", 5)  # the real default, whatever RETENTION_DAYS the shell running the tests has set
     p = str(tmp_path / "t.db")
     d = db.connect(p)
     old = (__import__("datetime").datetime.now() - timedelta(days=6)).isoformat()
@@ -588,3 +589,75 @@ def test_best_day_for_miles_is_where_cash_is_dearest_not_the_first_cheap_miles_d
                          columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
     rp = av.return_plan(trips, out_m, back_m, [7])
     assert rp["cash"][3] == 110.0 and rp["best"][:2] == ("2026-11-14", "2026-11-21") and round(rp["best"][6], 1) == 24.9   # 450 / 18,064 * 1000
+
+
+def test_trip_cost_adds_flights_and_every_hotel_night(tmp_path):
+    import sqlite3
+    from datetime import date
+    import pandas as pd
+    import db as appdb
+    import trip_cost as tc
+    t = appdb.connect(str(tmp_path / "t.db"))
+    t.execute("DELETE FROM hotel")
+    night = lambda day, price, fetched="t1", nights=1: t.execute(
+        "INSERT INTO hotel(day, query, filt, nights, hotel, price, fetched, adults) VALUES(?, 'q', 'f', ?, 'H', ?, ?, 2)", (day, nights, price, fetched))
+    for d, p in (("2026-11-07", 100.0), ("2026-11-08", 120.0), ("2026-11-09", 90.0)):
+        night(d, p)
+    night("2026-11-08", 110.0, "t2")            # a newer price for the same night wins
+    night("2026-11-07", 999.0, nights=3)        # a 3-night price is not a per-night price: ignored
+    t.commit()
+    assert tc.hotel_options(t) == [dict(query="q", filt="f", adults=2, days=3)]
+    np_ = tc.night_prices(t, "q", "f", 2, date(2026, 11, 1), date(2026, 11, 30))
+    assert list(np_) == [100.0, 110.0, 90.0]
+    trips = pd.DataFrame([("economy", "2026-11-07", "2026-11-10", 3, 80.0, 90.0, 170.0),   # nights 7, 8, 9: all priced
+                          ("economy", "2026-11-08", "2026-11-11", 3, 50.0, 50.0, 100.0),   # night 10 has no price: skipped, not guessed
+                          ("economy", "2026-11-07", "2026-11-09", 2, 60.0, 60.0, 120.0)],  # nights 7, 8
+                         columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
+    r = tc.trip_costs(trips, np_)
+    assert list(r.total) == [330.0, 470.0] and list(r.nights) == [2, 3]   # 120 + 210, then 170 + 300 (cheapest first)
+    assert r.iloc[0].to_dict() == dict(depart="2026-11-07", back="2026-11-09", nights=2, flights=120.0, hotel=210.0, total=330.0)
+
+
+def test_aegean_pass_compared_with_cash():
+    from datetime import date
+    import pandas as pd
+    import pass_value as pv
+    today = date(2026, 11, 1)
+    # fares by day; the first two are inside the 7-day booking window and must not count
+    cash = pd.Series({"2026-11-03": 40.0, "2026-11-07": 45.0, "2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0, "2026-11-25": float("nan")})
+    assert pv.effective_cost(1200.0, 12, 12, 30.0) == 130.0          # 1,200 / 12 flights + 30 taxes
+    assert pv.effective_cost(1200.0, 12, 6, 30.0) == 230.0           # use only 6 of the 12 and each flight costs more
+    assert pv.effective_cost(1200.0, 12, 99, 30.0) == 130.0          # you cannot use more flights than the pass has
+    a = pv.assess(cash, 1200.0, 12, 12, 30.0, 7, today)
+    assert a["days"] == 3 and a["cheapest"] == 90.0 and a["typical"] == 120.0   # only 10, 12 and 20 Nov are bookable 7+ days ahead
+    assert a["pass_cheaper"] == 1 and round(a["share"], 2) == 0.33              # cash is above the pass's 130 only on the 200 day
+    assert a["break_even_uses"] is None   # it would need 1,200 / (120 - 30) = 14 flights to beat the typical fare, but the pass only has 12
+    assert pv.verdict(a)[1].startswith("<b>Only on the dear days.")
+    cheap = pv.assess(cash, 600.0, 12, 12, 30.0, 7, today)                       # 80 per flight: below the cheapest fare of 90
+    assert pv.verdict(cheap)[0] == "miles" and cheap["break_even_uses"] == 7     # 600 / (120 - 30) = 6.7 -> 7 flights
+    assert pv.assess(cash, 600.0, 12, 12, 30.0, 60, today) is None               # nothing bookable that far ahead
+    assert len(pv.chart(a).data) == 1
+
+
+def test_pass_card_shows_the_numbers_and_the_unpriced_benefits():
+    from datetime import date
+    import pandas as pd
+    import pass_value as pv
+    cash = pd.Series({"2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0})
+    a = pv.assess(cash, 600.0, 12, 12, 30.0, 7, date(2026, 11, 1))
+    html = pv.card_html(a, 600.0, 12, 12, 30.0, 7, ret=(2, 5))
+    assert "booked 7 days ahead" in html and "\u20ac80</b>" in html and "3 of 3 days" in html and "2 of 5" in html and "7 flights</b> used" in html
+    assert "Free changes".lower() in html.lower() and "Worth it on price" in html
+
+
+def test_aegean_pass_section_appears_once_a_price_is_entered():
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception and "Is the Aegean Pass worth it?" in " ".join(m.value for m in at.markdown)
+    assert "Aegean Pass, booked" not in " ".join(m.value for m in at.markdown)       # no price yet: only the prompt
+    at.number_input(key="pass-price").set_value(900.0).run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "Aegean Pass, booked 7 days ahead" in shown and "Effective cost per flight" in shown   # 7 days is the default window
