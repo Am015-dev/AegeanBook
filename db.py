@@ -63,8 +63,9 @@ def log_run(db, page, label, started, seconds, j):
 DAILY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily.csv")
 
 
-def load_daily(db, path=DAILY):
+def load_daily(db, path=None):
     """Load the prices the daily GitHub job saved (collect_daily.py), once per file version."""
+    path = path or DAILY
     if not os.path.exists(path):
         return
     with open(path) as f:

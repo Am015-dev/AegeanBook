@@ -7,6 +7,12 @@ import db
 import hotels
 import jobs
 import par
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def no_daily_file(monkeypatch):  # the committed data/daily.csv must not leak into the test databases
+    monkeypatch.setattr(db, "DAILY", "/nonexistent/daily.csv")
 
 
 def test_parallel_retries_and_reports_errors():
