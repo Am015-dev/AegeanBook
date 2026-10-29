@@ -207,17 +207,34 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
     here = os.path.dirname(os.path.abspath(__file__))
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(os.path.join(here, "views/hotel.py"), default_timeout=60).run()
-    first = at.date_input[0].value
-    at.date_input[1].set_value(first + timedelta(4)).run()
+    first, days = _date.today() + timedelta(1), 30  # default window: the next 30 days from tomorrow
     at.button[0].click().run()
     deadline = time.time() + 20
     while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:
         time.sleep(0.2)
     at.run()
     cards = " ".join(m.value for m in at.markdown)
-    cheapest = min(100 + (first + timedelta(i)).day for i in range(5))
+    cheapest = min(100 + (first + timedelta(i)).day for i in range(days))
     assert f"€{cheapest}" in cards and "Booking.com via Xotelo" in cards
     assert any("HTTP 429" in m.value and "Booking.com" in m.value for m in at.success)
     assert not at.warning  # no "press Update again" advice that cannot help while Google blocks the server
     assert not at.exception
     jobs.JOBS.clear()
+
+
+
+def test_near_cheapest_keeps_ties_and_close_days():
+    import pandas as pd
+    import ui
+    s = pd.Series({"2026-11-02": 100.0, "2026-11-03": 104.0, "2026-11-04": 130.0, "2026-11-05": None, "2026-11-06": 100.0})
+    assert list(ui.near_cheapest(s, 0).index) == ["2026-11-02", "2026-11-06"]  # two days tie for cheapest
+    assert list(ui.near_cheapest(s, 0.05).index) == ["2026-11-02", "2026-11-06", "2026-11-03"]
+    assert list(ui.on_weekdays(s.to_frame("p"), ["Mon"]).index) == ["2026-11-02"]
+
+
+def test_airport_search_finds_cities_and_names():
+    import ui
+    names = ui.airports()
+    assert len(names) > 3000 and {"ATH", "FRA", "BIO"} <= set(names)
+    assert "MMI" not in names  # McMinn County (Athens, USA) has no scheduled flights: typing Athens must not pick it
+    assert "Athens" in names["ATH"] and "Bilbao" in names["BIO"] and "Frankfurt" in names["FRA"]
