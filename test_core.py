@@ -13,6 +13,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def no_daily_file(monkeypatch):  # the committed data/daily.csv must not leak into the test databases
     monkeypatch.setattr(db, "DAILY", "/nonexistent/daily.csv")
+    monkeypatch.setattr(db, "DAILY_HOTEL", "/nonexistent/daily_hotel.csv")
 
 
 def test_parallel_retries_and_reports_errors():
@@ -334,3 +335,33 @@ def test_daily_collector_retries_until_complete_and_app_loads_it(tmp_path):
     db.load_daily(t, str(out))  # loading the same file twice adds nothing
     n, priced = t.execute("SELECT COUNT(*), COUNT(price) FROM prices").fetchone()
     assert n == 720 and priced == 720 - 90
+
+
+def test_daily_hotel_retries_until_complete_and_app_loads_it(tmp_path, monkeypatch):
+    import collect_daily as cd
+    monkeypatch.setattr(par.time, "sleep", lambda s: None)
+    tries = {}
+
+    def google(start, end, q, f, nights, adults, skip):
+        for i in range((end - start).days + 1):
+            d = start + timedelta(i)
+            if d.isoformat() not in skip:
+                yield d, "Steigenberger Frankfurter Hof", 250.0, "ok", None
+
+    def rate(key, d, nights):  # Booking.com fails once for every day, then answers
+        tries[d] = tries.get(d, 0) + 1
+        if tries[d] == 1:
+            raise RuntimeError("timeout")
+        return 240.0
+
+    heat = lambda key, s, e: {(s + timedelta(i)).isoformat(): "cheap" for i in range(3)}
+    got, missing = cd.collect_hotel(google, rate, heat, pause=0)
+    assert missing == 0 and sum(src == "booking" for src, _ in got) == 90 and sum(src == "heat" for src, _ in got) == 3
+    out = tmp_path / "h.csv"
+    cd.save_hotel(got, out)
+    t = db.connect(str(tmp_path / "t.db"))
+    db.load_daily_hotel(t, str(out))
+    db.load_daily_hotel(t, str(out))  # loading the same file twice adds nothing
+    assert [t.execute(f"SELECT COUNT(*) FROM {x}").fetchone()[0] for x in ("hotel", "booking", "heat")] == [90, 90, 3]
+    assert db.saved_hotel_days(t, "Steigenberger Frankfurt", "Frankfurter Hof", 1, 2, date.today() + timedelta(1),
+                               date.today() + timedelta(90)) == {(date.today() + timedelta(i)).isoformat() for i in range(1, 91)}

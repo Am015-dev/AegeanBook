@@ -69,6 +69,6 @@ be on. Nothing is exposed to the public internet.
 Every morning at 07:17 Athens time GitHub Actions (`.github/workflows/daily.yml`) runs `collect_daily.py`. It fetches
 ATH–FRA, FRA–ATH, ATH–ZRH and ZRH–ATH, both cabins, nonstop, for the next 90 days. That is 720 prices. Days that fail
 are retried in up to 4 passes. If any are still missing, the run is marked red, and those days keep yesterday's price.
-The results go to `data/daily.csv`, and the app loads that file when it starts, so these routes are ready without
+The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter Hof, 1 night, 2 adults) from Google Hotels and Booking.com for every check-in day, into `data/daily_hotel.csv` (change `HOTEL` in `collect_daily.py` for another hotel). The flight results go to `data/daily.csv`, and the app loads that file when it starts, so these routes are ready without
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.

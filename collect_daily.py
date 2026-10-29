@@ -1,17 +1,25 @@
-"""Daily collector (run by .github/workflows/daily.yml): both cabins, nonstop, for the next 90 days on four legs.
-Writes data/daily.csv, which the app loads on start. Retries failed days over several passes; exits 1 if any are still missing."""
+"""Daily collector (run by .github/workflows/daily.yml), next 90 days: both cabins, nonstop, on four legs, plus one hotel
+(Google Hotels and Booking.com). Writes data/daily.csv and data/daily_hotel.csv, which the app loads on start.
+Retries failed days over several passes; exits 1 if any are still missing."""
 import csv
 import sys
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import hotels
 from collector import fetch_range
+from par import parallel
+from xotelo import booking_rate, heatmap_range
 
 LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]
 DAYS, PASSES, PAUSE = 90, 4, 120  # PAUSE seconds between passes lets a Google rate limit cool down
 OUT = Path(__file__).parent / "data" / "daily.csv"
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
+# the Hotels page's default search, so its results show there without pressing Update prices
+HOTEL = dict(query="Steigenberger Frankfurt", filt="Frankfurter Hof", hkey="g187337-d202275", nights=1, adults=2)
+HOTEL_OUT = Path(__file__).parent / "data" / "daily_hotel.csv"
+HOTEL_FIELDS = ["source", "day", "hotel", "price", "tier", "fetched", "query", "filt", "hkey", "nights", "adults"]
 
 
 def collect(fetch=fetch_range, today=None, pause=PAUSE):
@@ -56,9 +64,64 @@ def save(got, path=OUT):
         w.writerows(r for k, r in sorted(rows.items()) if k[0] > today)  # past days are dropped
 
 
+def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_range, today=None, pause=PAUSE):
+    """{(source, iso day): (hotel name, price, tier)} for Google Hotels, Booking.com and the cheap-day calendar, plus the
+    number of check-in days still missing from Google or Booking.com."""
+    h, today = HOTEL, today or date.today()
+    start, end = today + timedelta(1), today + timedelta(DAYS)
+    days = [start + timedelta(i) for i in range(DAYS)]
+    got, missing = {}, 0
+    for n in range(PASSES):
+        if not any(src == "heat" for src, _ in got):
+            try:
+                got.update({("heat", d): (None, None, t) for d, t in heat(h["hkey"], start, end).items()
+                            if start.isoformat() <= d <= end.isoformat()})
+            except Exception as e:
+                print(f"  heatmap: {type(e).__name__}: {e}")
+        skip = {d for src, d in got if src == "google"}
+        for d, name, price, status, err in google(start, end, h["query"], h["filt"], h["nights"], h["adults"], skip=skip):
+            if status != "error":
+                got[("google", d.isoformat())] = (name, price, None)
+            elif err:
+                print(f"  Google Hotels {d}: {err}")
+        todo = [d for d in days if ("booking", d.isoformat()) not in got]
+        for d, price, err in parallel(todo, lambda d: rate(h["hkey"], d, h["nights"])):
+            if err:
+                print(f"  Booking.com {d}: {err}")
+            else:
+                got[("booking", d.isoformat())] = (None, price, None)
+        missing = sum((src, d.isoformat()) not in got for src in ("google", "booking") for d in days)
+        print(f"hotel pass {n + 1}: {2 * DAYS - missing}/{2 * DAYS} collected, {missing} missing", flush=True)
+        if not missing:
+            break
+        if n < PASSES - 1:
+            time.sleep(pause)
+    return got, missing
+
+
+def save_hotel(got, path=HOTEL_OUT):
+    """Like save(): today's results, yesterday's row for anything that failed today, no past days."""
+    now = datetime.now().isoformat(timespec="seconds")
+    rows = {}
+    if path.exists():
+        with path.open() as f:
+            rows = {(r["source"], r["day"]): r for r in csv.DictReader(f)}
+    for (src, day), (name, price, tier) in got.items():
+        rows[(src, day)] = dict(source=src, day=day, hotel=name or "", price="" if price is None else price, tier=tier or "",
+                                fetched=now, **HOTEL)
+    today = date.today().isoformat()
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, HOTEL_FIELDS)
+        w.writeheader()
+        w.writerows(r for k, r in sorted(rows.items()) if k[1] > today)
+
+
 if __name__ == "__main__":
     got, missing = collect()
     save(got)
     priced = sum(p is not None for p, _ in got.values())
-    print(f"done: {priced} prices, {len(got) - priced} days with no flight, {len(missing)} missing")
-    sys.exit(1 if missing else 0)
+    print(f"flights done: {priced} prices, {len(got) - priced} days with no flight, {len(missing)} missing")
+    hgot, hmissing = collect_hotel()
+    save_hotel(hgot)
+    print(f"hotel done: {sum(p is not None for _, p, _ in hgot.values())} prices, {hmissing} missing")
+    sys.exit(1 if missing or hmissing else 0)
