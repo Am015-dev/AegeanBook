@@ -5,7 +5,7 @@ import streamlit as st
 
 from db import RETENTION_DAYS, connect, cutoff
 from hotels import fetch_range
-from jobs import start_job, track
+from jobs import record, start_job, track
 from par import parallel
 from ui import BOOKING, ECONOMY, TIER_COLORS, heat_strip, kpis, price_chart, route
 from xotelo import booking_rate, heatmap_range, hotel_key
@@ -61,10 +61,10 @@ if fetch:
                 tdb.execute("DELETE FROM heat WHERE hkey=? AND day BETWEEN ? AND ?", (hkey, start.isoformat(), end.isoformat()))
                 tdb.executemany("INSERT INTO heat VALUES(?,?,?,?)", [(hkey, d, t, now()) for d, t in heat.items()])
                 tdb.commit()
-            except Exception:
+                record(j, "ok")
+            except Exception as e:
                 heat = {}
-                j["failed"] += 1
-            j["done"] += 1
+                record(j, "error", f"Xotelo heatmap: {type(e).__name__}: {e}")
             if booking:  # 2) Booking.com prices, cheap days only
                 fresh = {r[0] for r in tdb.execute("SELECT day FROM booking WHERE hkey=? AND nights=? AND fetched>=?",
                                                    (hkey, int(nights), cutoff()))}
@@ -74,16 +74,15 @@ if fetch:
                     if not err:
                         tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now()))
                         tdb.commit()
-                    j["done"] += 1
-                    j["failed"] += bool(err)
-        for d, name, price, status in fetch_range(start, end, query, filt, nights, adults, skip=skip):  # 3) Google, every day
+                    record(j, "error" if err else "ok", err)
+        for d, name, price, status, err in fetch_range(start, end, query, filt, nights, adults, skip=skip):  # 3) Google, every day
+            if j["cancel"]:
+                break
             if status != "error":  # failed lookups are not saved, so the next run retries them
                 tdb.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)",
                             (d.isoformat(), query, filt, nights, name, price, now(), int(adults)))
                 tdb.commit()
-            j["done"] += 1
-            j["failed"] += status == "error"
-            j["empty"] += status == "none"
+            record(j, status, err)
 
     if total > 0:
         start_job(key, total, work)

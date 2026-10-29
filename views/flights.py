@@ -5,7 +5,7 @@ import streamlit as st
 
 from collector import fetch_range, valid_airport
 from db import RETENTION_DAYS, connect, cutoff
-from jobs import start_job, track
+from jobs import record, start_job, track
 from ui import BUSINESS, ECONOMY, MUTED, kpis, price_chart, route
 
 db = connect()
@@ -18,7 +18,7 @@ with st.expander("Search settings", expanded=False):
     c2 = st.columns(2)
     nonstop = c2[0].checkbox("Nonstop flights only", value=True)
     recheck = c2[1].checkbox("Re-check days already saved")
-    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Fetching takes seconds. "
+    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Busy routes take seconds; quiet routes are checked day by day and can take a few minutes. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
 MAX_DAYS = 330  # Google's calendar reaches about 11 months ahead
@@ -43,14 +43,14 @@ if fetch:
 
     def work(j):
         tdb = connect()
-        for d, cabin, price, air, status in fetch_range(start, end, orig, dest, skip=skip, nonstop=nonstop):
+        for d, cabin, price, source, status, err in fetch_range(start, end, orig, dest, skip=skip, nonstop=nonstop):
+            if j["cancel"]:
+                break
             if status != "error":  # failed lookups are not saved, so the next run retries them
-                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
-                            (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat(), int(nonstop)))
+                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",  # `airlines` column holds the source
+                            (d.isoformat(), orig, dest, cabin, price, source, datetime.now().isoformat(), int(nonstop)))
                 tdb.commit()
-            j["done"] += 1
-            j["failed"] += status == "error"
-            j["empty"] += status == "none"
+            record(j, status, err)
 
     if total > 0:
         start_job(key, total, work)
@@ -61,7 +61,8 @@ track(key)
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
 p = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
-latest = p.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="price") if len(p) else pd.DataFrame()
+seen = p.drop_duplicates(["day", "cabin"], keep="last")  # one row per day and cabin: priced, or checked with no flight
+latest = seen.pivot(index="day", columns="cabin", values="price") if len(p) else pd.DataFrame()
 days = pd.DataFrame(index=pd.date_range(start, end).strftime("%Y-%m-%d").rename("day"))
 for k in ("economy", "business"):
     if k not in latest:
@@ -78,6 +79,10 @@ vv, vs = (f"€{out.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(out.value.idxm
     if out.value.notna().any() else ("—", "Add award prices in the Awards tab")
 kpis([("Cheapest economy", ev, es, ECONOMY), ("Cheapest business", bv, bs, BUSINESS), ("Best miles value", vv, vs, MUTED)])
 
+if len(seen) < 2 * len(days):
+    st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
+               f"{int(seen.price.isna().sum())} with no flight, {2 * len(days) - len(seen)} not checked or failed. "
+               "Press Update prices to check the rest.")
 if len(p):
     st.caption(f"Last updated {p.fetched.max()[:16].replace('T', ' ')} · saved results are kept for {RETENTION_DAYS} days")
 t1, t2, t3 = st.tabs(["Prices", "Awards", "Table"])
@@ -99,7 +104,12 @@ with t2:
         db.execute("INSERT OR REPLACE INTO awards VALUES(?,?,?,?,?)", (r.day, orig, dest, int(r.miles), r.taxes or 0))
     db.commit()
 with t3:
-    st.dataframe(out.rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
-                                     "taxes": "Taxes €", "value": "€ per 1,000 mi"}), width="stretch")
-    out.to_excel("export.xlsx")
+    table = out.rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
+                                "taxes": "Taxes €", "value": "€ per 1,000 mi"})
+    checked = set(zip(seen.day, seen.cabin))
+    for cabin in ("economy", "business"):  # say why a price is missing: no flight, or never checked
+        table[f"{cabin.capitalize()} status"] = ["priced" if pd.notna(out.loc[d, cabin]) else "no flight" if (d, cabin) in checked
+                                                 else "not checked" for d in out.index]
+    st.dataframe(table, width="stretch")
+    table.to_excel("export.xlsx")
     st.download_button("Download Excel", open("export.xlsx", "rb"), f"aegean_{orig}_{dest}.xlsx")

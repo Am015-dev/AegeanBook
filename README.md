@@ -25,3 +25,12 @@ Test: `pytest` (set `CHROME_PATH` if Playwright's own Chromium isn't installed).
 `pages/hotel.py` (auto-listed in the Streamlit sidebar): flexible check-in range → cheapest night + price chart + Excel.
 Source is Google Hotels via `stays` (lowest rate across the sites it compares, Booking.com usually among them).
 Booking.com's own API is partner-only. Self-check: `python hotels.py`.
+
+## When results look wrong
+
+Open the app's **Health** page: it asks each data source (Google Flights calendar, Google Flights day search, Google Hotels,
+Xotelo) one real question and shows which failed and why. Every update also ends with an honest summary
+(priced / no flight / failed) and the Table tab shows, per day, whether a price is missing because there is no flight or
+because it was never checked.
+
+Offline tests: `pytest` (`test_core.py`). Each module also has `python <module>.py` self-checks.
