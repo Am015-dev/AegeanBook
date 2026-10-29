@@ -122,7 +122,7 @@ if heat:
     st.markdown('<p class="card-title">Cheap, average and expensive days (TripAdvisor price tiers)</p>', unsafe_allow_html=True)
     st.plotly_chart(heat_strip(heat), width="stretch", config={"displayModeBar": False})
 if s.price.notna().any():
-    st.markdown('<p class="card-title">Price per night by check-in date, cheapest ringed</p>', unsafe_allow_html=True)
+    st.markdown('<p class="card-title">Price per night, cheapest ringed</p>', unsafe_allow_html=True)
     series = {"price": ("Google lowest", ECONOMY)}
     if "booking" in s and s.booking.notna().any():
         series["booking"] = ("Booking.com", BOOKING)
