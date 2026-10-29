@@ -217,7 +217,7 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(os.path.join(here, "views/hotel.py"), default_timeout=60).run()
     first, days = _date.today() + timedelta(1), 30  # default window: the next 30 days from tomorrow
-    at.button[0].click().run()
+    next(b for b in at.button if b.label == "Update prices").click().run()   # by label: the position moves when buttons are added
     deadline = time.time() + 20
     while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:
         time.sleep(0.2)
@@ -293,7 +293,7 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
     at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
     at.button_group(key="fl-trip").set_value("Return").run()
     at.button_group(key="fl-win").set_value("15 days").run()
-    at.button[0].click().run()
+    next(b for b in at.button if b.label == "Update prices").click().run()   # by label: the position moves when buttons are added
     deadline = time.time() + 20
     while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:
         time.sleep(0.2)
@@ -748,4 +748,19 @@ def test_what_should_i_book_shows_only_the_chosen_trip_type_and_leaves_out_impos
     shown = " ".join(m.value for m in at.markdown)
     assert "Cost per round trip" in shown and "Cost per flight" not in shown          # return: round trips only, never a one-way block with other dates
     assert "Aegean Pass is an Economy Flex fare" in shown
+
+
+def test_swap_button_exchanges_from_and_to(tmp_path, monkeypatch):
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    _seed_fares(tmp_path, monkeypatch)
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert at.selectbox(key="orig").value == "ATH" and at.selectbox(key="dest").value == "FRA"
+    at.button(key="swap-airports").click().run()
+    assert not at.exception
+    assert at.selectbox(key="orig").value == "FRA" and at.selectbox(key="dest").value == "ATH"      # both boxes swapped in one click
+    assert "FRA</span>" in " ".join(m.value for m in at.markdown)                                      # and the page is for the new direction
+    at.button(key="swap-airports").click().run()
+    assert at.selectbox(key="orig").value == "ATH" and at.selectbox(key="dest").value == "FRA"      # a second click swaps back
 

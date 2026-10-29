@@ -56,10 +56,16 @@ def award_job():
         start_job(key, len(AWARD_LEGS) * AWARD_DAYS, work, "{n} days.", "checked", "Award miles")
     track(key)
 
+def swap_airports():
+    """Runs before the page is drawn again, so both boxes show the swapped airports at once."""
+    st.session_state["orig"], st.session_state["dest"] = st.session_state["dest"], st.session_state["orig"]
+
+
 with st.container(border=True, key="search"):
-    c = st.columns(2)
+    c = st.columns([10, 1, 10], vertical_alignment="bottom")  # the swap button sits between the two boxes, level with them
     orig = airport_picker(c[0], "From", "ATH", "orig")
-    dest = airport_picker(c[1], "To", "FRA", "dest")
+    c[1].button("", icon=":material/swap_horiz:", key="swap-airports", on_click=swap_airports, help="Swap From and To")
+    dest = airport_picker(c[2], "To", "FRA", "dest")
     c = st.columns([1, 2])
     trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip")
     nights = c[1].pills("Nights away", [2, 3, 4, 5, 7, 10, 14], selection_mode="multi", default=[7], key="fl-nights",
