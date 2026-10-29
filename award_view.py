@@ -1,5 +1,7 @@
 """How collected AEGEAN award miles are shown: the headline numbers, a chart, and one tidy table. Kept out of ui.py on purpose: Streamlit
 Cloud can run a new page against an older, already loaded ui.py, and a new module is always imported fresh."""
+import sqlite3
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -59,20 +61,44 @@ STYLE = """<style>
 </style>"""
 
 
-def per_thousand(cash, miles):
-    """Euros of cash fare each 1,000 miles buy (before the taxes an award ticket also costs); None when either is missing."""
-    return cash / miles * 1000 if cash and miles else None
+def load_award(db, orig, dest, nonstop, start, end):
+    """(miles, taxes, last fetched) for one leg and date range. miles and taxes are frames indexed by iso day with economy and business
+    columns, empty when nothing was collected. Survives an older database without the taxes column (Cloud can run this page against a
+    db.py loaded before it existed) and one without the award table at all."""
+    args = (orig, dest, int(nonstop), start.isoformat(), end.isoformat())
+    where = "FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched"
+    try:
+        try:
+            df = pd.read_sql(f"SELECT day, cabin, miles, taxes {where}", db, params=args)
+        except (pd.errors.DatabaseError, sqlite3.Error):
+            df = pd.read_sql(f"SELECT day, cabin, miles {where}", db, params=args).assign(taxes=float("nan"))
+        last = db.execute("SELECT MAX(fetched) FROM award_miles WHERE orig=? AND dest=?", (orig, dest)).fetchone()[0]
+    except (pd.errors.DatabaseError, sqlite3.Error):
+        return pd.DataFrame(), pd.DataFrame(), None
+    if not len(df):
+        return pd.DataFrame(), pd.DataFrame(), last
+    df = df.drop_duplicates(["day", "cabin"], keep="last")  # the newest recording of each day and cabin
+    return df.pivot(index="day", columns="cabin", values="miles"), df.pivot(index="day", columns="cabin", values="taxes"), last
 
 
-def best_return_miles(out_miles, back_miles, nights):
-    """Cheapest outbound + return miles over the chosen stay lengths: (total, depart iso, back iso, nights) or None. Both are Series by iso day."""
+def per_thousand(cash, miles, taxes=None):
+    """Euros each 1,000 miles save: the cash fare, minus the cash taxes the award ticket still costs, per 1,000 miles. None when either
+    is missing."""
+    return (cash - (taxes or 0)) / miles * 1000 if cash and miles else None
+
+
+def best_return_miles(out_miles, back_miles, nights, out_taxes=None, back_taxes=None):
+    """Cheapest outbound + return miles over the chosen stay lengths: (total, depart iso, back iso, nights, taxes or None) or None.
+    All the inputs are Series by iso day."""
     best = None
     for d, m1 in out_miles.dropna().items():
         for n in nights:
             back = (pd.Timestamp(d) + pd.Timedelta(days=int(n))).strftime("%Y-%m-%d")
             m2 = back_miles.get(back)
             if m2 is not None and pd.notna(m2) and (best is None or m1 + m2 < best[0]):
-                best = (float(m1 + m2), d, back, int(n))
+                t1, t2 = (out_taxes.get(d) if out_taxes is not None else None), (back_taxes.get(back) if back_taxes is not None else None)
+                taxes = float(t1 + t2) if t1 is not None and t2 is not None and pd.notna(t1) and pd.notna(t2) else None
+                best = (float(m1 + m2), d, back, int(n), taxes)
     return best
 
 
@@ -80,19 +106,21 @@ def _day(iso):
     return f"{pd.Timestamp(iso):%a %d %b}"
 
 
-def _verdicts(cash_min, miles, miles_when, cash_that_day, threshold):
+def _verdicts(cash_min, miles, miles_when, cash_that_day, threshold, taxes=None):
     """[(css class, html)]: one line when the dates are flexible (the cheapest cash fare against the miles) and one when you are tied to the
-    day the miles are cheapest (the cash fare of that day against the miles). Miles beat cash on a day when cash is dear."""
+    day the miles are cheapest (the cash fare of that day against the miles). Miles beat cash on a day when cash is dear. With `taxes`
+    (the cash an award ticket still costs) the saving is the cash fare minus those taxes."""
     if not miles:
         return [("cash", "<b>Pay cash.</b> No award seats were found for these days.")]
     if not cash_min and not cash_that_day:
         return [("miles", "<b>Miles only.</b> There is no cash price to compare with for these days.")]
 
     def line(prefix, cash):
-        v = per_thousand(cash, miles)
+        v = per_thousand(cash, miles, taxes)
         good = v >= threshold
+        cost = f"{miles:,.0f} miles + €{taxes:.0f} taxes" if taxes else f"{miles:,.0f} miles"
         return ("miles" if good else "cash",
-                f"<b>{prefix}: {'use miles' if good else 'pay cash'}.</b> {miles:,.0f} miles instead of €{cash:.0f} is €{v:.1f} per 1,000, "
+                f"<b>{prefix}: {'use miles' if good else 'pay cash'}.</b> {cost} instead of €{cash:.0f} is €{v:.1f} per 1,000 miles, "
                 f"{'above' if good else 'below'} your €{threshold:g}.")
     same_day = cash_that_day is not None and cash_min is not None and abs(cash_that_day - cash_min) < 0.5
     out = []
@@ -103,8 +131,9 @@ def _verdicts(cash_min, miles, miles_when, cash_that_day, threshold):
     return out
 
 
-def one_way_plan(view, cash_col, miles_col):
-    """{'cash': (iso, price), 'miles': (iso, miles, cash price that day or None)} from a day-indexed frame; missing keys when no data."""
+def one_way_plan(view, cash_col, miles_col, taxes_col=None):
+    """{'cash': (iso, price), 'miles': (iso, miles, cash price that day or None, taxes or None)} from a day-indexed frame; missing keys when
+    there is no data."""
     plan = {}
     c, m = view[cash_col].dropna(), view[miles_col].dropna()
     if len(c):
@@ -112,21 +141,23 @@ def one_way_plan(view, cash_col, miles_col):
     if len(m):
         d = m.idxmin()
         day_cash = view[cash_col].get(d)
-        plan["miles"] = (d, float(m.min()), float(day_cash) if pd.notna(day_cash) else None)
+        tax = view[taxes_col].get(d) if taxes_col else None
+        plan["miles"] = (d, float(m.min()), float(day_cash) if pd.notna(day_cash) else None, float(tax) if tax is not None and pd.notna(tax) else None)
     return plan
 
 
-def return_plan(trips_cabin, out_miles, back_miles, nights):
-    """Same idea for a round trip. trips_cabin: that cabin's rows of round_trips (cheapest first); out_miles / back_miles: miles by day."""
+def return_plan(trips_cabin, out_miles, back_miles, nights, out_taxes=None, back_taxes=None):
+    """Same idea for a round trip. trips_cabin: that cabin's rows of round_trips (cheapest first); out_miles / back_miles (and the taxes):
+    Series by day."""
     plan = {}
     if len(trips_cabin):
         r = trips_cabin.iloc[0]
         plan["cash"] = (r.depart, r.back, int(r.nights), float(r.total))
-    bm = best_return_miles(out_miles, back_miles, nights) if len(nights) else None
+    bm = best_return_miles(out_miles, back_miles, nights, out_taxes, back_taxes) if len(nights) else None
     if bm:
-        tot, d, b, n = bm
+        tot, d, b, n, taxes = bm
         same = trips_cabin[(trips_cabin.depart == d) & (trips_cabin.back == b)] if len(trips_cabin) else trips_cabin
-        plan["miles"] = (d, b, n, tot, float(same.iloc[0].total) if len(same) else None)
+        plan["miles"] = (d, b, n, tot, float(same.iloc[0].total) if len(same) else None, taxes)
     return plan
 
 
@@ -135,14 +166,15 @@ def plan_html(name, colour, one_way, ret, threshold):
     e = _html.escape
     row = lambda k, v: f'<div class="plan-r"><span>{e(k)}</span><span>{v}</span></div>'
     says = lambda lines: "".join(f'<p class="plan-v {cls}">{txt}</p>' for cls, txt in lines)
+    plus = lambda taxes: f" + €{taxes:.0f} taxes" if taxes else ""
     out = [f'<div class="plan"><div class="plan-h"><i style="background:{colour}"></i>{e(name)}</div><div class="plan-s">One way</div>']
     cash_min = one_way["cash"][1] if "cash" in one_way else None
     if cash_min:
         out.append(row("Pay cash", f"<b>€{cash_min:.0f}</b> · {_day(one_way['cash'][0])}"))
     if "miles" in one_way:
-        d, m, day_cash = one_way["miles"]
-        out.append(row("Use miles", f"<b>{m:,.0f} miles</b> · {_day(d)}"))
-        out.append(says(_verdicts(cash_min, m, _day(d), day_cash, threshold)))
+        d, m, day_cash, taxes = one_way["miles"]
+        out.append(row("Use miles", f"<b>{m:,.0f} miles</b>{plus(taxes)} · {_day(d)}"))
+        out.append(says(_verdicts(cash_min, m, _day(d), day_cash, threshold, taxes)))
     else:
         out.append(says(_verdicts(None, None, "", None, threshold)))
     if ret is not None:
@@ -152,10 +184,10 @@ def plan_html(name, colour, one_way, ret, threshold):
             d, b, n, tot = ret["cash"]
             out.append(row("Pay cash", f"<b>€{tot:.0f}</b> · {_day(d)} → {_day(b)} · {n} nights"))
         if "miles" in ret:
-            d, b, n, tot, cash_pair = ret["miles"]
+            d, b, n, tot, cash_pair, taxes = ret["miles"]
             when = f"{_day(d)} → {_day(b)}"
-            out.append(row("Use miles", f"<b>{tot:,.0f} miles</b> · {when} · {n} nights"))
-            out.append(says(_verdicts(cash_min, tot, when, cash_pair, threshold)))
+            out.append(row("Use miles", f"<b>{tot:,.0f} miles</b>{plus(taxes)} · {when} · {n} nights"))
+            out.append(says(_verdicts(cash_min, tot, when, cash_pair, threshold, taxes)))
         else:
             out.append(says(_verdicts(None, None, "", None, threshold)))
     out.append("</div>")

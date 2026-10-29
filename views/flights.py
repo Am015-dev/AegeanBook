@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import subprocess
 import sys
 from datetime import date, datetime, timedelta
@@ -9,7 +8,7 @@ import streamlit as st
 
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
-from award_view import STYLE as PLAN_STYLE, best_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
+from award_view import STYLE as PLAN_STYLE, best_award, load_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
 from jobs import record, start_job, track
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
@@ -126,16 +125,10 @@ for k in ("economy", "business"):
         latest[k] = float("nan")
 a = pd.read_sql(f"SELECT day, miles, taxes FROM awards {q}", db, params=args).set_index("day")
 out = days.join(latest).join(a)
-try:  # award miles are an extra: if their table is missing (Streamlit Cloud can run this page against an older, already loaded
-      # db.py until the app restarts) the page must still work, just without them
-    am = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
-                     db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
-    last_aw = db.execute("SELECT MAX(fetched) FROM award_miles WHERE orig=? AND dest=?", (orig, dest)).fetchone()[0]
-except (pd.errors.DatabaseError, sqlite3.Error):
-    am, last_aw = pd.DataFrame(), None
-am = am.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="miles") if len(am) else pd.DataFrame()
-out = out.join(am.rename(columns={"economy": "econ_miles", "business": "biz_miles"}))
-for k in ("econ_miles", "biz_miles"):
+am, amt, last_aw = load_award(db, orig, dest, nonstop, start, end)  # miles and taxes by day; empty when nothing was collected (see award_view)
+out = out.join(am.rename(columns={"economy": "econ_miles", "business": "biz_miles"})).join(
+    amt.rename(columns={"economy": "econ_taxes", "business": "biz_taxes"}))
+for k in ("econ_miles", "biz_miles", "econ_taxes", "biz_taxes"):
     if k not in out:
         out[k] = float("nan")
 # ponytail: collected miles stay in their own columns. Filling `miles` with them would make the 'best miles value' metric use zero
@@ -272,19 +265,17 @@ st.markdown('<p class="card-title">Booking strategy</p>', unsafe_allow_html=True
 per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
                         help="Miles are recommended when they buy more than this per 1,000, cash otherwise. Set it to what you would "
                              "otherwise get for your miles.")
-bam = pd.DataFrame()
-if nights:  # miles on the way back
-    try:
-        bam = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
-                          db, params=(dest, orig, int(nonstop), rstart.isoformat(), rend.isoformat()))
-    except (pd.errors.DatabaseError, sqlite3.Error):
-        pass
-    bam = bam.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="miles") if len(bam) else pd.DataFrame()
+empty = pd.Series(dtype=float)
+bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
+has_taxes = bool(view[["econ_taxes", "biz_taxes"]].notna().any().any())
 st.markdown(PLAN_STYLE, unsafe_allow_html=True)
-for ui_col, (name, colour, cash_col, miles_col) in zip(st.columns(2, gap="medium"), [("Economy", ECONOMY, "economy", "econ_miles"),
-                                                                                       ("Business", BUSINESS, "business", "biz_miles")]):
-    ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, pd.Series(dtype=float)), nights) if nights else None
+for ui_col, (name, colour, cash_col, miles_col, taxes_col) in zip(st.columns(2, gap="medium"), [
+        ("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"), ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")]):
+    ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
+                      view[taxes_col], bamt.get(cash_col, empty)) if nights else None
     with ui_col:
-        st.markdown(plan_html(name, colour, one_way_plan(view, cash_col, miles_col), ret, per_k), unsafe_allow_html=True)
-st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is the cash fare "
-           "divided by the miles, before the taxes an award ticket also costs." + ("" if nights else " Set Trip to Return at the top to compare round trips too."))
+        st.markdown(plan_html(name, colour, one_way_plan(view, cash_col, miles_col, taxes_col), ret, per_k), unsafe_allow_html=True)
+st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is "
+           + ("the cash fare minus the cash taxes of the award ticket, per 1,000 miles." if has_taxes else
+                 "the cash fare per 1,000 miles, before the cash taxes an award ticket also costs (not collected for these days).")
+           + ("" if nights else " Set Trip to Return at the top to compare round trips too."))

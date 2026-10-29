@@ -1,9 +1,17 @@
+import os
+
 import streamlit as st
 
 from checks import run_checks
+from freshness import freshness
 from ui import route
 
+DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 route("Health", None, "Check that each data source answers right now. Run this first if results look odd or empty.")
+st.markdown('<p class="card-title">Data freshness</p>', unsafe_allow_html=True)
+for name, last, age, level, how in freshness(DATA):
+    when = "no data yet" if last is None else f"last collected {last[:10]} ({'today' if age == 0 else 'yesterday' if age == 1 else f'{age} days ago'})"
+    {"ok": st.success, "late": st.warning, "stale": st.error}[level](f"**{name}**: {when}." + ("" if level == "ok" else f" {how}"))
 if st.button("Run checks", type="primary"):
     with st.spinner("Asking each source once…"):
         results = run_checks()

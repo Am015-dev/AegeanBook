@@ -36,6 +36,20 @@ def parse_flights(resp):
     return list(out.values())
 
 
+def best_with_taxes(flights):
+    """Like best_by_cabin, but each value is (miles, cash taxes in EUR) of the cheapest-miles fare, or None: the taxes are what the award
+    ticket costs on top of the miles."""
+    best = {(c, n): None for c in ("economy", "business") for n in (0, 1)}
+    for f in flights:
+        if not f["aegean"]:
+            continue
+        for cabin, (miles, taxes) in f["fares"].items():
+            for n in ((0, 1) if f["stops"] == 0 else (0,)):
+                if miles and (best[(cabin, n)] is None or miles < best[(cabin, n)][0]):
+                    best[(cabin, n)] = (int(miles), taxes)
+    return best
+
+
 def best_by_cabin(flights):
     """{(cabin, nonstop): cheapest miles} over AEGEAN-only flights, in the shape award_collector.save_csv rows are built from;
     nonstop=1 counts nonstop flights only, nonstop=0 any all-AEGEAN itinerary. None when no seat."""

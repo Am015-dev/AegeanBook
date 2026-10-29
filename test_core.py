@@ -439,7 +439,7 @@ def test_booking_strategy_one_way_and_return():
     view = pd.DataFrame({"economy": [120.0, 86.0, float("nan")], "econ_miles": [float("nan"), 9032.0, 9032.0]},
                         index=["2026-11-07", "2026-11-09", "2026-11-14"])
     ow = av.one_way_plan(view, "economy", "econ_miles")
-    assert ow == {"cash": ("2026-11-09", 86.0), "miles": ("2026-11-09", 9032.0, 86.0)}
+    assert ow == {"cash": ("2026-11-09", 86.0), "miles": ("2026-11-09", 9032.0, 86.0, None)}
     assert round(av.per_thousand(86.0, 9032.0), 1) == 9.5
     html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
     assert "On Mon 09 Nov: pay cash" in html and "below your" in html  # 9.5 per 1,000 is below 10 (cash and miles on the same day: one line)
@@ -448,12 +448,12 @@ def test_booking_strategy_one_way_and_return():
     # return: miles pair is outbound 2026-11-07 + 7 nights = 2026-11-14 only when both days have miles
     out_m = pd.Series({"2026-11-07": 9032.0, "2026-11-09": 9032.0})
     back_m = pd.Series({"2026-11-16": 9032.0, "2026-11-21": 9032.0})
-    assert av.best_return_miles(out_m, back_m, [7, 5]) == (18064.0, "2026-11-09", "2026-11-16", 7)
+    assert av.best_return_miles(out_m, back_m, [7, 5]) == (18064.0, "2026-11-09", "2026-11-16", 7, None)
     assert av.best_return_miles(out_m, back_m, [3]) is None
     trips = pd.DataFrame([("economy", "2026-11-09", "2026-11-16", 7, 86.0, 90.0, 176.0)],
                          columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
     rp = av.return_plan(trips, out_m, back_m, [7])
-    assert rp["cash"] == ("2026-11-09", "2026-11-16", 7, 176.0) and rp["miles"] == ("2026-11-09", "2026-11-16", 7, 18064.0, 176.0)
+    assert rp["cash"] == ("2026-11-09", "2026-11-16", 7, 176.0) and rp["miles"] == ("2026-11-09", "2026-11-16", 7, 18064.0, 176.0, None)
     both = av.plan_html("Economy", "#2563C9", ow, rp, 10.0)
     assert "Return" in both and "18,064 miles" in both and "7 nights" in both
 
@@ -507,3 +507,62 @@ def test_export_whole_database(tmp_path):
     assert list(xl["Hotels"].columns) == ["info"]
     z = zipfile.ZipFile(io.BytesIO(history.export_zip([str(a), str(b)])))
     assert z.namelist() == ["a.csv"] and b"d1,90" in z.read("a.csv")  # the missing file is skipped
+
+
+def test_history_gains_a_column_without_losing_rows(tmp_path):
+    import csv
+    import history
+    p = tmp_path / "h.csv"
+    p.write_text("day,miles,fetched\nd1,9032,t1\n")  # a file made before the taxes column existed
+    row = lambda day, miles, taxes, fetched: dict(day=day, miles=miles, taxes=taxes, fetched=fetched)
+    assert history.append_changes(p, [row("d1", 9032, 30.44, "t2")], ("day",), ("miles", "taxes")) == 1  # same miles, but taxes are new
+    assert history.append_changes(p, [row("d1", 9032, 30.44, "t3")], ("day",), ("miles", "taxes")) == 0
+    rows = list(csv.DictReader(open(p)))
+    assert rows[0] == {"day": "d1", "miles": "9032", "fetched": "t1", "taxes": ""} and rows[1]["taxes"] == "30.44"
+
+
+def test_strategy_uses_award_taxes_when_known():
+    import pandas as pd
+    import award_view as av
+    view = pd.DataFrame({"economy": [168.0, 86.0], "econ_miles": [9032.0, float("nan")], "econ_taxes": [30.44, float("nan")]},
+                        index=["2026-11-07", "2026-11-18"])
+    ow = av.one_way_plan(view, "economy", "econ_miles", "econ_taxes")
+    assert ow["miles"] == ("2026-11-07", 9032.0, 168.0, 30.44)
+    assert round(av.per_thousand(168.0, 9032.0, 30.44), 1) == 15.2    # (168 - 30.44) / 9,032 * 1000: the taxes come off the saving
+    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
+    assert "9,032 miles</b> + \u20ac30 taxes" in html and "9,032 miles + \u20ac30 taxes instead of \u20ac168 is \u20ac15.2 per 1,000 miles" in html
+    # return: taxes of both legs add up, and only when both are known
+    out_m, back_m = pd.Series({"2026-11-09": 9032.0}), pd.Series({"2026-11-16": 9032.0})
+    best = av.best_return_miles(out_m, back_m, [7], pd.Series({"2026-11-09": 30.44}), pd.Series({"2026-11-16": 25.0}))
+    assert best == (18064.0, "2026-11-09", "2026-11-16", 7, 55.44)
+    assert av.best_return_miles(out_m, back_m, [7], pd.Series({"2026-11-09": 30.44}), None)[4] is None
+
+
+def test_load_award_survives_a_database_without_the_taxes_column(tmp_path):
+    import sqlite3
+    from datetime import date
+    import award_view as av
+    db = sqlite3.connect(str(tmp_path / "old.db"))  # a database from before taxes were stored
+    db.execute("CREATE TABLE award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT)")
+    db.execute("INSERT INTO award_miles VALUES('2026-11-07','ATH','FRA','economy',9032,1,'t1')")
+    db.commit()  # pandas rolls the connection back when the first query fails, which would discard an uncommitted row
+    m, t, last = av.load_award(db, "ATH", "FRA", True, date(2026, 11, 1), date(2026, 11, 30))
+    assert m.loc["2026-11-07", "economy"] == 9032 and t.isna().all().all() and last == "t1"
+    empty = sqlite3.connect(":memory:")  # no award table at all
+    assert av.load_award(empty, "ATH", "FRA", True, date(2026, 11, 1), date(2026, 11, 30))[2] is None
+
+
+def test_freshness_levels_and_health_page(tmp_path):
+    from datetime import date
+    import freshness
+    (tmp_path / "daily.csv").write_text("day,fetched\nx,2026-10-27T07:00:00\ny,2026-10-29T07:00:00\n")
+    r = {x[0]: x for x in freshness.freshness(str(tmp_path), date(2026, 10, 30))}
+    assert r["Cash fares"][2] == 1 and r["Cash fares"][3] == "ok"
+    assert r["Award miles"][1] is None and r["Award miles"][3] == "stale"   # never collected: stale, with how it is collected
+    assert freshness.freshness(str(tmp_path), date(2026, 11, 3))[0][3] == "late" and freshness.freshness(str(tmp_path), date(2026, 12, 1))[0][3] == "stale"
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "health.py")
+    at = AppTest.from_file(page, default_timeout=60).run()
+    assert not at.exception
+    assert "Data freshness" in " ".join(m.value for m in at.markdown) and len(at.success) + len(at.warning) + len(at.error) == 3

@@ -16,9 +16,12 @@ from datetime import date, datetime, timedelta
 from urllib.parse import parse_qs
 
 import history
-from award_api import PACE, Blocked, best_by_cabin, parse_flights as parse_api_flights, post_day, template_day
+from award_api import PACE, Blocked, best_with_taxes, parse_flights as parse_api_flights, post_day, template_day
 
-from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
+try:
+    from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
+except ImportError:  # the app and the tests need no browser; only running the collector does
+    PWTimeout, sync_playwright = TimeoutError, None
 
 PROFILE, OUT = ".aegean_profile", "award_recording.json"
 
@@ -34,6 +37,7 @@ def run(mode, host="aegeanair.com", url="https://en.aegeanair.com/", headless=Fa
             except Exception:
                 pass  # body gone (redirect/stream); skip
 
+    _need_browser()
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(PROFILE, headless=headless, executable_path=os.environ.get("CHROME_PATH"))
         ctx.on("response", on_response)
@@ -49,10 +53,15 @@ def run(mode, host="aegeanair.com", url="https://en.aegeanair.com/", headless=Fa
 
 SEARCH_URL = "https://en.aegeanair.com/milesandbonus/my-account/spend-miles/award-ticket/"
 OUT_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_award.csv")
-FIELDS = ["day", "orig", "dest", "cabin", "miles", "nonstop", "fetched"]
+FIELDS = ["day", "orig", "dest", "cabin", "miles", "taxes", "nonstop", "fetched"]  # taxes: cash EUR on top of the miles, from the request mode
 DAYS = 90
 HISTORY_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "award_history.csv")
 DAY_TAB = "a[role=button]:has(time.date)"
+
+
+def _need_browser():
+    if sync_playwright is None:
+        raise SystemExit("The browser tools are not installed: pip install -r requirements-award.txt")
 
 
 def say(msg):
@@ -244,12 +253,12 @@ def collect_leg_api(page, orig, dest, start, end, log=say):
     ticket = int(json.loads(parse_qs(template, keep_blank_values=True)["data"][0]).get("PAGE_TICKET", 0))
     first = template_day(template)
     first_iso = f"{first[:4]}-{first[4:6]}-{first[6:8]}"
-    yield first_iso, best_by_cabin(parse_api_flights(resp.json()))
+    yield first_iso, best_with_taxes(parse_api_flights(resp.json()))
     for iso in (d for d in todo if d != first_iso):
         pause(page, *PACE)
         ticket += 1
         try:
-            yield iso, best_by_cabin(parse_api_flights(post_day(page, req.url, template, date.fromisoformat(iso), ticket)))
+            yield iso, best_with_taxes(parse_api_flights(post_day(page, req.url, template, date.fromisoformat(iso), ticket)))
         except Blocked:
             raise
         except Exception as e:  # one day failed to parse or load: report it, the next run retries
@@ -321,7 +330,18 @@ def save_csv(rows, path=OUT_CSV, today=None):
 def append_history(rows, path=HISTORY_CSV):
     """Add this run's changes to the permanent history, which is never trimmed: a row only when the miles differ from the last one stored
     for that day, route, cabin and nonstop flag."""
-    return history.append_changes(path, rows, ("day", "orig", "dest", "cabin", "nonstop"), ("miles",))
+    return history.append_changes(path, rows, ("day", "orig", "dest", "cabin", "nonstop"), ("miles", "taxes"))
+
+
+def day_rows(iso, orig, dest, best, now):
+    """The CSV rows of one day. `best` maps (cabin, nonstop) to miles (the page-reading mode), to (miles, taxes) (the request mode) or to
+    None (no award seats): the miles cell is empty then, and so are the taxes when they were not read."""
+    rows = []
+    for (cabin, nonstop), m in best.items():
+        miles, taxes = m if isinstance(m, tuple) else (m, None)
+        rows.append(dict(day=iso, orig=orig, dest=dest, cabin=cabin, miles=miles or "", taxes="" if taxes is None else round(taxes, 2),
+                         nonstop=nonstop, fetched=now))
+    return rows
 
 
 def collected_today(orig, dest, path=OUT_CSV, today=None):
@@ -339,6 +359,7 @@ def fetch(legs, days=DAYS, headless=False, log=say, today=None, force=False, api
     today = today or date.today()
     start, end = today + timedelta(1), today + timedelta(days)
     rows, now = [], datetime.now().isoformat(timespec="seconds")
+    _need_browser()
     with sync_playwright() as p:
         ctx = _open(p, headless)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
@@ -353,7 +374,7 @@ def fetch(legs, days=DAYS, headless=False, log=say, today=None, force=False, api
                     if best is None:
                         log(f"DAY {iso} error")
                         continue
-                    rows += [dict(day=iso, orig=orig, dest=dest, cabin=c, miles=m or "", nonstop=n, fetched=now) for (c, n), m in best.items()]
+                    rows += day_rows(iso, orig, dest, best, now)
                     log(f"DAY {iso} ok")
         finally:  # save what we have even if the run broke half way
             save_csv(rows, today=today)

@@ -9,7 +9,7 @@ RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 5))  # raise it when runni
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
-CREATE TABLE IF NOT EXISTS award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT);
+CREATE TABLE IF NOT EXISTS award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT, taxes REAL);
 CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
 CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT);
 CREATE TABLE IF NOT EXISTS runs(page TEXT, label TEXT, started TEXT, seconds REAL, total INT, ok INT, empty INT, failed INT, error TEXT);
@@ -92,6 +92,12 @@ def load_daily_award(db, path=None):
         return
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
+    def euros(x):  # the cash taxes of an award ticket; empty when the collector could not read them
+        try:
+            return float(x) if x not in (None, "") else None
+        except ValueError:
+            return None
+
     def num(x):  # a file that went through pandas or Excel writes 9032.0
         try:
             return int(float(x))
@@ -99,8 +105,8 @@ def load_daily_award(db, path=None):
             return None
 
     for fetched in {r.get("fetched") for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM award_miles")}:
-        db.executemany("INSERT INTO award_miles VALUES(?,?,?,?,?,?,?)",
-                       [(r["day"], r["orig"], r["dest"], r["cabin"], num(r["miles"]), num(r["nonstop"]), fetched)
+        db.executemany("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+                       [(r["day"], r["orig"], r["dest"], r["cabin"], num(r["miles"]), num(r["nonstop"]), fetched, euros(r.get("taxes")))
                         for r in rows if r.get("fetched") == fetched and num(r.get("nonstop")) is not None])  # bad rows are skipped
 
 
@@ -135,6 +141,10 @@ def connect(path="tracker.db"):
     db.executescript(SCHEMA)
     try:  # databases created before `adults` existed
         db.execute("ALTER TABLE hotel ADD COLUMN adults INT DEFAULT 2")
+    except sqlite3.OperationalError:
+        pass
+    try:  # databases made before award taxes were stored
+        db.execute("ALTER TABLE award_miles ADD COLUMN taxes REAL")
     except sqlite3.OperationalError:
         pass
     try:  # databases from the fast-flights era: its prices were unreliable, so start clean

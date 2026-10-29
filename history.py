@@ -15,16 +15,25 @@ def append_changes(path, rows, key, fields):
             reader = csv.DictReader(f)
             header = reader.fieldnames
             for r in reader:
-                last[tuple(r[k] for k in key)] = tuple(r[k] for k in fields)
+                last[tuple(r[k] for k in key)] = tuple(r.get(k) or "" for k in fields)  # a file older than a column has no such cell
     new = []
     for r in rows:
-        k, v = tuple(str(r[c]) for c in key), tuple("" if r[c] is None else str(r[c]) for c in fields)
+        k, v = tuple(str(r[c]) for c in key), tuple("" if r.get(c) is None else str(r[c]) for c in fields)
         if last.get(k) != v:
             new.append(r)
             last[k] = v
     if not new:
         return 0
     fresh = header is None
+    extra = [] if fresh else [c for c in dict.fromkeys(k for r in new for k in r) if c not in header]
+    if extra:  # the file was made before these columns existed: rewrite it once with them (older rows get empty cells)
+        with open(path, newline="", encoding="utf-8") as f:
+            old = list(csv.DictReader(f))
+        header = header + extra
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, header)
+            w.writeheader()
+            w.writerows(old)
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, header or list(new[0]), extrasaction="ignore")
         if fresh:

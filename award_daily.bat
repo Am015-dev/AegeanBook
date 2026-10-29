@@ -7,7 +7,7 @@ cd /d "%~dp0"
 if not exist .venv ( python -m venv .venv )
 call .venv\Scripts\activate
 pip install -q -r requirements.txt -r requirements-award.txt
-python award_collector.py fetch ATH-FRA FRA-ATH ATH-ZRH ZRH-ATH
+python award_collector.py fetch ATH-FRA FRA-ATH ATH-ZRH ZRH-ATH --api
 if errorlevel 1 exit /b 1
 set REMOTE=https://x-access-token:%GITHUB_TOKEN%@github.com/Am015-dev/AegeanBook.git
 git add data/daily_award.csv data/award_history.csv

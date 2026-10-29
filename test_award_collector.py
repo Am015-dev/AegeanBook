@@ -14,6 +14,7 @@ class H(http.server.BaseHTTPRequestHandler):
 
 
 def test_record(tmp_path, monkeypatch):
+    __import__("pytest").importorskip("playwright")  # needs the browser tools: not installed where only the app's requirements are
     srv = http.server.HTTPServer(("127.0.0.1", 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     monkeypatch.chdir(tmp_path)
@@ -158,3 +159,12 @@ def test_open_search_does_not_mistake_the_homepage_form_for_the_award_search():
     p = Page()
     ac._open_search(p)
     assert p.went == [ac.SEARCH_URL]  # from the homepage straight on to the award page, not "already there"
+
+
+def test_day_rows_carry_taxes_when_the_request_mode_read_them():
+    best = {("economy", 1): (9032, 30.44), ("economy", 0): (9032, 30.44), ("business", 1): None, ("business", 0): 16935}
+    rows = {(r["cabin"], r["nonstop"]): r for r in ac.day_rows("2026-11-07", "ATH", "FRA", best, "t1")}
+    assert rows[("economy", 1)]["miles"] == 9032 and rows[("economy", 1)]["taxes"] == 30.44
+    assert rows[("business", 1)]["miles"] == "" and rows[("business", 1)]["taxes"] == ""   # no seats: both empty
+    assert rows[("business", 0)]["miles"] == 16935 and rows[("business", 0)]["taxes"] == ""  # page-reading mode: miles, no taxes
+    assert list(rows[("economy", 1)]) == ["day", "orig", "dest", "cabin", "miles", "taxes", "nonstop", "fetched"] == ac.FIELDS
