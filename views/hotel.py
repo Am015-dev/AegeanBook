@@ -8,7 +8,7 @@ from hotels import fetch_range
 from jobs import record, start_job, track
 from par import parallel
 from ui import (BOOKING, ECONOMY, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
-                price_chart, route, smart_filters, window_picker)
+                price_chart, route, scraped, smart_filters, window_picker)
 from xotelo import booking_rate, heatmap_range, hotel_key
 
 db = connect()
@@ -125,6 +125,11 @@ if hkey:
     b = b.drop_duplicates("day", keep="last").set_index("day").price.dropna()
     s = s.join(b.rename("booking"), how="outer")
 
+n = (end - start).days + 1
+scraped([("Google Hotels", p.groupby("day").fetched.max(), n)] +
+        ([("Booking.com", pd.read_sql("SELECT day, MAX(fetched) f FROM booking WHERE hkey=? AND nights=? AND day BETWEEN ? AND ? "
+                                      "GROUP BY day", db, params=(hkey, int(nights), start.isoformat(), end.isoformat())).f, n)]
+         if hkey else []))
 ts = lambda i: f"{pd.Timestamp(i):%a %d %b}"
 tol, weekdays = smart_filters(st, "ho")
 s = on_weekdays(s, weekdays)  # cards, chips and chart only look at the chosen weekdays

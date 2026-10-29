@@ -7,7 +7,7 @@ from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from jobs import record, start_job, track
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
-                price_chart, round_trips, route, smart_filters, window_picker)
+                price_chart, round_trips, route, scraped, smart_filters, window_picker)
 
 db = connect()
 today = date.today()
@@ -72,6 +72,9 @@ if fetch:
         st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
 
+scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
+    "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",
+    (o, d_, int(nonstop), a.isoformat(), b.isoformat()))], dtype=object), (b - a).days + 1) for o, d_, a, b in legs])
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
 p = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
@@ -133,8 +136,8 @@ if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
                f"{int(seen.price.isna().sum())} with no flight, {2 * len(days) - len(seen)} not checked or failed. "
                "Press Update prices to check the rest.")
-if len(p):
-    st.caption(f"Last updated {p.fetched.max()[:16].replace('T', ' ')} · saved results are kept for {RETENTION_DAYS} days")
+st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
+           "automatically every morning.")
 t1, t2, t3 = st.tabs(["Prices", "Awards", "Table"])
 with t1:
     if view[["economy", "business"]].notna().any().any():

@@ -1,0 +1,32 @@
+name: Daily fares
+on:
+  schedule:
+    - cron: "17 4 * * *"  # 04:17 UTC, 07:17 Athens
+  workflow_dispatch:
+  push:
+    branches: [daily-fares]  # temporary: test run before merging
+permissions:
+  contents: write
+concurrency: daily
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flights==0.9.0
+      - id: run
+        run: python collect_daily.py
+        continue-on-error: true  # save what was collected even if some days are still missing
+      - name: Commit results
+        run: |
+          git config user.name "daily-fares"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/daily.csv
+          git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
+          git pull --rebase origin ${{ github.ref_name }} && git push
+      - if: steps.run.outcome == 'failure'
+        run: echo "Some days are still missing, see the collect step" && exit 1

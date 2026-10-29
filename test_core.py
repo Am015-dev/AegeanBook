@@ -116,13 +116,14 @@ def test_rate_limit_stops_everything_immediately(monkeypatch):
     calls = []
 
     def limited(*a):
-        calls.append(1)
+        if "BIO" in a:  # threads left over from earlier tests may still call in; count only this test's route
+            calls.append(1)
         raise RuntimeError("SearchHTTPError: HTTP 429")
     monkeypatch.setattr(collector, "fetch_cabin", limited)
     monkeypatch.setattr(collector, "fetch_day", limited)
     monkeypatch.setattr(time, "sleep", lambda s: None)
     d0 = date(2026, 11, 1)
-    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "FRA"))
+    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "BIO"))
     assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
     assert len(calls) <= 2  # only the two calendar calls; no day-by-day hammering
 
@@ -299,3 +300,31 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
     text = " ".join(m.value for m in st_page.markdown)
     assert not st_page.exception and "Updates" in text and "Flights 1" in text
     jobs.JOBS.clear()
+
+
+def test_daily_collector_retries_until_complete_and_app_loads_it(tmp_path):
+    import collect_daily as cd
+    calls = []
+
+    def fake(start, end, o, t, skip, nonstop):  # pass 1 fails every Business day on ATH-FRA; pass 2 works
+        calls.append((o, t, len(skip)))
+        for i in range((end - start).days + 1):
+            d = start + timedelta(i)
+            for c in ("economy", "business"):
+                if (d.isoformat(), c) in skip:
+                    continue
+                if (o, t, c) == ("ATH", "FRA", "business") and len(calls) == 1:
+                    yield d, c, None, "", "error", "HTTPError: 429"
+                else:
+                    yield d, c, None if c == "business" and o == "ZRH" else 99.0, "calendar", "ok", None
+
+    got, missing = cd.collect(fake, today=date.today(), pause=0)
+    assert not missing and len(got) == 4 * 2 * 90
+    assert calls[4] == ("ATH", "FRA", 90) and len(calls) == 5  # pass 2 only re-asks the failed leg, skipping the 90 good days
+    out = tmp_path / "daily.csv"
+    cd.save(got, out)
+    t = db.connect(str(tmp_path / "t.db"))
+    db.load_daily(t, str(out))
+    db.load_daily(t, str(out))  # loading the same file twice adds nothing
+    n, priced = t.execute("SELECT COUNT(*), COUNT(price) FROM prices").fetchone()
+    assert n == 720 and priced == 720 - 90

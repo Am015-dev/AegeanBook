@@ -1,4 +1,5 @@
 """Shared SQLite store. Rows older than RETENTION_DAYS are deleted on every connect; fresh rows are reused instead of re-fetched."""
+import csv
 import os
 import sqlite3
 from datetime import datetime, timedelta
@@ -59,6 +60,21 @@ def log_run(db, page, label, started, seconds, j):
     db.commit()
 
 
+DAILY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily.csv")
+
+
+def load_daily(db, path=DAILY):
+    """Load the prices the daily GitHub job saved (collect_daily.py), once per file version."""
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    for fetched in {r["fetched"] for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM prices")}:
+        db.executemany("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
+                       [(r["day"], r["orig"], r["dest"], r["cabin"], float(r["price"]) if r["price"] else None, r["source"],
+                         r["fetched"], int(r["nonstop"])) for r in rows if r["fetched"] == fetched])
+
+
 def connect(path="tracker.db"):
     db = sqlite3.connect(path, check_same_thread=False)
     db.executescript(SCHEMA)
@@ -71,6 +87,7 @@ def connect(path="tracker.db"):
         db.execute("DELETE FROM prices")
     except sqlite3.OperationalError:
         pass
+    load_daily(db)
     for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     db.execute("DELETE FROM runs WHERE started < ?", ((datetime.now() - timedelta(days=30)).isoformat(),))  # stats: 30 days
