@@ -15,7 +15,7 @@ db = connect()
 today = date.today()
 HORIZON = 330  # Google Hotels prices about a year ahead
 
-with st.container(border=True):
+with st.container(border=True, key="search"):
     c = st.columns([3, 2, 1, 1])
     query = c[0].text_input("Hotel search", "Steigenberger Frankfurt", help="What you would type into Google Hotels.")
     filt = c[1].text_input("Name must contain", "Frankfurter Hof", help="Picks your hotel out of the search results.")

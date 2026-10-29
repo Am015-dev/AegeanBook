@@ -1,4 +1,5 @@
-"""Shared look: Aegean-blue ink on cool paper, amber for premium. Colours validated with dataviz validate_palette.js."""
+"""Shared look: white cards on a grey group background, system font, Aegean blue for economy and amber for business (colours validated with
+dataviz validate_palette.js). Controls are segmented: grey at rest, solid blue when selected."""
 import csv
 import html
 import io
@@ -9,60 +10,77 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-ECONOMY, BUSINESS, INK, MUTED, GRID = "#2563C9", "#B8741A", "#0E1B2E", "#5B6B82", "#E3E8F0"
+ECONOMY, BUSINESS, INK, MUTED, GRID = "#2563C9", "#B8741A", "#1D1D1F", "#6E6E73", "#E5E5EA"
 BOOKING = "#0E9F6E"
 TIER_COLORS = {"cheap": "#2563C9", "average": "#7D8AA0", "high": "#C2410C"}  # diverging: blue / neutral gray / orange
+BG, SURFACE, FILL = "#F5F5F7", "#FFFFFF", "#E8E8ED"  # white cards on the grey group background; FILL is a control at rest
+FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif"
+SHADOW = "0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05)"
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-html, body, [class*="css"], .stApp {{ font-family: 'IBM Plex Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; }}
-.stApp {{ background: #F5F7FB; }}
-.block-container {{ padding-top: 5.5rem; max-width: 1080px; }}
-[data-testid="stHeader"] {{ background:#fff; border-bottom:1px solid {GRID}; height:64px; box-shadow:0 1px 3px rgba(14,27,46,.05); }}
-[data-testid="stHeader"] img {{ height:36px !important; max-width:none; }}
-[data-testid="stHeader"] a[data-testid="stTopNavLink"], [data-testid="stHeader"] [data-testid="stTopNavLink"] {{ border-radius:999px; padding:6px 14px; }}
-.scraped {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:-.8rem 0 1.2rem; }}
-.scraped .bl {{ color:{MUTED}; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html, body, [class*="css"], .stApp, .stApp button, .stApp input, .stApp textarea {{ font-family: {FONT}; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }}
+.stApp {{ background: {BG}; color: {INK}; }}
+.block-container {{ padding-top: 5.5rem; max-width: 1040px; }}
+::selection {{ background: rgba(37,99,201,.22); }}
+:focus-visible {{ outline: 2px solid {ECONOMY}; outline-offset: 2px; }}
+* {{ scrollbar-width: thin; scrollbar-color: #C7C7CC transparent; }}
+/* the top bar is the control layer: translucent, content scrolls under it */
+[data-testid="stHeader"] {{ background: rgba(255,255,255,.72); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid rgba(0,0,0,.08); height: 64px; box-shadow: none; }}
+[data-testid="stHeader"] img {{ height:32px !important; max-width:none; }}
+[data-testid="stHeader"] a[data-testid="stTopNavLink"], [data-testid="stHeader"] [data-testid="stTopNavLink"] {{ border-radius:999px; padding:6px 14px; font-weight:500; }}
+.scraped {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:-.6rem 0 1.25rem; }}
+.scraped .bl {{ color:{MUTED}; font-size:.82rem; margin-right:4px; }}
 .scraped .old {{ color:#9A5B00; }}
 [data-testid="stSidebar"] {{ background: {INK}; }}
 [data-testid="stSidebar"] * {{ color: #E8EEF8 !important; }}
-h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-spacing: -0.02em; color: {INK}; }}
-.route {{ display:flex; align-items:center; gap:18px; margin:4px 0 2px; }}
-.route .code {{ font: 700 clamp(2.4rem,9vw,3.8rem)/1 'Bricolage Grotesque'; letter-spacing:-0.04em; color:{INK}; }}
-.route .line {{ flex:1; height:0; position:relative; border-top:2px dashed {ECONOMY}; min-width:40px; }}
-.route .line::after {{ content:'✈'; position:absolute; left:50%; top:-13px; transform:translateX(-50%); background:#F5F7FB; padding:0 8px; color:{ECONOMY}; font-size:1.2rem; }}
-.sub {{ color:{MUTED}; margin:0 0 1.4rem; font-size:.95rem; text-wrap:balance; }}
-.kpis {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:1.2rem; }}
-.kpi {{ background:#fff; border:1px solid {GRID}; border-radius:16px; padding:16px 18px; box-shadow:0 1px 2px rgba(14,27,46,.04); }}
-.kpi .l {{ color:{MUTED}; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; display:flex; align-items:center; gap:8px; }}
-.kpi .dot {{ width:9px; height:9px; border-radius:50%; display:inline-block; }}
-.kpi .v {{ font: 700 2rem/1.15 'Bricolage Grotesque'; color:{INK}; margin-top:6px; }}
-.kpi .s {{ color:{MUTED}; font-size:.85rem; margin-top:2px; }}
-[data-testid="stCaptionContainer"] {{ color:#4B5B72 !important; opacity:1 !important; text-wrap:pretty; }}
-.card-title {{ font:600 1.05rem 'IBM Plex Sans'; color:{INK}; margin:.4rem 0 0; }}
-.stTabs [data-baseweb="tab-list"] {{ gap:6px; }}
-.stTabs [role="tab"] {{ border-radius:999px; padding:8px 20px !important; height:auto; background:#fff; border:1px solid {GRID}; }}
-.stTabs [aria-selected="true"] {{ background:{INK}; }}
-.stTabs [aria-selected="true"] p {{ color:#fff !important; }}
+h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {INK}; font-weight: 650; }}
+.route {{ display:flex; align-items:center; gap:16px; margin:2px 0 4px; }}
+.route .code {{ font: 650 clamp(2.1rem,7vw,3.1rem)/1 {FONT}; letter-spacing:-0.035em; color:{INK}; }}
+.route .line {{ flex:1; height:2px; position:relative; background:{GRID}; border-radius:2px; min-width:40px; }}
+.route .line::after {{ content:''; position:absolute; right:1px; top:-2.5px; width:7px; height:7px; border-top:2px solid {MUTED}; border-right:2px solid {MUTED}; transform:rotate(45deg); }}
+.sub {{ color:{MUTED}; margin:0 0 1.25rem; font-size:.95rem; text-wrap:balance; }}
+/* the answers, as one grouped list: what, when, and the price trailing */
+.fares {{ background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; margin:0 0 1.25rem; overflow:hidden; }}
+.fare {{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; }}
+.fare + .fare {{ border-top:1px solid {GRID}; }}
+.fare .what {{ display:flex; align-items:center; gap:10px; font-weight:600; font-size:.95rem; color:{INK}; }}
+.fare .dot {{ width:9px; height:9px; border-radius:50%; flex:none; }}
+.fare .when {{ color:{MUTED}; font-size:.85rem; margin:2px 0 0 19px; text-wrap:pretty; }}
+.fare .price {{ font: 650 1.6rem/1 {FONT}; letter-spacing:-0.02em; color:{INK}; white-space:nowrap; }}
+.fare .price.none {{ color:{MUTED}; font-weight:500; }}
+[data-testid="stCaptionContainer"] {{ color:{MUTED} !important; opacity:1 !important; text-wrap:pretty; }}
+.card-title {{ font:600 1.05rem {FONT}; color:{INK}; margin:.4rem 0 0; }}
+/* tabs as a segmented control */
+.stTabs [role="tablist"], .stTabs [data-baseweb="tab-list"] {{ gap:2px; background:{FILL}; padding:3px; border-radius:10px; width:fit-content; max-width:100%; border:0 !important; box-shadow:none !important; }}
+.stTabs [role="tab"] {{ border-radius:8px; padding:6px 18px !important; height:auto; background:transparent; border:0 !important; box-shadow:none; }}
+.stTabs [role="tab"]::after, .stTabs [role="tab"]::before, .stTabs [role="tablist"]::after, .stTabs [role="tablist"]::before, .stTabs .react-aria-SelectionIndicator {{ display:none !important; }}
+.stTabs [aria-selected="true"] {{ background:{SURFACE}; box-shadow:0 1px 3px rgba(0,0,0,.12); }}
+.stTabs [role="tab"] p {{ color:{MUTED}; font-weight:500; }}
+.stTabs [aria-selected="true"] p {{ color:{INK}; font-weight:600; }}
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display:none; }}
-.stButton > button, .stDownloadButton > button {{ border-radius:12px; font-weight:600; }}
+.stButton > button, .stDownloadButton > button {{ border-radius:10px; font-weight:600; min-height:44px; }}
 [data-testid="stDateInputField"] {{ border:0 !important; }}  /* plain field like the airport boxes, not a card */
-[data-testid="stExpander"] {{ background:#fff; border:1px solid {GRID}; border-radius:16px; }}
+[data-testid="stExpander"] {{ background:{SURFACE}; border:0; border-radius:14px; box-shadow:{SHADOW}; }}
+.st-key-search {{ border:0 !important; background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; padding:18px 20px; }}
+.st-key-search [data-baseweb="select"] > div, .st-key-search [data-baseweb="input"], .st-key-search [data-baseweb="base-input"], .st-key-search [data-testid="stDateInput"] > div > div,
+.st-key-search [data-testid="stTextInput"] > div > div, .st-key-search [data-testid="stNumberInput"] > div > div {{ background:{BG}; border-color:transparent; border-radius:10px; }}
+.st-key-search input {{ background:transparent; }}
 .best {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:.2rem 0 .6rem; }}
 .best .dot {{ width:9px; height:9px; border-radius:50%; display:inline-block; }}
-.best .bl {{ color:{MUTED}; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }}
-.chip {{ background:#fff; border:1px solid {GRID}; border-radius:999px; padding:4px 12px; font-size:.88rem; color:{INK}; }}
+.best .bl {{ color:{MUTED}; font-size:.82rem; margin-right:4px; }}
+.chip {{ background:{SURFACE}; border:1px solid {GRID}; border-radius:999px; padding:4px 12px; font-size:.88rem; color:{INK}; }}
 .chip b {{ font-weight:600; margin-right:4px; }}
 .best .more {{ color:{MUTED}; font-size:.85rem; }}
-/* selected pills: solid, like a segmented control (the tinted default was 4.0:1 contrast) */
+/* pills: grey at rest, solid blue when selected, like a segmented control (the tinted default was 4.0:1 contrast) */
+[data-testid="stButtonGroup"] button {{ border:0 !important; background:{FILL} !important; }}
 [data-testid="stButtonGroup"] button[aria-pressed="true"], [data-testid="stButtonGroup"] button[aria-checked="true"] {{ background:{ECONOMY} !important; border-color:{ECONOMY} !important; }}
 [data-testid="stButtonGroup"] button[aria-pressed="true"] *, [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color:#fff !important; }}
 /* a column with nothing in it (Nights away on a one-way trip) must not leave a gap on phones */
 [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"]:empty) {{ display:none; }}
 @media (pointer: coarse) {{ [data-testid="stButtonGroup"] button, .chip {{ min-height:44px; }} .chip {{ display:inline-flex; align-items:center; }} }}
-@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} }}
-@media (prefers-reduced-motion: no-preference) {{ .kpi {{ transition: transform .15s; }} .kpi:hover {{ transform: translateY(-2px); }} }}
+@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} .st-key-search {{ padding:14px; }} .fare {{ padding:12px 14px; }} .fare .price {{ font-size:1.4rem; }} }}
 </style>
 """
 
@@ -90,10 +108,10 @@ def scraped(items):
 
 
 def kpis(items):
-    """items: (label, value, sub, dot colour)."""
-    st.markdown('<div class="kpis">' + "".join(
-        f'<div class="kpi"><div class="l"><span class="dot" style="background:{c}"></span>{e(l)}</div>'
-        f'<div class="v">{e(v)}</div><div class="s">{e(s)}</div></div>' for l, v, s, c in items) + "</div>",
+    """items: (label, value, sub, dot colour). One grouped list: what it is and when on the left, the price trailing."""
+    st.markdown('<div class="fares">' + "".join(
+        f'<div class="fare"><div><div class="what"><span class="dot" style="background:{c}"></span>{e(l)}</div>'
+        f'<div class="when">{e(s)}</div></div><div class="price{" none" if v == "—" else ""}">{e(v)}</div></div>' for l, v, s, c in items) + "</div>",
         unsafe_allow_html=True)
 
 
@@ -122,7 +140,7 @@ def price_chart(df, series, unit="€", near=None):
                             text=[f"{unit}{y[d]:.0f}" if d == i else "" for d in ring], textposition="bottom center",
                             textfont=dict(color=INK, size=13))
     fig.update_layout(height=380, margin=dict(l=28, r=8, t=40, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      font=dict(family="IBM Plex Sans", color=MUTED), hovermode="x unified",
+                      font=dict(family=FONT, color=MUTED), hovermode="x unified",
                       legend=dict(orientation="h", x=0, y=1.12, font=dict(color=INK)),
                       xaxis=dict(tickformat="%d %b", dtick=86400000 if len(df) <= 14 else None, showgrid=False, linecolor=GRID),
                       yaxis=dict(tickprefix=unit, automargin=True, gridcolor=GRID, zeroline=False, rangemode="tozero"))
@@ -135,10 +153,10 @@ def heat_strip(tiers):
     fig = go.Figure()
     for tier, colour in TIER_COLORS.items():
         d = s[s == tier]
-        fig.add_bar(x=pd.to_datetime(d.index), y=[1] * len(d), name=tier.capitalize(), marker=dict(color=colour, line=dict(color="#F5F7FB", width=2)),
+        fig.add_bar(x=pd.to_datetime(d.index), y=[1] * len(d), name=tier.capitalize(), marker=dict(color=colour, line=dict(color=BG, width=2)),
                     hovertemplate=f"%{{x|%a %d %b}}: {tier}<extra></extra>")
     fig.update_layout(height=130, margin=dict(l=8, r=8, t=30, b=0), barmode="stack", bargap=0, paper_bgcolor="rgba(0,0,0,0)",
-                      plot_bgcolor="rgba(0,0,0,0)", font=dict(family="IBM Plex Sans", color=MUTED),
+                      plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, color=MUTED),
                       legend=dict(orientation="h", x=0, y=1.35, font=dict(color=INK), traceorder="normal"),
                       xaxis=dict(tickformat="%d %b", dtick=86400000 * (1 if len(s) <= 14 else 7), showgrid=False),
                       yaxis=dict(visible=False))

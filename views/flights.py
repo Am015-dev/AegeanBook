@@ -35,7 +35,7 @@ def award_history_xlsx(path, mtime):
 def award_job():
     """Button: run award_collector.py on this computer for the four legs. Its `DAY <iso> ok|error` lines drive the progress bar."""
     key = "awards|all"
-    if st.button("Collect award miles now (90 days, 4 routes, a few minutes)", key="aw-go"):
+    if st.button("Collect award miles now (90 days, 4 routes, about an hour: it paces itself like a person)", key="aw-go"):
         def work(j):
             pr = subprocess.Popen([sys.executable, "award_collector.py", "fetch", *[f"{o}-{d}" for o, d in AWARD_LEGS], "--days", str(AWARD_DAYS)],
                                   cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
@@ -52,7 +52,7 @@ def award_job():
         start_job(key, len(AWARD_LEGS) * AWARD_DAYS, work, "{n} days.", "checked", "Award miles")
     track(key)
 
-with st.container(border=True):
+with st.container(border=True, key="search"):
     c = st.columns(2)
     orig = airport_picker(c[0], "From", "ATH", "orig")
     dest = airport_picker(c[1], "To", "FRA", "dest")

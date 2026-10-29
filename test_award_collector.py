@@ -97,3 +97,65 @@ def test_access_denied_stops_the_run():
         ac._check_blocked(page)
     ok = type("P", (), {"inner_text": lambda self, sel: "Available award miles 52,513"})()
     ac._check_blocked(ok)  # a normal page passes
+
+
+class FakePage:
+    def __init__(self, text):
+        self.text = text
+    def inner_text(self, sel):
+        return self.text
+    def wait_for_timeout(self, ms):
+        pass
+
+
+def test_challenge_and_hang_stop_the_run():
+    import pytest
+    with pytest.raises(ac.Blocked):  # human check not solved within patience
+        ac._check_blocked(FakePage("Please complete the CAPTCHA to continue"), log=lambda m: None, patience=0)
+    with pytest.raises(ac.Blocked):  # the page that hangs after a request is a throttle
+        ac._check_blocked(FakePage("You submitted a new request from calendar step, the page is now loading, please wait"), after_timeout=True)
+    ac._check_blocked(FakePage("You submitted a new request, the page is now loading, please wait"))  # a normal wait is fine
+
+
+def test_collected_today_skips_repeat_runs(tmp_path):
+    from datetime import date
+    p = str(tmp_path / "a.csv")
+    ac.save_csv([dict(day="2026-11-11", orig="ATH", dest="FRA", cabin="economy", miles=1, nonstop=1, fetched="2026-10-29T07:00:00")], p,
+                today=date(2026, 10, 28))
+    assert ac.collected_today("ATH", "FRA", p, today=date(2026, 10, 29))
+    assert not ac.collected_today("FRA", "ATH", p, today=date(2026, 10, 29))
+    assert not ac.collected_today("ATH", "FRA", p, today=date(2026, 10, 30))
+
+
+def test_imperva_challenge_page_is_recognised():
+    import pytest
+    page = FakePage("Pardon our interruption... As you were browsing www.aegeanair.com something about your browser made us think you were a bot.")
+    with pytest.raises(ac.Blocked):
+        ac._check_blocked(page, log=lambda m: None, patience=0)
+
+
+def test_open_search_does_not_mistake_the_homepage_form_for_the_award_search():
+    class Loc:
+        def count(self):
+            return 1
+        first = property(lambda self: self)
+        def is_visible(self):
+            return True
+
+    class Page:
+        url = "https://en.aegeanair.com/"  # the homepage has its own #AirportFromSelect
+        def __init__(self):
+            self.went = []
+        def locator(self, sel):
+            return Loc()
+        def get_by_text(self, t):
+            return type("L", (), {"count": lambda s: 0})()
+        def goto(self, u, referer=None):
+            self.went.append(u)
+        def inner_text(self, sel):
+            return "Hello"
+        def wait_for_timeout(self, ms):
+            pass
+    p = Page()
+    ac._open_search(p)
+    assert p.went == [ac.SEARCH_URL]  # from the homepage straight on to the award page, not "already there"

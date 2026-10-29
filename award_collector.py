@@ -10,8 +10,12 @@ import argparse
 import csv
 import json
 import os
+import random
 import re
 from datetime import date, datetime, timedelta
+from urllib.parse import parse_qs
+
+from award_api import PACE, Blocked, best_by_cabin, parse_flights as parse_api_flights, post_day, template_day
 
 from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
 
@@ -90,31 +94,84 @@ def _open(p, headless):
                                                 executable_path=os.environ.get("CHROME_PATH"))
 
 
-class Blocked(RuntimeError):
-    """AEGEAN's bot protection refused the page: stop at once, retrying only makes it worse."""
+HOME_URL = "https://en.aegeanair.com/"
+CHALLENGE = ("captcha", "verify you are human", "are you a robot", "unusual traffic", "press & hold", "security check", "checking your browser",
+             "pardon our interruption", "think you were a bot")  # the last two are Imperva's wording on aegeanair.com
 
 
-def _check_blocked(page):
-    if "Access Denied" in page.inner_text("body")[:300]:
+def pause(page, lo=3.0, hi=8.0):
+    """A random pause, so the requests do not arrive on a fixed beat."""
+    page.wait_for_timeout(int(random.uniform(lo, hi) * 1000))
+
+
+def _check_blocked(page, log=None, after_timeout=False, patience=300):
+    """Stop the whole run when AEGEAN refuses us or stops answering. A human check (captcha) is given `patience` seconds to be
+    solved by you in the open browser window; anything else is never retried, retrying only makes a block last longer."""
+    log = log or say
+    text = page.inner_text("body")
+    if "Access Denied" in text[:300]:
         raise Blocked("AEGEAN answered 'Access Denied' (bot protection). Stopped; wait some hours before the next run.")
+    if after_timeout and "is now loading, please wait" in text:
+        raise Blocked("AEGEAN stopped answering (the page hangs): it is probably throttling us. Stopped; wait some hours.")
+    waited = 0
+    while any(k in text[:600].lower() for k in CHALLENGE):
+        if waited >= patience:
+            raise Blocked("AEGEAN is asking for a human check that was not solved. Solve it in the browser window and run again.")
+        if not waited:
+            log("CHALLENGE: AEGEAN wants a human check. Solve it in the browser window; waiting up to 5 minutes...")
+        page.wait_for_timeout(5000)
+        waited += 5
+        text = page.inner_text("body")
+
+
+def _open_search(page):
+    """Reach the award search the way a visitor does: the page already open, else 'Back to search', else the homepage first and
+    the award page with the homepage as referrer, never a cold jump to the deep link."""
+    form = "#AirportFromSelect"  # the homepage's normal booking form uses the same id, so the URL decides which form this is
+    if "award-ticket" in page.url and page.locator(form).count() and page.locator(form).first.is_visible():
+        return
+    back = page.get_by_text("Back to search")
+    if back.count() and back.first.is_visible():
+        back.first.click()
+        try:
+            page.wait_for_selector(form, timeout=15000)
+            pause(page, 2, 4)
+            return
+        except PWTimeout:
+            pass
+    if page.url.rstrip("/") != HOME_URL.rstrip("/"):  # already on the homepage: go on from there
+        page.goto(HOME_URL)
+        _check_blocked(page)
+        pause(page, 4, 9)
+    page.goto(SEARCH_URL, referer=HOME_URL)
 
 
 def _search(page, orig, dest, start):
     """Fill the one-way award search and land on the flight list of day `start`."""
-    page.goto(SEARCH_URL)
+    _open_search(page)
     _check_blocked(page)
     page.wait_for_selector("#AirportFromSelect", timeout=30000)
-    if "Available award miles" not in page.inner_text("body"):
+    try:  # the member box renders a moment after the form
+        page.wait_for_function("()=>document.body.innerText.includes('Available award miles')", timeout=15000)
+    except PWTimeout:
+        _check_blocked(page)
         raise RuntimeError("Not logged in to AEGEAN: run `python award_collector.py login` first")
     page.get_by_text("One way", exact=True).first.click()
     for sel, code in (("#AirportFromSelect", orig), ("#AirportToSelect", dest)):
         page.click(sel)
-        page.keyboard.type(code, delay=100)
+        page.keyboard.type(code, delay=random.randint(80, 170))
         page.locator("li.ui-menu-item:visible", has_text=f"({code})").first.click(timeout=15000)
+        pause(page, 1, 2.5)
     page.get_by_text("Departure", exact=True).locator("visible=true").first.click(timeout=15000)  # opens the date picker
+    pause(page, 1, 2.5)
     page.locator(f'.date-picker-wrapper .day.valid[date="{start.day} {start.month - 1} {start.year}"]').first.click(timeout=15000)
+    pause(page, 1, 2.5)
     page.get_by_role("button", name="Search").last.click()
-    page.wait_for_selector(DAY_TAB, timeout=60000)
+    try:
+        page.wait_for_selector(DAY_TAB, timeout=60000)
+    except PWTimeout:
+        _check_blocked(page, after_timeout=True)
+        raise
 
 
 TABS_JS = ("()=>[...document.querySelectorAll('a[role=button]')].filter(a=>a.querySelector('time.date')).map(a=>{const t=a.querySelector('time.date');"
@@ -141,12 +198,10 @@ def _open_day(page, label):
     page.wait_for_function(SELECTED_JS, arg=label, timeout=10000)
 
 
-def collect_leg(page, orig, dest, start, end, log=say):
-    """Yield (iso day, {(cabin, nonstop): miles|None}) for each day of start..end that AEGEAN's award calendar covers; best is None when
-    a day failed to load. Days the calendar marks 'Not available' have no award seats on any cabin, so only the others are opened."""
-    _search(page, orig, dest, start)
+def _read_calendar(page, start, end):
+    """{iso day: (label, has award seats)} from the calendar page, pressing Next until `end` is covered (about two months per window)."""
     days = {}
-    for _ in range(8):  # the calendar shows about two months at a time
+    for _ in range(8):
         tabs = _tabs(page, start)
         days.update({iso: (label, ok) for iso, label, ok in tabs})
         if max(days) >= end.isoformat():
@@ -157,6 +212,56 @@ def collect_leg(page, orig, dest, start, end, log=say):
                                    arg=tabs[0][0], timeout=10000)
         except PWTimeout:
             break
+        pause(page, 4, 9)
+    return days
+
+
+def collect_leg_api(page, orig, dest, start, end, log=say):
+    """Same output as collect_leg, but the flight lists come from one request per day sent from inside the page, instead of a page
+    load per day. The first day is the page's own request (its body is the template); the others reuse it with only the date and the
+    page counter changed, PACE seconds apart. A non-JSON answer (the bot check) raises Blocked and ends the run."""
+    _search(page, orig, dest, start)
+    days = _read_calendar(page, start, end)
+    want = sorted(d for d in days if start.isoformat() <= d <= end.isoformat())
+    for iso in (d for d in want if not days[d][1]):
+        yield iso, dict(NONE)
+    todo = [d for d in want if days[d][1]]
+    if not todo:
+        return
+    shown = [(i, lab) for i, lab, ok in _tabs(page, start) if ok]
+    _open_day(page, next((lab for i, lab in shown if i in todo), shown[0][1]))
+    pause(page, 2, 5)
+    try:
+        with page.expect_response(lambda r: r.request.method == "POST" and "fromCalendarPage.json" in r.url, timeout=60000) as got:
+            page.get_by_role("button", name="Continue").last.click()
+    except PWTimeout:
+        _check_blocked(page, log, after_timeout=True)
+        raise
+    resp, req = got.value, got.value.request
+    if "json" not in resp.headers.get("content-type", ""):
+        raise Blocked("AEGEAN answered the flight request with a page instead of data (bot check). Stopped.")
+    template = req.post_data
+    ticket = int(json.loads(parse_qs(template, keep_blank_values=True)["data"][0]).get("PAGE_TICKET", 0))
+    first = template_day(template)
+    first_iso = f"{first[:4]}-{first[4:6]}-{first[6:8]}"
+    yield first_iso, best_by_cabin(parse_api_flights(resp.json()))
+    for iso in (d for d in todo if d != first_iso):
+        pause(page, *PACE)
+        ticket += 1
+        try:
+            yield iso, best_by_cabin(parse_api_flights(post_day(page, req.url, template, date.fromisoformat(iso), ticket)))
+        except Blocked:
+            raise
+        except Exception as e:  # one day failed to parse or load: report it, the next run retries
+            log(f"{iso} {type(e).__name__}")
+            yield iso, None
+
+
+def collect_leg(page, orig, dest, start, end, log=say):
+    """Yield (iso day, {(cabin, nonstop): miles|None}) for each day of start..end that AEGEAN's award calendar covers; best is None when
+    a day failed to load. Days the calendar marks 'Not available' have no award seats on any cabin, so only the others are opened."""
+    _search(page, orig, dest, start)
+    days = _read_calendar(page, start, end)
     want = sorted(d for d in days if start.isoformat() <= d <= end.isoformat())
     for iso in (d for d in want if not days[d][1]):
         yield iso, dict(NONE)
@@ -165,16 +270,24 @@ def collect_leg(page, orig, dest, start, end, log=say):
         return
     shown = [(i, lab) for i, lab, ok in _tabs(page, start) if ok]  # the calendar window moved on: open any day it still shows
     _open_day(page, next((lab for i, lab in shown if i in todo), shown[0][1]))
+    pause(page, 2, 5)
     page.get_by_role("button", name="Continue").last.click()
-    page.wait_for_function("()=>document.body.innerText.includes('flight page is loaded')", timeout=60000)
-    for iso in todo:
+    try:
+        page.wait_for_function("()=>document.body.innerText.includes('flight page is loaded')", timeout=60000)
+    except PWTimeout:
+        _check_blocked(page, log, after_timeout=True)  # a page that hangs here is a throttle: stop, do not retry
+        raise
+    _check_blocked(page, log)
+    for done, iso in enumerate(todo):
+        if done and done % 10 == 0:
+            pause(page, 15, 35)  # a longer break now and then, like a person reading
         try:
             for _ in range(25):  # the flight list shows one week; step weeks until the day is in view
                 shown = {i: lab for i, lab, _ in _tabs(page, start)}
                 if iso in shown:
                     break
                 page.get_by_role("button", name=re.compile("goNextWeek" if iso > max(shown) else "goPrevWeek")).click()
-                page.wait_for_timeout(2500)
+                pause(page, 2.5, 5)
             try:  # each day click asks the server for that day's flights: wait for the answer, not the stale list
                 with page.expect_response(lambda r: r.request.method == "POST" and "aegeanair" in r.url, timeout=12000):
                     _open_day(page, shown[iso])
@@ -183,13 +296,13 @@ def collect_leg(page, orig, dest, start, end, log=say):
             page.wait_for_function("()=>document.body.innerText.includes('Flight details')||/no (flights|seats)/i.test(document.body.innerText)",
                                    timeout=15000)
             page.mouse.wheel(0, 6000)
-            page.wait_for_timeout(1200)
+            pause(page, 1, 2.5)
             yield iso, parse_flights(page.inner_text("body"))
         except Exception as e:  # day did not load: report it, the next run retries
-            _check_blocked(page)  # unless AEGEAN is refusing us, then the whole run stops
+            _check_blocked(page, log, after_timeout=True)  # unless AEGEAN is refusing or not answering: then the whole run stops
             log(f"{iso} {type(e).__name__}")
             yield iso, None
-        page.wait_for_timeout(1500)  # keep it slow
+        pause(page, 3, 8)  # keep it slow and irregular
 
 def save_csv(rows, path=OUT_CSV, today=None):
     """Merge new rows into the CSV: one row per (day, orig, dest, cabin, nonstop), newest wins, past days dropped."""
@@ -217,8 +330,18 @@ def append_history(rows, path=HISTORY_CSV, keep_days=HISTORY_DAYS, today=None):
         w.writeheader()
         w.writerows(r for r in old + [{**r, "nonstop": str(r["nonstop"])} for r in rows] if r["fetched"][:10] >= cut)
 
-def fetch(legs, days=DAYS, headless=False, log=say, today=None):
-    """Collect AEGEAN award miles for the next `days` days on every (orig, dest) leg and save them. Prints `DAY <iso> ok|error` per day."""
+def collected_today(orig, dest, path=OUT_CSV, today=None):
+    """True when this leg was already collected today: running it again only adds load on AEGEAN, which is what got us blocked."""
+    if not os.path.exists(path):
+        return False
+    today = (today or date.today()).isoformat()
+    with open(path, newline="") as f:
+        return any(r["orig"] == orig and r["dest"] == dest and r["fetched"][:10] == today for r in csv.DictReader(f))
+
+
+def fetch(legs, days=DAYS, headless=False, log=say, today=None, force=False, api=False):
+    """Collect AEGEAN award miles for the next `days` days on every (orig, dest) leg and save them. Prints `DAY <iso> ok|error` per day.
+    A leg already collected today is skipped unless force."""
     today = today or date.today()
     start, end = today + timedelta(1), today + timedelta(days)
     rows, now = [], datetime.now().isoformat(timespec="seconds")
@@ -226,8 +349,13 @@ def fetch(legs, days=DAYS, headless=False, log=say, today=None):
         ctx = _open(p, headless)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         try:
-            for orig, dest in legs:
-                for iso, best in collect_leg(page, orig, dest, start, end, log):
+            for n, (orig, dest) in enumerate(legs):
+                if not force and collected_today(orig, dest, today=today):
+                    log(f"SKIP {orig}-{dest}: already collected today (use --force to run it again)")
+                    continue
+                if n:
+                    pause(page, 30, 60)  # a real break between legs
+                for iso, best in (collect_leg_api if api else collect_leg)(page, orig, dest, start, end, log):
                     if best is None:
                         log(f"DAY {iso} error")
                         continue
@@ -247,10 +375,12 @@ if __name__ == "__main__":
     a.add_argument("mode", choices=["login", "record", "fetch"])
     a.add_argument("legs", nargs="*", help="fetch only: ORIG-DEST pairs, e.g. ATH-FRA FRA-ATH")
     a.add_argument("--days", type=int, default=DAYS)
+    a.add_argument("--force", action="store_true", help="fetch: collect legs that were already collected today")
+    a.add_argument("--api", action="store_true", help="fetch: one paced request per day from inside the page instead of a page load per day")
     a = a.parse_args()
     if a.mode == "fetch":
         try:
-            fetch([tuple(x.split("-")) for x in a.legs or ["ATH-FRA", "FRA-ATH", "ATH-ZRH", "ZRH-ATH"]], a.days)
+            fetch([tuple(x.split("-")) for x in a.legs or ["ATH-FRA", "FRA-ATH", "ATH-ZRH", "ZRH-ATH"]], a.days, force=a.force, api=a.api)
         except Blocked as e:  # partial results are already saved by fetch()
             raise SystemExit(f"BLOCKED: {e}")
     else:
