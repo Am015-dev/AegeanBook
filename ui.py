@@ -41,6 +41,7 @@ h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-
 .stTabs [aria-selected="true"] p {{ color:#fff !important; }}
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display:none; }}
 .stButton > button, .stDownloadButton > button {{ border-radius:12px; font-weight:600; }}
+[data-testid="stDateInputField"] {{ border:0 !important; }}  /* plain field like the airport boxes, not a card */
 [data-testid="stExpander"] {{ background:#fff; border:1px solid {GRID}; border-radius:16px; }}
 .best {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:.2rem 0 .6rem; }}
 .best .dot {{ width:9px; height:9px; border-radius:50%; display:inline-block; }}
@@ -140,15 +141,16 @@ def airport_picker(where, label, default, key):
 
 
 def window_picker(where, key, today, horizon):
-    """Quick window starting tomorrow (15 / 30 / 60 / 90 days); Custom shows two dates. Returns (start, end)."""
-    pick = where.pills("Dates", list(WINDOWS) + ["Custom"], default="30 days", required=True, key=f"{key}-win")
+    """A start date (tomorrow by default) plus 15 / 30 / 60 / 90 days; Custom asks for the end date. Returns (start, end)."""
     last = today + timedelta(horizon)
+    c = where.columns([1, 2])
+    start = c[0].date_input("Starting", today + timedelta(1), min_value=today, max_value=last, key=f"{key}-from",
+                            format="DD/MM/YYYY")
+    pick = c[1].pills("For the next", list(WINDOWS) + ["Custom"], default="30 days", required=True, key=f"{key}-win")
     if pick == "Custom":
-        c = where.columns(2)
-        start = c[0].date_input("From", today + timedelta(1), min_value=today, max_value=last, key=f"{key}-from")
-        end = c[1].date_input("To", min(start + timedelta(29), last), min_value=today, max_value=last, key=f"{key}-to")
+        end = c[0].date_input("Until", min(start + timedelta(29), last), min_value=start, max_value=last, key=f"{key}-to",
+                              format="DD/MM/YYYY")
         return start, end
-    start = today + timedelta(1)
     return start, min(start + timedelta(WINDOWS[pick] - 1), last)
 
 
