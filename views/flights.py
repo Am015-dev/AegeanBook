@@ -1,19 +1,22 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import streamlit as st
 
 from collector import fetch_range, valid_airport
-from db import RETENTION_DAYS, connect, cutoff
+from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from jobs import record, start_job, track
-from ui import BUSINESS, ECONOMY, MUTED, kpis, price_chart, route
+from ui import BUSINESS, ECONOMY, MUTED, excel_bytes, kpis, price_chart, route
 
 db = connect()
+today = date.today()
+HORIZON = 330  # Google's calendar reaches about 11 months ahead; later days would look like "no flight"
 
 with st.expander("Search settings", expanded=False):
     c = st.columns([1, 1, 1.4, 1.4])
     orig, dest = c[0].text_input("From (IATA)", "ATH").upper(), c[1].text_input("To (IATA)", "FRA").upper()
-    start, end = c[2].date_input("First departure", date(2026, 11, 1)), c[3].date_input("Last departure", date(2026, 11, 30))
+    start = c[2].date_input("First departure", today + timedelta(7), min_value=today, max_value=today + timedelta(HORIZON))
+    end = c[3].date_input("Last departure", today + timedelta(36), min_value=today, max_value=today + timedelta(HORIZON))
     fetch = st.button("Update prices", type="primary")
     c2 = st.columns(2)
     nonstop = c2[0].checkbox("Nonstop flights only", value=True)
@@ -21,24 +24,25 @@ with st.expander("Search settings", expanded=False):
     st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Busy routes take seconds; quiet routes are checked day by day and can take a few minutes. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
-MAX_DAYS = 330  # Google's calendar reaches about 11 months ahead
 for code in (orig, dest):
     if not valid_airport(code):
         st.error(f"'{code}' is not a known airport code. Use the 3-letter IATA code, for example ATH or FRA.")
         st.stop()
+if orig == dest:
+    st.error("From and To are the same airport.")
+    st.stop()
+if start < today or end > today + timedelta(HORIZON):
+    st.error(f"Choose dates between today and {today + timedelta(HORIZON):%d %b %Y}. Google has no fares outside that window.")
+    st.stop()
 if end < start:
     st.error("The last departure is before the first departure. Swap the two dates.")
-    st.stop()
-if (end - start).days >= MAX_DAYS:
-    st.error(f"Choose a range of at most {MAX_DAYS} days.")
     st.stop()
 
 route(orig, dest, f"{start:%d %b} – {end:%d %b %Y} · one-way · AEGEAN")
 
 key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}"
 if fetch:
-    skip = set() if recheck else set(db.execute(
-        "SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND nonstop=? AND fetched>=?", (orig, dest, int(nonstop), cutoff())))
+    skip = set() if recheck else saved_flight_days(db, orig, dest, nonstop, start, end)
     total = 2 * ((end - start).days + 1) - len(skip)
 
     def work(j):
@@ -53,7 +57,9 @@ if fetch:
             record(j, status, err)
 
     if total > 0:
-        start_job(key, total, work)
+        start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
+                  "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved if you "
+                  "expect more.", "with no flight")
     else:
         st.info("Every day in this range is already saved. Tick Re-check days already saved to fetch again.")
 track(key)
@@ -69,10 +75,14 @@ for k in ("economy", "business"):
         latest[k] = float("nan")
 a = pd.read_sql(f"SELECT day, miles, taxes FROM awards {q}", db, params=args).set_index("day")
 out = days.join(latest).join(a)
-out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles * 1000).round(1)
+out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
+
 
 def best(col):
-    return (f"€{out[col].min():.0f}", f"{pd.Timestamp(out[col].idxmin()):%a %d %b}") if out[col].notna().any() else ("—", "No data yet")
+    if out[col].notna().any():
+        return f"€{out[col].min():.0f}", f"{pd.Timestamp(out[col].idxmin()):%a %d %b}"
+    return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
+
 
 (ev, es), (bv, bs) = best("economy"), best("business")
 vv, vs = (f"€{out.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(out.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles") \
@@ -100,9 +110,7 @@ with t2:
                         column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
                                        "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
                         key=f"{orig}{dest}{start}{end}")
-    for r in ed.dropna(subset=["miles"]).itertuples():
-        db.execute("INSERT OR REPLACE INTO awards VALUES(?,?,?,?,?)", (r.day, orig, dest, int(r.miles), r.taxes or 0))
-    db.commit()
+    save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
 with t3:
     table = out.rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
                                 "taxes": "Taxes €", "value": "€ per 1,000 mi"})
@@ -111,5 +119,4 @@ with t3:
         table[f"{cabin.capitalize()} status"] = ["priced" if pd.notna(out.loc[d, cabin]) else "no flight" if (d, cabin) in checked
                                                  else "not checked" for d in out.index]
     st.dataframe(table, width="stretch")
-    table.to_excel("export.xlsx")
-    st.download_button("Download Excel", open("export.xlsx", "rb"), f"aegean_{orig}_{dest}.xlsx")
+    st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")

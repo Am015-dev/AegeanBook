@@ -18,6 +18,39 @@ def cutoff():
     return (datetime.now() - timedelta(days=RETENTION_DAYS)).isoformat()
 
 
+def saved_flight_days(db, orig, dest, nonstop, start, end):
+    """(iso day, cabin) pairs already saved for this route and date range; the next update skips them."""
+    return set(db.execute("SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND nonstop=? AND fetched>=? AND day BETWEEN ? AND ?",
+                          (orig, dest, int(nonstop), cutoff(), start.isoformat(), end.isoformat())))
+
+
+def saved_hotel_days(db, query, filt, nights, adults, start, end):
+    """Iso days already saved for this hotel search and date range; the next update skips them."""
+    return {r[0] for r in db.execute("SELECT day FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND fetched>=? "
+                                     "AND day BETWEEN ? AND ?",
+                                     (query, filt, int(nights), int(adults), cutoff(), start.isoformat(), end.isoformat()))}
+
+
+def _number(x):
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return None
+    return None if x != x else x  # NaN -> None
+
+
+def save_awards(db, rows, orig, dest):
+    """rows: (iso day, miles, taxes) for every day shown in the editor. A day without positive miles is deleted, so clearing a
+    cell really clears it; taxes default to 0."""
+    for day, miles, taxes in rows:
+        miles, taxes = _number(miles), _number(taxes)
+        if miles and miles > 0:
+            db.execute("INSERT OR REPLACE INTO awards VALUES(?,?,?,?,?)", (day, orig, dest, int(miles), max(taxes or 0, 0)))
+        else:
+            db.execute("DELETE FROM awards WHERE day=? AND orig=? AND dest=?", (day, orig, dest))
+    db.commit()
+
+
 def connect(path="tracker.db"):
     db = sqlite3.connect(path, check_same_thread=False)
     db.executescript(SCHEMA)

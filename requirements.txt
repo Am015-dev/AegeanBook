@@ -1,6 +1,6 @@
-streamlit
-flights
-pandas
-plotly
-openpyxl
-stays
+streamlit>=1.50,<2
+flights==0.9.0
+stays==0.1.1
+pandas>=2.2
+plotly>=5.20
+openpyxl>=3.1

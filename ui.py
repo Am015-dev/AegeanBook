@@ -1,4 +1,7 @@
 """Shared look: Aegean-blue ink on cool paper, amber for premium. Colours validated with dataviz validate_palette.js."""
+import html
+import io
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -42,18 +45,28 @@ h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-
 """
 
 
+e = html.escape  # every text below can come from a visitor or from Google, and is inserted as HTML
+
+
 def route(a, b, sub):
     """Big title; with `b` it becomes a route strip a ✈ b."""
-    mid = f'<span class="line"></span><span class="code">{b}</span>' if b else ""
-    st.markdown(f'<div class="route"><span class="code">{a}</span>{mid}</div><p class="sub">{sub}</p>', unsafe_allow_html=True)
+    mid = f'<span class="line"></span><span class="code">{e(b)}</span>' if b else ""
+    st.markdown(f'<div class="route"><span class="code">{e(a)}</span>{mid}</div><p class="sub">{e(sub)}</p>', unsafe_allow_html=True)
 
 
 def kpis(items):
     """items: (label, value, sub, dot colour)."""
     st.markdown('<div class="kpis">' + "".join(
-        f'<div class="kpi"><div class="l"><span class="dot" style="background:{c}"></span>{l}</div>'
-        f'<div class="v">{v}</div><div class="s">{s}</div></div>' for l, v, s, c in items) + "</div>",
+        f'<div class="kpi"><div class="l"><span class="dot" style="background:{c}"></span>{e(l)}</div>'
+        f'<div class="v">{e(v)}</div><div class="s">{e(s)}</div></div>' for l, v, s, c in items) + "</div>",
         unsafe_allow_html=True)
+
+
+def excel_bytes(df):
+    """The table as an .xlsx file in memory (a shared file on disk would mix up downloads between visitors)."""
+    buf = io.BytesIO()
+    df.to_excel(buf)
+    return buf.getvalue()
 
 
 def price_chart(df, series, unit="€"):
