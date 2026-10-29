@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  issues: write  # the digest of changes is posted as an issue, so GitHub's own notifications can carry it
 concurrency: daily
 jobs:
   collect:
@@ -19,12 +20,22 @@ jobs:
       - id: run
         run: python collect_daily.py
         continue-on-error: true  # save what was collected even if some days are still missing
+      - id: digest
+        run: python digest.py
+        continue-on-error: true  # a bonus: it must never stop the daily commit below
       - name: Commit results
         run: |
           git config user.name "daily-fares"
           git config user.email "actions@users.noreply.github.com"
           git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv
+          [ ! -f data/latest_changes.md ] || git add data/latest_changes.md  # only when the digest step wrote it: it must never block the data
           git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} && git push
+      - name: Post what changed as an issue
+        if: steps.digest.outputs.changed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "Fare changes $(date -u +%F)" --body-file data/latest_changes.md
       - if: steps.run.outcome == 'failure'
         run: echo "Some days are still missing, see the collect step" && exit 1

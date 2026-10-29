@@ -661,3 +661,23 @@ def test_aegean_pass_section_appears_once_a_price_is_entered():
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
     assert "Aegean Pass, booked 7 days ahead" in shown and "Effective cost per flight" in shown   # 7 days is the default window
+
+
+def test_digest_lists_changes_and_ignores_first_sightings(tmp_path):
+    import digest
+    p = tmp_path / "history_prices.csv"
+    p.write_text("day,orig,dest,cabin,price,source,fetched,nonstop\n"
+                 "2026-11-18,ATH,FRA,economy,86,calendar,2026-10-29T07:00:00,1\n"
+                 "2026-11-19,ATH,FRA,economy,100,calendar,2026-10-29T07:00:00,1\n"
+                 "2026-11-18,ATH,FRA,economy,79,calendar,2026-10-30T07:00:00,1\n"     # dropped 86 -> 79
+                 "2026-11-19,ATH,FRA,economy,120,calendar,2026-10-30T07:00:00,1\n"    # rose 100 -> 120
+                 "2027-01-30,ATH,FRA,economy,90,calendar,2026-10-30T07:00:00,1\n")    # first seen: not a change
+    a = tmp_path / "award_history.csv"
+    a.write_text("day,orig,dest,cabin,miles,nonstop,fetched\n"
+                 "2026-11-20,ATH,FRA,business,,1,2026-10-29T07:00:00\n"
+                 "2026-11-20,ATH,FRA,business,16935,1,2026-10-30T07:00:00\n")           # a seat appeared
+    md = digest.build(str(tmp_path))
+    assert md.startswith("# What changed on 30 Oct 2026")
+    assert "Wed 18 Nov, economy: \u20ac86 \u2192 \u20ac79 (\u2212\u20ac7)" in md and "\u20ac100 \u2192 \u20ac120 (+\u20ac20)" in md
+    assert "Fri 20 Nov, business: 16,935 miles (was none)" in md and "2027" not in md and "Jan" not in md
+    assert digest.build(str(tmp_path / "nothing")) == ""   # no files: nothing to say, and no error

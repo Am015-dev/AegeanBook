@@ -103,6 +103,11 @@ def section(name, cfg):
 st.markdown('<div class="route"><span class="code">Database</span></div>'
             '<p class="sub">Every price and miles value recorded so far, kept in GitHub. Nothing is deleted after 5 days.</p>', unsafe_allow_html=True)
 overview()
+CHANGES = os.path.join(DATA, "latest_changes.md")  # written by the daily job (digest.py): empty when nothing changed
+if os.path.exists(CHANGES) and os.path.getsize(CHANGES):
+    title, _, body = open(CHANGES, encoding="utf-8").read().partition("\n")
+    with st.expander(title.lstrip("# ") or "What changed", expanded=True):
+        st.markdown(body)
 FILES = {name: os.path.join(DATA, cfg["file"]) for name, cfg in SETS.items()}
 
 
