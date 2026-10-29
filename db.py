@@ -7,6 +7,8 @@ RETENTION_DAYS = 5
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
+CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
+CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT);
 CREATE TABLE IF NOT EXISTS hotel(day TEXT, query TEXT, filt TEXT, nights INT, hotel TEXT, price REAL, fetched TEXT, adults INT DEFAULT 2);
 """
 
@@ -27,7 +29,7 @@ def connect(path="tracker.db"):
         db.execute("DELETE FROM prices")
     except sqlite3.OperationalError:
         pass
-    for t in ("prices", "hotel"):
+    for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     db.commit()
     return db
