@@ -71,11 +71,13 @@ def track(key):
         _live(key)
         return
     took = int((j["ended"] or time.time()) - j["started"])
+    if j.get("fallback"):
+        st.info(j["fallback"])
     if j["error"]:
         st.error(f"The update stopped because of an error: {j['error']}. Results saved so far are shown below.")
     elif j["cancel"]:
         st.info(f"Stopped after {j['done']} of {j['total']} lookups. Press Update prices to continue where it left off.")
-    elif any("429" in e for e in j["errors"]):
+    elif any("429" in e for e in j["errors"]) and not j.get("fallback"):
         st.error(f"Google is rate-limiting this server (HTTP 429, too many requests), so the update stopped after {j['ok']} priced and "
                  f"{j['failed']} failed. This is Google's limit, not a bug in your search. Results saved so far are shown. "
                  "Wait about an hour and press Update prices to continue where it left off, or run the app on your own computer.")
