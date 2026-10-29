@@ -90,9 +90,19 @@ def _open(p, headless):
                                                 executable_path=os.environ.get("CHROME_PATH"))
 
 
+class Blocked(RuntimeError):
+    """AEGEAN's bot protection refused the page: stop at once, retrying only makes it worse."""
+
+
+def _check_blocked(page):
+    if "Access Denied" in page.inner_text("body")[:300]:
+        raise Blocked("AEGEAN answered 'Access Denied' (bot protection). Stopped; wait some hours before the next run.")
+
+
 def _search(page, orig, dest, start):
     """Fill the one-way award search and land on the flight list of day `start`."""
     page.goto(SEARCH_URL)
+    _check_blocked(page)
     page.wait_for_selector("#AirportFromSelect", timeout=30000)
     if "Available award miles" not in page.inner_text("body"):
         raise RuntimeError("Not logged in to AEGEAN: run `python award_collector.py login` first")
@@ -176,6 +186,7 @@ def collect_leg(page, orig, dest, start, end, log=say):
             page.wait_for_timeout(1200)
             yield iso, parse_flights(page.inner_text("body"))
         except Exception as e:  # day did not load: report it, the next run retries
+            _check_blocked(page)  # unless AEGEAN is refusing us, then the whole run stops
             log(f"{iso} {type(e).__name__}")
             yield iso, None
         page.wait_for_timeout(1500)  # keep it slow
@@ -238,7 +249,10 @@ if __name__ == "__main__":
     a.add_argument("--days", type=int, default=DAYS)
     a = a.parse_args()
     if a.mode == "fetch":
-        fetch([tuple(x.split("-")) for x in a.legs or ["ATH-FRA", "FRA-ATH", "ATH-ZRH", "ZRH-ATH"]], a.days)
+        try:
+            fetch([tuple(x.split("-")) for x in a.legs or ["ATH-FRA", "FRA-ATH", "ATH-ZRH", "ZRH-ATH"]], a.days)
+        except Blocked as e:  # partial results are already saved by fetch()
+            raise SystemExit(f"BLOCKED: {e}")
     else:
         run(a.mode)
 

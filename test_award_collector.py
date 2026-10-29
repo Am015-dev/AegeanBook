@@ -88,3 +88,12 @@ def test_append_history_keeps_snapshots_and_prunes(tmp_path):
     ac.append_history([row("2026-10-29T07:00:00", 2)], p, keep_days=90, today=date(2026, 10, 29))  # first snapshot is now > 90 days old
     ac.append_history([row("2026-10-30T07:00:00", 3)], p, keep_days=90, today=date(2026, 10, 30))
     assert [r["miles"] for r in __import__("csv").DictReader(open(p))] == ["2", "3"]
+
+
+def test_access_denied_stops_the_run():
+    import pytest
+    page = type("P", (), {"inner_text": lambda self, sel: "Access Denied\nYou don't have permission to access ..."})()
+    with pytest.raises(ac.Blocked):
+        ac._check_blocked(page)
+    ok = type("P", (), {"inner_text": lambda self, sel: "Available award miles 52,513"})()
+    ac._check_blocked(ok)  # a normal page passes
