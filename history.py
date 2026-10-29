@@ -33,6 +33,34 @@ def append_changes(path, rows, key, fields):
     return len(new)
 
 
+def export_excel(sheets):
+    """The whole history as one .xlsx (bytes): `sheets` is {sheet name: csv path}; every row, newest recording first."""
+    import io
+
+    import pandas as pd  # only here: the daily GitHub job imports this module without pandas
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        for name, path in sheets.items():
+            have = os.path.exists(path) and os.path.getsize(path) > 0
+            df = pd.read_csv(path) if have else pd.DataFrame({"info": ["No history yet"]})
+            if have and "fetched" in df:
+                df = df.sort_values("fetched", ascending=False)
+            df.to_excel(w, sheet_name=name, index=False)
+    return buf.getvalue()
+
+
+def export_zip(paths):
+    """The raw CSV files, zipped (bytes); files that do not exist yet are skipped."""
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in paths:
+            if os.path.exists(p):
+                z.write(p, arcname=os.path.basename(p))
+    return buf.getvalue()
+
+
 if __name__ == "__main__":  # self-check
     import tempfile
     p = os.path.join(tempfile.mkdtemp(), "h.csv")

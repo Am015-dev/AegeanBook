@@ -1,11 +1,13 @@
 """Database: the permanent history kept in the repo, every cash fare, award miles value and hotel price ever recorded. The app's own cache
 only keeps a few days; these files (data/history_*.csv, data/award_history.csv) are never trimmed."""
 import os
+from datetime import date
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import history
 from ui import BUSINESS, ECONOMY, GRID, INK, MUTED, excel_bytes, kpis
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
@@ -101,6 +103,21 @@ def section(name, cfg):
 st.markdown('<div class="route"><span class="code">Database</span></div>'
             '<p class="sub">Every price and miles value recorded so far, kept in GitHub. Nothing is deleted after 5 days.</p>', unsafe_allow_html=True)
 overview()
+FILES = {name: os.path.join(DATA, cfg["file"]) for name, cfg in SETS.items()}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def export(stamp):
+    """Both downloads, built once per version of the files (`stamp` is their modification times) instead of on every rerun."""
+    return history.export_excel(FILES), history.export_zip(FILES.values())
+
+
+xlsx, zipped = export(tuple(os.path.getmtime(p) if os.path.exists(p) else 0 for p in FILES.values()))
+d1, d2 = st.columns(2)
+d1.download_button("Download the whole database (Excel)", xlsx, f"aegean_database_{date.today():%Y-%m-%d}.xlsx", width="stretch",
+                   help="Every cash fare, award miles value and hotel price ever recorded: one sheet each.")
+d2.download_button("Download all CSV files (zip)", zipped, f"aegean_database_{date.today():%Y-%m-%d}.zip", mime="application/zip", width="stretch",
+                   help="The raw files as they are stored in GitHub.")
 for tab, (name, cfg) in zip(st.tabs(list(SETS)), SETS.items()):
     with tab:
         section(name, cfg)

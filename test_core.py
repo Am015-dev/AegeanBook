@@ -492,3 +492,18 @@ def test_database_page_renders_and_keeps_only_changes():
     exec(src[src.index("def changes_only"):src.index("def overview")], {"pd": pd}, ns)  # the pure helper, without running the page
     df = pd.DataFrame({"day": ["d"] * 4, "fetched": ["t1", "t2", "t3", "t4"], "price": [100.0, 100.0, 90.0, 90.0]})
     assert list(ns["changes_only"](df, ["day"], "price").fetched) == ["t1", "t3"]
+
+
+def test_export_whole_database(tmp_path):
+    import io
+    import zipfile
+    import pandas as pd
+    import history
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    a.write_text("day,price,fetched\nd1,100,2026-10-29T07:00:00\nd1,90,2026-10-30T07:00:00\n")
+    xl = pd.read_excel(io.BytesIO(history.export_excel({"Cash fares": str(a), "Hotels": str(b)})), sheet_name=None)  # b does not exist yet
+    assert list(xl) == ["Cash fares", "Hotels"]
+    assert list(xl["Cash fares"].price) == [90, 100]  # all rows, newest recording first
+    assert list(xl["Hotels"].columns) == ["info"]
+    z = zipfile.ZipFile(io.BytesIO(history.export_zip([str(a), str(b)])))
+    assert z.namelist() == ["a.csv"] and b"d1,90" in z.read("a.csv")  # the missing file is skipped
