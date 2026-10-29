@@ -650,10 +650,23 @@ def test_pass_card_shows_the_numbers_and_the_unpriced_benefits():
     assert "Free changes".lower() in html.lower() and "Worth it on price" in html
 
 
-def test_aegean_pass_section_appears_once_a_price_is_entered():
+def test_aegean_pass_section_appears_once_a_price_is_entered(tmp_path, monkeypatch):
+    import csv
     import os
+    from datetime import datetime
     from streamlit.testing.v1 import AppTest
     page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    # the page needs cash fares: seed its own (the autouse fixture blocks the repo's CSVs, and a fresh CI database starts empty)
+    daily = tmp_path / "daily.csv"
+    with open(daily, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])
+        for i in range(1, 31):
+            d = (date.today() + timedelta(i)).isoformat()
+            w.writerows([[d, "ATH", "FRA", "economy", 100 + (i % 5) * 40, "calendar", datetime.now().isoformat(timespec="seconds"), 1],
+                         [d, "ATH", "FRA", "business", 300, "calendar", datetime.now().isoformat(timespec="seconds"), 1]])
+    monkeypatch.setattr(db, "DAILY", str(daily))
+    monkeypatch.chdir(tmp_path)  # its own tracker.db
     at = AppTest.from_file(page, default_timeout=90).run()
     assert not at.exception and "Is the Aegean Pass worth it?" in " ".join(m.value for m in at.markdown)
     assert "Aegean Pass, booked" not in " ".join(m.value for m in at.markdown)       # no price yet: only the prompt
