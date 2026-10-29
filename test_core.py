@@ -110,3 +110,18 @@ def test_dead_network_gives_up_fast(monkeypatch):
     d0 = date(2026, 11, 1)
     rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "FRA"))
     assert len(rows) == 60 and all(r[4] == "error" for r in rows) and any("Gave up" in r[5] for r in rows)
+
+
+def test_rate_limit_stops_everything_immediately(monkeypatch):
+    calls = []
+
+    def limited(*a):
+        calls.append(1)
+        raise RuntimeError("SearchHTTPError: HTTP 429")
+    monkeypatch.setattr(collector, "fetch_cabin", limited)
+    monkeypatch.setattr(collector, "fetch_day", limited)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    d0 = date(2026, 11, 1)
+    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "FRA"))
+    assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
+    assert len(calls) <= 2  # only the two calendar calls; no day-by-day hammering

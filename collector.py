@@ -7,7 +7,7 @@ from fli.models import (Airline, Airport, DateSearchFilters, FlightSearchFilters
                         SeatType)
 from fli.search import SearchDates, SearchFlights
 
-from par import parallel
+from par import RATE_LIMITED, parallel
 
 SEATS = {"economy": SeatType.ECONOMY, "business": SeatType.BUSINESS}
 
@@ -46,8 +46,14 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
     one slower last pass."""
     days = [start + timedelta(i) for i in range((end - start).days + 1)]
     todo = [c for c in cabins if any((d.isoformat(), c) not in skip for d in days)]
-    pending = []
+    pending, limited = [], False
     for cabin, grid, err in parallel(todo, lambda c: fetch_cabin(orig, dest, c, start, end, nonstop), 2):
+        if err and "429" in err:  # rate-limited: do not hammer Google with 60 more lookups
+            for d in days:
+                if (d.isoformat(), cabin) not in skip:
+                    yield d, cabin, None, "", "error", RATE_LIMITED
+            limited = True
+            continue
         grid = {} if err else grid
         for d in days:
             if (d.isoformat(), cabin) in skip:
@@ -56,6 +62,9 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
                 yield d, cabin, grid[d.isoformat()], "calendar", "ok", None
             else:
                 pending.append((d, cabin))
+
+    if limited:
+        return
 
     def look(a):
         r = fetch_day(orig, dest, a[1], a[0], nonstop)

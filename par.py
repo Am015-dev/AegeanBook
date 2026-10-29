@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 GAVE_UP = "Gave up: nothing worked in the first {n} lookups, so Google or the network is not answering."
+RATE_LIMITED = ("Gave up: Google is rate-limiting this server (HTTP 429, too many requests). Retrying makes it worse, "
+                "so the update stopped. Try again in an hour, or run the app on your own computer.")
 
 
 def parallel(items, fn, workers=3, retries=2, give_up_after=None):
@@ -18,6 +20,8 @@ def parallel(items, fn, workers=3, retries=2, give_up_after=None):
                 return item, fn(item), None
             except Exception as e:
                 err = f"{type(e).__name__}: {e}"
+                if "429" in err:  # rate-limited: retrying only makes it worse
+                    break
                 time.sleep(0.5 + random.random())
         return item, None, err
 
@@ -31,10 +35,11 @@ def parallel(items, fn, workers=3, retries=2, give_up_after=None):
             item, r, e = f.result()
             answered, failed = answered + (e is None), failed + (e is not None)
             yield item, r, e
-            if give_up_after and not answered and failed >= give_up_after:
+            limited = bool(e) and "429" in e
+            if limited or (give_up_after and not answered and failed >= give_up_after):
                 for g, item in futs.items():
                     if g not in finished:
-                        yield item, None, GAVE_UP.format(n=failed)
+                        yield item, None, RATE_LIMITED if limited else GAVE_UP.format(n=failed)
                 return
     finally:  # a Streamlit rerun closes the generator early: don't wait for the queue
         ex.shutdown(wait=False, cancel_futures=True)
@@ -61,4 +66,12 @@ if __name__ == "__main__":  # self-check
         raise ConnectionError("no network")
     res = list(parallel(range(20), dead, workers=2, retries=0, give_up_after=4))
     assert len(res) == 20 and all(e for _, _, e in res) and any(e.startswith("Gave up") for _, _, e in res)
+
+    calls = {"n": 0}
+
+    def limited(x):
+        calls["n"] += 1
+        raise RuntimeError("HTTP 429")
+    res = list(parallel(range(10), limited, workers=2, retries=2))
+    assert len(res) == 10 and calls["n"] <= 3 and all("429" in e for _, _, e in res)  # no retries, stops at once
     print("ok")
