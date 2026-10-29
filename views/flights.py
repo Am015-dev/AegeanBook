@@ -18,7 +18,7 @@ with st.expander("Search settings", expanded=False):
     c2 = st.columns(2)
     nonstop = c2[0].checkbox("Nonstop flights only", value=True)
     recheck = c2[1].checkbox("Re-check days already saved")
-    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Fetching takes seconds. "
+    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Busy routes take seconds; quiet routes are checked day by day and can take a few minutes. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
 MAX_DAYS = 330  # Google's calendar reaches about 11 months ahead
