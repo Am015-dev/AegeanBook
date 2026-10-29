@@ -14,6 +14,16 @@ Self-check: `python collector.py`. Scraping may break whenever Google changes it
     python award_collector.py login    # log in once, no password stored
     python award_collector.py record   # do one manual Business award search, then press Enter
 
+### Award miles (AEGEAN-operated flights, Economy and Business, next 90 days, four legs)
+
+    python award_collector.py fetch                      # ATH-FRA FRA-ATH ATH-ZRH ZRH-ATH, or name legs: fetch ATH-FRA
+    award_daily.bat                                      # fetch + commit/push data/daily_award.csv (Task Scheduler, daily)
+
+The award search needs your AEGEAN login, so it only runs on your own computer (close every Chrome window using `.aegean_profile`
+first). It writes `data/daily_award.csv`; the deployed app loads that file, so pushing it is what updates the live app. On your
+own computer the Awards tab also has a **Collect award miles now** button. A day with empty miles was checked and has no award
+seats; "nonstop" rows only count nonstop AEGEAN flights, the other rows any all-AEGEAN itinerary.
+
 Send/inspect `award_recording.json` (review for personal data first) to build the automatic daily search.
 The hotel page also uses Xotelo (free, unofficial) for a cheap-day calendar and Booking.com prices (`xotelo.py`, self-check `python xotelo.py`).
 Saved prices are kept 5 days (`db.RETENTION_DAYS`) and reused; older rows are deleted on start.

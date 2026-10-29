@@ -9,6 +9,7 @@ RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 5))  # raise it when runni
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
+CREATE TABLE IF NOT EXISTS award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT);
 CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
 CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT);
 CREATE TABLE IF NOT EXISTS runs(page TEXT, label TEXT, started TEXT, seconds REAL, total INT, ok INT, empty INT, failed INT, error TEXT);
@@ -80,6 +81,23 @@ def load_daily(db, path=None):
                                                                  fetched, None, len(got), priced, len(got) - priced, 0, None))
 
 
+DAILY_AWARD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_award.csv")
+
+
+def load_daily_award(db, path=None):
+    """Load the AEGEAN award miles collected on the owner's computer (award_collector.py fetch), once per file version.
+    A day with no award seats has an empty miles cell: it was checked, there was nothing."""
+    path = path or DAILY_AWARD
+    if not os.path.exists(path):
+        return
+    with open(path, newline="") as f:
+        rows = list(csv.DictReader(f))
+    for fetched in {r["fetched"] for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM award_miles")}:
+        db.executemany("INSERT INTO award_miles VALUES(?,?,?,?,?,?,?)",
+                       [(r["day"], r["orig"], r["dest"], r["cabin"], int(r["miles"]) if r["miles"] else None, int(r["nonstop"]), fetched)
+                        for r in rows if r["fetched"] == fetched])
+
+
 DAILY_HOTEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_hotel.csv")
 
 
@@ -120,7 +138,8 @@ def connect(path="tracker.db"):
         pass
     load_daily(db)
     load_daily_hotel(db)
-    for t in ("prices", "hotel", "heat", "booking"):
+    load_daily_award(db)
+    for t in ("prices", "hotel", "heat", "booking", "award_miles"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     db.execute("DELETE FROM runs WHERE started < ?", ((datetime.now() - timedelta(days=30)).isoformat(),))  # stats: 30 days
     db.commit()

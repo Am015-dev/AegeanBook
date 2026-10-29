@@ -365,3 +365,15 @@ def test_daily_hotel_retries_until_complete_and_app_loads_it(tmp_path, monkeypat
     assert [t.execute(f"SELECT COUNT(*) FROM {x}").fetchone()[0] for x in ("hotel", "booking", "heat")] == [90, 90, 3]
     assert db.saved_hotel_days(t, "Steigenberger Frankfurt", "Frankfurter Hof", 1, 2, date.today() + timedelta(1),
                                date.today() + timedelta(90)) == {(date.today() + timedelta(i)).isoformat() for i in range(1, 91)}
+
+
+def test_load_daily_award(tmp_path):
+    p = tmp_path / "a.csv"
+    p.write_text("day,orig,dest,cabin,miles,nonstop,fetched\n"
+                 "2026-11-11,ATH,FRA,economy,9032,1,2026-10-29T10:00:00\n"
+                 "2026-11-11,ATH,FRA,business,,1,2026-10-29T10:00:00\n")  # empty miles: checked, no award seats
+    t = db.connect(str(tmp_path / "t.db"))
+    t.execute("DELETE FROM award_miles")  # connect() already loaded the repo's real data/daily_award.csv
+    db.load_daily_award(t, str(p))
+    db.load_daily_award(t, str(p))  # loading the same file twice adds nothing
+    assert t.execute("SELECT COUNT(*), COUNT(miles), MAX(miles) FROM award_miles").fetchone() == (2, 1, 9032)

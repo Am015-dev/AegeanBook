@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -12,6 +15,31 @@ from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips,
 db = connect()
 today = date.today()
 HORIZON = 330  # Google's calendar reaches about 11 months ahead; later days would look like "no flight"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+AWARD_PROFILE = os.path.join(ROOT, ".aegean_profile")  # exists only after the one-time `python award_collector.py login`
+AWARD_LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]  # the legs collect_daily.py also tracks
+AWARD_DAYS = 90
+
+
+def award_job():
+    """Button: run award_collector.py on this computer for the four legs. Its `DAY <iso> ok|error` lines drive the progress bar."""
+    key = "awards|all"
+    if st.button("Collect award miles now (90 days, 4 routes, a few minutes)", key="aw-go"):
+        def work(j):
+            pr = subprocess.Popen([sys.executable, "award_collector.py", "fetch", *[f"{o}-{d}" for o, d in AWARD_LEGS], "--days", str(AWARD_DAYS)],
+                                  cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+            last = ""
+            for line in pr.stdout:
+                last = line.strip() or last
+                if line.startswith("DAY "):
+                    record(j, "ok" if line.split()[-1] == "ok" else "error", "A day did not load; the next run retries it")
+                if j["cancel"]:
+                    pr.terminate()
+                    return
+            if pr.wait():
+                j["error"] = last[-300:]
+        start_job(key, len(AWARD_LEGS) * AWARD_DAYS, work, "{n} days.", "checked", "Award miles")
+    track(key)
 
 with st.container(border=True):
     c = st.columns(2)
@@ -86,6 +114,14 @@ for k in ("economy", "business"):
         latest[k] = float("nan")
 a = pd.read_sql(f"SELECT day, miles, taxes FROM awards {q}", db, params=args).set_index("day")
 out = days.join(latest).join(a)
+am = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
+                 db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
+am = am.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="miles") if len(am) else pd.DataFrame()
+out = out.join(am.rename(columns={"economy": "econ_miles", "business": "biz_miles"}))
+for k in ("econ_miles", "biz_miles"):
+    if k not in out:
+        out[k] = float("nan")
+out["miles"] = out.miles.fillna(out.biz_miles)  # typed award miles win; otherwise the collected Business miles
 out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
 
 
@@ -155,7 +191,19 @@ with t1:
         st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear),
                         width="stretch", config={"displayModeBar": False})
 with t2:
-    st.caption("Business Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN. AEGEAN offers no public award data.")
+    seen_aw = am.index.size if len(am) else 0
+    st.caption(f"AEGEAN award miles (AEGEAN-operated flights only, {'nonstop' if nonstop else 'any stops'}): {seen_aw} days collected for "
+               f"{orig} → {dest} in this range. A day with no miles has no award seats. Collected daily on the owner's computer.")
+    if am.size:
+        st.dataframe(am.rename(columns={"economy": "Economy miles", "business": "Business miles"}), width="stretch")
+    hist = os.path.join(ROOT, "data", "award_history.csv")
+    if os.path.exists(hist):  # every daily snapshot, all four legs, as one sheet
+        h = pd.read_csv(hist).rename(columns={"fetched": "collected", "miles": "award miles"}).sort_values(["collected", "orig", "dest", "day", "cabin"])
+        st.download_button("Download award history (Excel, all routes)", excel_bytes(h.set_index("collected")),
+                           "aegean_award_history.xlsx", help=f"{h.collected.str[:10].nunique()} daily snapshots, last {h.collected.max()[:10]}")
+    if os.path.isdir(AWARD_PROFILE):  # only where the AEGEAN login lives: your own computer
+        award_job()
+    st.caption("Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN to override the collected Business miles.")
     ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
                         column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
                                        "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
@@ -163,7 +211,8 @@ with t2:
     save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
 with t3:
     table = out.rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
-                                "taxes": "Taxes €", "value": "€ per 1,000 mi"})
+                                "taxes": "Taxes €", "value": "€ per 1,000 mi",
+                                "econ_miles": "Economy award miles", "biz_miles": "Business award miles"})
     checked = set(zip(seen.day, seen.cabin))
     for cabin in ("economy", "business"):  # say why a price is missing: no flight, or never checked
         table[f"{cabin.capitalize()} status"] = ["priced" if pd.notna(out.loc[d, cabin]) else "no flight" if (d, cabin) in checked
