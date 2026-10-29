@@ -424,7 +424,7 @@ def test_award_view_headline_and_table():
     import pandas as pd
     import award_view as av
     s = pd.Series({"2026-11-07": 9032.0, "2026-11-08": float("nan"), "2026-11-09": 9032.0})
-    assert av.best_award(s, True) == ("9,032 miles", "Sat 07 Nov \u00b7 same on all 2 days with seats")
+    assert av.best_award(s, True) == ("9,032 miles", "the same on each of 2 days with seats, from Sat 07 Nov")
     mixed = pd.Series({"2026-11-07": 9032.0, "2026-11-08": 15000.0, "2026-11-09": 9032.0})
     assert av.best_award(mixed, True) == ("9,032 miles", "Sat 07 Nov \u00b7 2 days at this level \u00b7 3 days with seats")
     assert av.best_award(pd.Series({"2026-11-07": float("nan")}), True)[1] == "No award seats on these days"
@@ -787,4 +787,31 @@ def test_insights_page_renders_with_its_takeaways(tmp_path, monkeypatch):
     assert "We started recording" in infos or "No fare on this route has changed" in infos or any(s.key == "ins-day" for s in at.selectbox)
     at.radio(key="ins-cabin").set_value("business").run()
     assert not at.exception and "business" in " ".join(c.value for c in at.caption)
+
+
+def test_advice_names_a_shortlist_of_days_not_one_arbitrary_day():
+    import pandas as pd
+    import best_days as bd
+    nan = float("nan")
+    cash = pd.Series({"2026-11-03": 120.0, "2026-11-04": 86.0, "2026-11-05": 90.0, "2026-11-06": 86.0, "2026-11-07": 200.0, "2026-11-08": 88.0, "2026-11-09": 86.0})
+    # three days tie at 86 and two more are within 10%: the shortlist names three and counts the rest, earliest first among equals
+    assert bd.cheapest_days(cash, 0.10) == "Wed 04 Nov, Fri 06 Nov, Mon 09 Nov and 2 more within 10%"
+    assert bd.cheapest_days(cash, 0.0) == "Wed 04 Nov, Fri 06 Nov, Mon 09 Nov"             # exact: only the ties, none left over
+    assert bd.cheapest_days(cash, 0.0, n=2) == "Wed 04 Nov, Fri 06 Nov and 1 more at this price"
+    assert bd.cheapest_days(pd.Series(dtype=float), 0.1) == ""
+    # the same 9,032 miles on every seat day: the best days are where cash is dearest, never just the first day with a seat
+    miles = pd.Series({d: (9032.0 if d != "2026-11-03" else nan) for d in cash.index})       # 3 Nov has no seat
+    assert bd.best_miles_days(cash, miles) == "best days to use them: Sat 07 Nov (cash \u20ac200), Thu 05 Nov (cash \u20ac90), Sun 08 Nov (cash \u20ac88)"
+    assert bd.best_miles_days(cash, pd.Series(dtype=float)) == ""
+    # taxes come off the saving: a 150 euro tax on the 200 euro day sinks it below the cheaper days, and ties keep their date order
+    tax = pd.Series({d: (150.0 if d == "2026-11-07" else 0.0) for d in cash.index})
+    assert bd.best_miles_days(cash, miles, tax) == "best days to use them: Thu 05 Nov (cash \u20ac90), Sun 08 Nov (cash \u20ac88), Wed 04 Nov (cash \u20ac86)"
+    # return trips: the shortlist of pairs, and the pairs where seats both ways replace the most cash
+    trips = pd.DataFrame([("economy", "2026-11-07", "2026-11-14", 7, 50.0, 60.0, 110.0), ("economy", "2026-11-08", "2026-11-15", 7, 60.0, 55.0, 115.0),
+                          ("economy", "2026-11-09", "2026-11-16", 7, 200.0, 250.0, 450.0)], columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
+    assert bd.cheapest_pairs(trips, 0.10) == "Sat 07 Nov \u2192 Sat 14 Nov, Sun 08 Nov \u2192 Sun 15 Nov"
+    out_m = pd.Series({"2026-11-07": 9032.0, "2026-11-09": 9032.0})
+    back_m = pd.Series({"2026-11-14": 9032.0, "2026-11-16": 9032.0})
+    cash_of = {(r.depart, r.back): float(r.total) for r in trips.itertuples()}
+    assert bd.best_miles_pairs(out_m, back_m, [7], cash_of).startswith("best trips to use them: Mon 09 Nov \u2192 Mon 16 Nov (cash \u20ac450), Sat 07 Nov \u2192 Sat 14 Nov (cash \u20ac110)")
 

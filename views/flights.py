@@ -9,6 +9,7 @@ import streamlit as st
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options
+from best_days import best_miles_days, best_miles_pairs, cheapest_days, cheapest_pairs
 from award_calendar import STYLE as CAL_STYLE, calendar_html, cells as cal_cells
 from award_view import best_award, load_award, miles_table, one_way_plan, return_plan
 from jobs import record, start_job, track
@@ -325,16 +326,21 @@ for name, colour, cash_col, miles_col, taxes_col in (("Economy", ECONOMY, "econo
     ow = one_way_plan(view, cash_col, miles_col, taxes_col)
     ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
                       view[taxes_col], bamt.get(cash_col, empty)) if nights else None
-    if nights:  # a return trip: round-trip totals and the pair of days that has miles both ways
-        tc_ = trips[trips.cabin == cash_col].total
-        cash_in = dict(min=float(tc_.min()), typical=float(tc_.median()), when=f"{day(ret['cash'][0])} → {day(ret['cash'][1])}") if len(tc_) else None
+    # the advice names a shortlist of days across the whole range, never one arbitrary day: the cheapest few for cash, and for miles (which cost
+    # the same on every seat day) the days where a seat replaces the most cash
+    if nights:  # a return trip: round-trip totals and the pairs of days that have miles both ways
+        trips_cabin = trips[trips.cabin == cash_col]
+        tc_ = trips_cabin.total
+        cash_in = dict(min=float(tc_.min()), typical=float(tc_.median()), when=cheapest_pairs(trips_cabin, tol)) if len(tc_) else None
         mm = ret.get("miles")
-        miles_in = dict(miles=mm[3], taxes=mm[5], when=f"{day(mm[0])} → {day(mm[1])}") if mm else None
+        cash_of = {(t.depart, t.back): float(t.total) for t in trips_cabin.itertuples()}
+        miles_in = dict(miles=mm[3], taxes=mm[5], when=best_miles_pairs(view[miles_col], bam.get(cash_col, empty), nights, cash_of, view[taxes_col],
+                                                                       bamt.get(cash_col, empty))) if mm else None
     else:
         c_ = view[cash_col].dropna()
-        cash_in = dict(min=float(c_.min()), typical=float(c_.median()), when=day(c_.idxmin())) if len(c_) else None
+        cash_in = dict(min=float(c_.min()), typical=float(c_.median()), when=cheapest_days(view[cash_col], tol)) if len(c_) else None
         mm = ow.get("miles")
-        miles_in = dict(miles=mm[1], taxes=mm[3], when=day(mm[0])) if mm else None
+        miles_in = dict(miles=mm[1], taxes=mm[3], when=best_miles_days(view[cash_col], view[miles_col], view[taxes_col])) if mm else None
     pass_in, notes = [], []
     if cash_col == "economy":  # each pass against the dates shown above that could be booked that far ahead
         for (pname, _, days_ahead), price in zip(PASSES, pass_prices):
@@ -353,4 +359,5 @@ for ui_col, (name, colour, opts, notes) in zip(st.columns(2, gap="medium"), card
     with ui_col:
         st.markdown(adv_card(name, colour, opts, "round trip" if nights else "flight", notes), unsafe_allow_html=True)
 st.caption("Cash fares come from Google Flights and award miles from AEGEAN. "
-           + ("Showing round trips for the stay chosen at the top." if nights else "Showing one-way flights; set Trip to Return at the top for round trips."))
+           + ("Showing round trips for the stay chosen at the top. " if nights else "Showing one-way flights; set Trip to Return at the top for round trips. ")
+           + f"Based on the {len(out)} days chosen at the top: choose 90 days there to consider everything saved.")

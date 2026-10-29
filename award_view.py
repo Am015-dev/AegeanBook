@@ -16,8 +16,8 @@ def best_award(miles, collected):
     low = s.min()
     at = s[s == low]
     when = f"{pd.Timestamp(at.index[0]):%a %d %b}"
-    if len(at) == len(s) and len(s) > 1:  # no need to say it twice
-        return f"{int(low):,} miles", f"{when} · same on all {len(s)} days with seats"
+    if len(at) == len(s) and len(s) > 1:  # the same miles on every seat day: the first of them is not "the best day", so say how many instead
+        return f"{int(low):,} miles", f"the same on each of {len(s)} days with seats, from {when}"
     more = f" · {len(at)} days at this level" if len(at) > 1 else ""
     return f"{int(low):,} miles", f"{when}{more} · {len(s)} days with seats"
 
