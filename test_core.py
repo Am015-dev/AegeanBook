@@ -714,3 +714,40 @@ def test_suggestion_explains_why_a_slightly_cheaper_pass_is_not_the_advice():
     assert "Pay cash \u00b7 \u20ac86 per flight" in html and "The 30-day pass would be about \u20ac6 cheaper, but it is a commitment" in html
     assert "Flexible dates" in html and "Fixed dates" in html and "30-day pass \u00b7 \u20ac80 per flight" in html   # for fixed dates the pass wins (80 < 98.1)
 
+
+def test_route_board_summarises_each_route_and_marks_the_winners(tmp_path):
+    from datetime import date
+    import pandas as pd
+    import db as appdb
+    import route_board as rb
+    t = appdb.connect(str(tmp_path / "t.db"))
+    t.execute("DELETE FROM prices"); t.execute("DELETE FROM award_miles")
+    price = lambda o, d, day, cabin, p, f="t1": t.execute("INSERT INTO prices(day, orig, dest, cabin, price, airlines, fetched, nonstop) VALUES(?,?,?,?,?,'x',?,1)", (day, o, d, cabin, p, f))
+    seat = lambda o, d, day, cabin, m, tax=None: t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,1,'t1',?)", (day, o, d, cabin, m, tax))
+    for day, p in (("2026-11-07", 168.0), ("2026-11-18", 86.0), ("2026-11-23", 202.0)):
+        price("ATH", "FRA", day, "economy", p)
+    price("ATH", "FRA", "2026-11-18", "economy", 79.0, "t2")            # the newer recording of the same day wins
+    price("ATH", "FRA", "2026-11-12", "business", 239.0)
+    for day, p in (("2026-11-07", 140.0), ("2026-11-20", 120.0)):
+        price("ATH", "ZRH", day, "economy", p)
+    seat("ATH", "FRA", "2026-11-23", "economy", 9032, 30.0); seat("ATH", "FRA", "2026-11-07", "economy", 9032, 30.0)   # saved latest-day first on purpose
+    seat("ATH", "ZRH", "2026-11-20", "economy", 8152)
+    t.commit()
+    prices, miles = rb.load(t, date(2026, 11, 1), date(2026, 11, 30), True)
+    s = rb.summarise(prices, miles).set_index("route")
+    fra, zrh = s.loc["ATH \u2192 FRA"], s.loc["ATH \u2192 ZRH"]
+    assert fra.econ_cash == 79.0 and fra.econ_cash_day == "2026-11-18" and fra.econ_typical == 168.0   # cheapest 79 (newest), median of 79/168/202
+    assert fra.biz_cash == 239.0 and fra.econ_miles == 9032 and fra.econ_seat_days == 2
+    assert fra.econ_miles_day == "2026-11-07"   # the same 9,032 on 7 and 23 Nov: the earliest day is named, whatever order they were saved in
+    assert round(fra.econ_value, 1) == 19.0 and fra.econ_value_day == "2026-11-23"   # (202 - 30) / 9,032 * 1000 on the dearest cash day
+    assert zrh.econ_cash == 120.0 and zrh.econ_miles == 8152 and round(zrh.econ_value, 1) == 14.7   # no taxes known: 120 / 8,152 * 1000
+    win = rb.winners(s.reset_index())
+    assert win["econ_cash"] == "ATH \u2192 FRA" and win["econ_miles"] == "ATH \u2192 ZRH" and win["econ_value"] == "ATH \u2192 FRA" and "biz_miles" not in win
+    html = rb.card_html(s.reset_index().iloc[0].to_dict(), win)
+    assert "\u20ac79</b>" in html and "9,032 miles" in html and "best" in html and "not collected yet" in html   # business award has no seats yet
+    # an older database without the taxes column and one without the award table still load
+    old = __import__("sqlite3").connect(":memory:")
+    old.execute("CREATE TABLE prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT)")
+    p2, m2 = rb.load(old, date(2026, 11, 1), date(2026, 11, 30), True)
+    assert p2.empty and m2.empty
+
