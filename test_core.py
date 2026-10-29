@@ -439,7 +439,7 @@ def test_booking_strategy_one_way_and_return():
     view = pd.DataFrame({"economy": [120.0, 86.0, float("nan")], "econ_miles": [float("nan"), 9032.0, 9032.0]},
                         index=["2026-11-07", "2026-11-09", "2026-11-14"])
     ow = av.one_way_plan(view, "economy", "econ_miles")
-    assert ow == {"cash": ("2026-11-09", 86.0), "miles": ("2026-11-09", 9032.0, 86.0, None)}
+    assert ow["cash"] == ("2026-11-09", 86.0) and ow["miles"] == ("2026-11-09", 9032.0, 86.0, None) and ow["best"][:4] == ("2026-11-09", 9032.0, 86.0, None)
     assert round(av.per_thousand(86.0, 9032.0), 1) == 9.5
     html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
     assert "On Mon 09 Nov: pay cash" in html and "below your" in html  # 9.5 per 1,000 is below 10 (cash and miles on the same day: one line)
@@ -465,7 +465,7 @@ def test_strategy_separates_flexible_dates_from_being_tied_to_the_miles_day():
                         index=["2026-11-07", "2026-11-18", "2026-11-19"])
     html = av.plan_html("Economy", "#2563C9", av.one_way_plan(view, "economy", "econ_miles"), None, 10.0)
     assert "Flexible dates: pay cash" in html   # 86 / 9,032 = 9.5 per 1,000, below 10
-    assert "Tied to Sat 07 Nov: use miles" in html   # 168 / 9,032 = 18.6 per 1,000, above 10: miles beat cash on a day when cash is dear
+    assert "Best day for miles, Sat 07 Nov: use miles" in html   # 168 / 9,032 = 18.6 per 1,000, above 10: miles beat cash on a day when cash is dear
 
 
 def test_history_append_changes_only(tmp_path):
@@ -566,3 +566,25 @@ def test_freshness_levels_and_health_page(tmp_path):
     at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception
     assert "Data freshness" in " ".join(m.value for m in at.markdown) and len(at.success) + len(at.warning) + len(at.error) == 3
+
+
+def test_best_day_for_miles_is_where_cash_is_dearest_not_the_first_cheap_miles_day():
+    import pandas as pd
+    import award_view as av
+    # the same 9,032 miles on three days; cash is 90, 300 and 150: the miles replace the most money on the 300 day
+    view = pd.DataFrame({"economy": [90.0, 300.0, 150.0], "econ_miles": [9032.0, 9032.0, 9032.0]}, index=["2026-11-07", "2026-11-14", "2026-11-21"])
+    ow = av.one_way_plan(view, "economy", "econ_miles")
+    assert ow["miles"][0] == "2026-11-07"                      # the first of the equal cheapest-miles days (what 'lowest award' shows)
+    assert ow["best"][:3] == ("2026-11-14", 9032.0, 300.0) and round(ow["best"][4], 1) == 33.2   # but the best day to spend them
+    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
+    assert "Best day for miles, Sat 14 Nov: use miles" in html and "€33.2 per 1,000" in html
+    # taxes come off the saving: (300 - 30.44) / 9,032 * 1000
+    view["econ_taxes"] = 30.44
+    assert round(av.one_way_plan(view, "economy", "econ_miles", "econ_taxes")["best"][4], 1) == 29.8
+    # return: two outbound days with the same miles; the pair with the dearer cash total is the better use of miles
+    import pandas as pd
+    out_m, back_m = pd.Series({"2026-11-07": 9032.0, "2026-11-14": 9032.0}), pd.Series({"2026-11-14": 9032.0, "2026-11-21": 9032.0})
+    trips = pd.DataFrame([("economy", "2026-11-07", "2026-11-14", 7, 50.0, 60.0, 110.0), ("economy", "2026-11-14", "2026-11-21", 7, 200.0, 250.0, 450.0)],
+                         columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
+    rp = av.return_plan(trips, out_m, back_m, [7])
+    assert rp["cash"][3] == 110.0 and rp["best"][:2] == ("2026-11-14", "2026-11-21") and round(rp["best"][6], 1) == 24.9   # 450 / 18,064 * 1000

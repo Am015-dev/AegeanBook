@@ -276,6 +276,6 @@ for ui_col, (name, colour, cash_col, miles_col, taxes_col) in zip(st.columns(2, 
     with ui_col:
         st.markdown(plan_html(name, colour, one_way_plan(view, cash_col, miles_col, taxes_col), ret, per_k), unsafe_allow_html=True)
 st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is "
-           + ("the cash fare minus the cash taxes of the award ticket, per 1,000 miles." if has_taxes else
-                 "the cash fare per 1,000 miles, before the cash taxes an award ticket also costs (not collected for these days).")
+           + ("the cash fare minus the cash taxes of the award ticket, divided by the miles." if has_taxes else
+                 "the cash fare divided by the miles, before the cash taxes an award ticket also costs (not collected for these days).")
            + ("" if nights else " Set Trip to Return at the top to compare round trips too."))
