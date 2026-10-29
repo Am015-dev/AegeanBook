@@ -297,5 +297,5 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
     assert not at.exception
     st_page = AppTest.from_file(os.path.join(here, "views/stats.py"), default_timeout=60).run()
     text = " ".join(m.value for m in st_page.markdown)
-    assert not st_page.exception and "Updates" in text and "flights" in text
+    assert not st_page.exception and "Updates" in text and "Flights 1" in text
     jobs.JOBS.clear()
