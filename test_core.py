@@ -187,7 +187,7 @@ def test_every_page_loads(tmp_path, monkeypatch):
     from streamlit.testing.v1 import AppTest
     here = os.path.dirname(os.path.abspath(__file__))
     monkeypatch.chdir(tmp_path)
-    for page in ("views/flights.py", "views/hotel.py", "views/health.py"):
+    for page in ("views/flights.py", "views/hotel.py", "views/health.py", "views/stats.py"):
         at = AppTest.from_file(os.path.join(here, page), default_timeout=60).run()
         assert not at.exception, (page, at.exception)
 
@@ -255,3 +255,47 @@ def test_start_date_plus_window(tmp_path, monkeypatch):
     sub = " ".join(m.value for m in at.markdown if 'class="sub"' in m.value)
     assert f"{first:%a %d %b}" in sub and f"{first + timedelta(14):%a %d %b %Y}" in sub and "15 days" in sub, sub
     assert not at.exception
+
+
+
+def test_round_trips_pair_departures_with_returns():
+    import pandas as pd
+    import ui
+    out = pd.DataFrame({"economy": [100, None, 90], "business": [300, 320, None]}, index=["2026-11-01", "2026-11-02", "2026-11-03"])
+    back = pd.DataFrame({"economy": [80, 70, 60], "business": [250, None, 260]}, index=["2026-11-03", "2026-11-04", "2026-11-05"])
+    t = ui.round_trips(out, back, [2])
+    assert [(r.cabin, r.depart, r.back, r.total) for r in t.itertuples()] == [
+        ("economy", "2026-11-03", "2026-11-05", 150), ("economy", "2026-11-01", "2026-11-03", 180),
+        ("business", "2026-11-01", "2026-11-03", 550)]
+
+
+def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
+    """Offline: Google is faked. A return search fetches both directions, shows the cheapest pair, and is logged for Statistics."""
+    import os
+    from datetime import date as _date
+    from streamlit.testing.v1 import AppTest
+    here = os.path.dirname(os.path.abspath(__file__))
+    monkeypatch.chdir(tmp_path)
+
+    def grid(orig, dest, cabin, start, end, nonstop=True):  # outbound 100 € + day of month, way back 50 €; business x3
+        base = (100 if orig == "ATH" else 50) * (3 if cabin == "business" else 1)
+        return {(start + timedelta(i)).isoformat(): base + (start + timedelta(i)).day for i in range((end - start).days + 1)}
+    monkeypatch.setattr(collector, "fetch_cabin", grid)
+    at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
+    at.button_group(key="fl-trip").set_value("Return").run()
+    at.button_group(key="fl-win").set_value("15 days").run()
+    at.button[0].click().run()
+    deadline = time.time() + 20
+    while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:
+        time.sleep(0.2)
+    at.run()
+    first = _date.today() + timedelta(1)
+    days = [first + timedelta(i) for i in range(15)]
+    want = min((100 + d.day) + (50 + (d + timedelta(7)).day) for d in days)
+    cards = " ".join(m.value for m in at.markdown)
+    assert "CHEAPEST RETURN ECONOMY" in cards.upper() and f"€{want}" in cards and "7 nights" in cards, cards[:400]
+    assert not at.exception
+    st_page = AppTest.from_file(os.path.join(here, "views/stats.py"), default_timeout=60).run()
+    text = " ".join(m.value for m in st_page.markdown)
+    assert not st_page.exception and "Updates" in text and "Flights 1" in text
+    jobs.JOBS.clear()

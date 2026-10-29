@@ -109,7 +109,7 @@ if fetch:
 
     if total > 0:
         start_job(key, total, work, "{n} dates show no listing for a hotel matching that name. Check the name filter.",
-                  "with no listing")
+                  "with no listing", f"{filt} {start:%d %b}–{end:%d %b}")
     else:
         st.info("Every date in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)

@@ -182,3 +182,32 @@ def best_days(s, colour, label, limit=8):
     more = f'<span class="more">+{len(s) - limit} more</span>' if len(s) > limit else ""
     st.markdown(f'<div class="best"><span class="dot" style="background:{colour}"></span><span class="bl">{e(label)}</span>'
                 f'{chips}{more}</div>', unsafe_allow_html=True)
+
+
+def round_trips(out, back, nights, cabins=("economy", "business")):
+    """Every departure day in `out` paired with the return day `n` nights later in `back` (both priced), cheapest first.
+    out / back: frames indexed by iso day with one price column per cabin. Aegean prices one-way fares, so a return is the sum."""
+    rows = []
+    for d in out.index:
+        for n in nights:
+            r = (pd.Timestamp(d) + pd.Timedelta(days=n)).strftime("%Y-%m-%d")
+            if r not in back.index:
+                continue
+            for c in cabins:
+                o, b = out.at[d, c], back.at[r, c]
+                if pd.notna(o) and pd.notna(b):
+                    rows.append((c, d, r, n, o, b, o + b))
+    t = pd.DataFrame(rows, columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
+    return t.sort_values(["total", "depart"], kind="stable").reset_index(drop=True)
+
+
+def best_trips(t, colour, label, tolerance, limit=6):
+    """Chips with the round trips within `tolerance` of the cheapest total."""
+    if t.empty:
+        return
+    t = t[t.total <= t.total.min() * (1 + tolerance) + 1e-9]
+    chips = "".join(f'<span class="chip"><b>{e(f"{pd.Timestamp(r.depart):%a %d %b} → {pd.Timestamp(r.back):%a %d %b}")}</b>'
+                    f'€{r.total:.0f}</span>' for r in t.head(limit).itertuples())
+    more = f'<span class="more">+{len(t) - limit} more</span>' if len(t) > limit else ""
+    st.markdown(f'<div class="best"><span class="dot" style="background:{colour}"></span><span class="bl">{e(label)}</span>'
+                f'{chips}{more}</div>', unsafe_allow_html=True)

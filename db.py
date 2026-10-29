@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, pr
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
 CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
 CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT);
+CREATE TABLE IF NOT EXISTS runs(page TEXT, label TEXT, started TEXT, seconds REAL, total INT, ok INT, empty INT, failed INT, error TEXT);
 CREATE TABLE IF NOT EXISTS hotel(day TEXT, query TEXT, filt TEXT, nights INT, hotel TEXT, price REAL, fetched TEXT, adults INT DEFAULT 2);
 """
 
@@ -51,6 +52,13 @@ def save_awards(db, rows, orig, dest):
     db.commit()
 
 
+def log_run(db, page, label, started, seconds, j):
+    """One row per price update, for the Stats page."""
+    db.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?)", (page, label, started, round(seconds, 1), j["total"], j["ok"],
+                                                             j["empty"], j["failed"], j["error"] or (j["errors"] or [None])[0]))
+    db.commit()
+
+
 def connect(path="tracker.db"):
     db = sqlite3.connect(path, check_same_thread=False)
     db.executescript(SCHEMA)
@@ -65,6 +73,7 @@ def connect(path="tracker.db"):
         pass
     for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
+    db.execute("DELETE FROM runs WHERE started < ?", ((datetime.now() - timedelta(days=30)).isoformat(),))  # stats: 30 days
     db.commit()
     return db
 

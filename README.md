@@ -55,3 +55,11 @@ be on. Nothing is exposed to the public internet.
 - **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
 - **Cheap days:** "Cheap means within" keeps every day within 0–30 % of the cheapest price (a route often has several days
   at the same lowest fare); "Days of the week" limits cards, chips and chart to the weekdays you can travel.
+
+## Return trips and statistics
+
+- **Return:** choose Return and one or more stay lengths (Nights away). The app also fetches the way back and ranks every
+  departure + return pair by total price (two one-way fares, as Aegean prices them). See the Table tab for all pairs.
+- **Statistics page:** every price update of the last 30 days (priced / nothing found / failed, time taken, first problem),
+  plus what is saved now per route: days checked, how many came from Google's calendar vs. day-by-day search, and
+  cheapest / median / dearest prices.

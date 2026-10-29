@@ -6,8 +6,8 @@ import streamlit as st
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from jobs import record, start_job, track
-from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, excel_bytes, kpis, near_cheapest, on_weekdays,
-                price_chart, route, smart_filters, window_picker)
+from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
+                price_chart, round_trips, route, smart_filters, window_picker)
 
 db = connect()
 today = date.today()
@@ -17,41 +17,57 @@ with st.container(border=True):
     c = st.columns(2)
     orig = airport_picker(c[0], "From", "ATH", "orig")
     dest = airport_picker(c[1], "To", "FRA", "dest")
+    c = st.columns([1, 2])
+    trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip")
+    nights = c[1].pills("Nights away", [2, 3, 4, 5, 7, 10, 14], selection_mode="multi", default=[7], key="fl-nights",
+                        help="Pick one or more stay lengths; every combination is compared.") if trip == "Return" else []
     start, end = window_picker(st, "fl", today, HORIZON)
     c = st.columns(2)
     fetch = c[0].button("Update prices", type="primary", width="stretch")
     with c[1].popover("Options", width="stretch"):
         nonstop = st.checkbox("Nonstop flights only", value=True)
         recheck = st.checkbox("Re-check days already saved")
-        st.caption(f"One-way, 1 passenger, AEGEAN flights only, from Google's price calendar. Busy routes take seconds, quiet "
+        st.caption(f"1 passenger, AEGEAN flights only, from Google's price calendar. A return is two one-way fares. Busy routes take seconds, quiet "
                    f"routes a few minutes. Results are kept {RETENTION_DAYS} days and reused.")
 
 if orig == dest:
     st.error("From and To are the same airport.")
     st.stop()
+if trip == "Return" and not nights:
+    st.warning("Pick at least one stay length under Nights away.")
+    st.stop()
+# return flights leave between the first departure + shortest stay and the last departure + longest stay
+rstart, rend = (start + timedelta(min(nights)), end + timedelta(max(nights))) if nights else (None, None)
+if rend and rend > today + timedelta(HORIZON):
+    st.error(f"The return dates would go past {today + timedelta(HORIZON):%d %b %Y}, as far as Google's calendar reaches. "
+             "Choose an earlier start, a shorter window or fewer nights.")
+    st.stop()
 
-route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · one-way · AEGEAN")
+stay = f"return, {', '.join(map(str, sorted(nights)))} nights" if nights else "one-way"
+route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
-key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}"
+legs = [(orig, dest, start, end)] + ([(dest, orig, rstart, rend)] if nights else [])
+key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}|{rend}"
 if fetch:
-    skip = set() if recheck else saved_flight_days(db, orig, dest, nonstop, start, end)
-    total = 2 * ((end - start).days + 1) - len(skip)
+    skips = [set() if recheck else saved_flight_days(db, o, d, nonstop, a, b) for o, d, a, b in legs]
+    total = sum(2 * ((b - a).days + 1) for _, _, a, b in legs) - sum(map(len, skips))
 
     def work(j):
         tdb = connect()
-        for d, cabin, price, source, status, err in fetch_range(start, end, orig, dest, skip=skip, nonstop=nonstop):
-            if j["cancel"]:
-                break
-            if status != "error":  # failed lookups are not saved, so the next run retries them
-                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",  # `airlines` column holds the source
-                            (d.isoformat(), orig, dest, cabin, price, source, datetime.now().isoformat(), int(nonstop)))
-                tdb.commit()
-            record(j, status, err)
+        for (o, d_, a, b), skip in zip(legs, skips):  # outbound, then the way back
+            for d, cabin, price, source, status, err in fetch_range(a, b, o, d_, skip=skip, nonstop=nonstop):
+                if j["cancel"]:
+                    return
+                if status != "error":  # failed lookups are not saved, so the next run retries them
+                    tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",  # `airlines` column holds the source
+                                (d.isoformat(), o, d_, cabin, price, source, datetime.now().isoformat(), int(nonstop)))
+                    tdb.commit()
+                record(j, status, err)
 
     if total > 0:
         start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
                   "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved (Options) if you "
-                  "expect more.", "with no flight")
+                  "expect more.", "with no flight", f"{orig}–{dest} {start:%d %b}–{end:%d %b}" + (" return" if nights else ""))
     else:
         st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
@@ -71,8 +87,17 @@ out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles
 
 
 tol, weekdays = smart_filters(st, "fl")
-view = on_weekdays(out, weekdays)  # the cards, chips and chart only look at the chosen weekdays
+view = on_weekdays(out, weekdays)  # the cards, chips and chart only look at the chosen weekdays (of departure)
 near = {c: near_cheapest(view[c], tol) for c in ("economy", "business")}
+if nights:  # the way back, and every departure + stay combination
+    pb = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
+                     db, params=(dest, orig, int(nonstop), rstart.isoformat(), rend.isoformat()))
+    back = pb.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="price") if len(pb) else pd.DataFrame()
+    back = pd.DataFrame(index=pd.date_range(rstart, rend).strftime("%Y-%m-%d").rename("day")).join(back)
+    for k in ("economy", "business"):
+        if k not in back:
+            back[k] = float("nan")
+    trips = round_trips(view, back, nights)
 
 
 def best(col):
@@ -83,12 +108,26 @@ def best(col):
     return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
 
 
-(ev, es), (bv, bs) = best("economy"), best("business")
+def best_trip(col):
+    t = trips[trips.cabin == col]
+    if t.empty:
+        return "—", "Press Update prices to fetch the way back" if not len(pb) else "No return pair with flights both ways"
+    r = t.iloc[0]
+    return f"€{r.total:.0f}", f"{pd.Timestamp(r.depart):%a %d %b} → {pd.Timestamp(r.back):%a %d %b} · {r.nights} nights"
+
+
+(ev, es), (bv, bs) = (best_trip("economy"), best_trip("business")) if nights else (best("economy"), best("business"))
 vv, vs = (f"€{view.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles") \
     if view.value.notna().any() else ("—", "Add award prices in the Awards tab")
-kpis([("Cheapest economy", ev, es, ECONOMY), ("Cheapest business", bv, bs, BUSINESS), ("Best miles value", vv, vs, MUTED)])
-best_days(near["economy"], ECONOMY, "Cheap economy days")
-best_days(near["business"], BUSINESS, "Cheap business days")
+kind = "return" if nights else ""
+kpis([(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS),
+      ("Best miles value", vv, vs, MUTED)])
+if nights:
+    best_trips(trips[trips.cabin == "economy"], ECONOMY, "Cheap economy returns", tol)
+    best_trips(trips[trips.cabin == "business"], BUSINESS, "Cheap business returns", tol)
+else:
+    best_days(near["economy"], ECONOMY, "Cheap economy days")
+    best_days(near["business"], BUSINESS, "Cheap business days")
 
 if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
@@ -99,13 +138,19 @@ if len(p):
 t1, t2, t3 = st.tabs(["Prices", "Awards", "Table"])
 with t1:
     if view[["economy", "business"]].notna().any().any():
-        st.markdown('<p class="card-title">Daily AEGEAN fare, cheap days ringed</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="card-title">{orig} → {dest}, cheap days ringed</p>' if nights else
+                    '<p class="card-title">Daily AEGEAN fare, cheap days ringed</p>', unsafe_allow_html=True)
         st.plotly_chart(price_chart(view, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)},
                                     near={c: list(near[c].index) for c in near}),
                         width="stretch", config={"displayModeBar": False})
     else:
         st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop flights only in Options."
                 if len(p) else "No fares yet. Pick the route and dates above, then press **Update prices**.")
+    if nights and back[["economy", "business"]].notna().any().any():
+        bnear = {c: list(near_cheapest(back[c], tol).index) for c in ("economy", "business")}
+        st.markdown(f'<p class="card-title">{dest} → {orig} (the way back), cheap days ringed</p>', unsafe_allow_html=True)
+        st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear),
+                        width="stretch", config={"displayModeBar": False})
 with t2:
     st.caption("Business Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN. AEGEAN offers no public award data.")
     ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
@@ -120,5 +165,12 @@ with t3:
     for cabin in ("economy", "business"):  # say why a price is missing: no flight, or never checked
         table[f"{cabin.capitalize()} status"] = ["priced" if pd.notna(out.loc[d, cabin]) else "no flight" if (d, cabin) in checked
                                                  else "not checked" for d in out.index]
+    if nights:
+        st.markdown('<p class="card-title">Round trips, cheapest first</p>', unsafe_allow_html=True)
+        rt = trips.rename(columns={"cabin": "Cabin", "depart": "Depart", "back": "Return", "nights": "Nights",
+                                   "outbound": "Outbound €", "return": "Return €", "total": "Total €"})
+        st.dataframe(rt, width="stretch", hide_index=True)
+        st.download_button("Download round trips", excel_bytes(rt), f"aegean_{orig}_{dest}_returns.xlsx")
+        st.markdown(f'<p class="card-title">{orig} → {dest} by day</p>', unsafe_allow_html=True)
     st.dataframe(table, width="stretch")
     st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")
