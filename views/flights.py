@@ -3,7 +3,7 @@ from datetime import date, datetime
 import pandas as pd
 import streamlit as st
 
-from collector import fetch_range
+from collector import fetch_range, valid_airport
 from db import RETENTION_DAYS, connect, cutoff
 from jobs import start_job, track
 from ui import BUSINESS, ECONOMY, MUTED, kpis, price_chart, route
@@ -15,11 +15,17 @@ with st.expander("Search settings", expanded=False):
     orig, dest = c[0].text_input("From (IATA)", "ATH").upper(), c[1].text_input("To (IATA)", "FRA").upper()
     start, end = c[2].date_input("First departure", date(2026, 11, 1)), c[3].date_input("Last departure", date(2026, 11, 30))
     fetch = st.button("Update prices", type="primary")
-    recheck = st.checkbox("Re-check days already saved")
-    st.caption(f"One-way, 1 passenger, AEGEAN flights only. About 4 seconds per new day. "
+    c2 = st.columns(2)
+    nonstop = c2[0].checkbox("Nonstop flights only", value=True)
+    recheck = c2[1].checkbox("Re-check days already saved")
+    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Fetching takes seconds. "
                f"Results are saved for {RETENTION_DAYS} days and reused.")
 
-MAX_DAYS = 186
+MAX_DAYS = 330  # Google's calendar reaches about 11 months ahead
+for code in (orig, dest):
+    if not valid_airport(code):
+        st.error(f"'{code}' is not a known airport code. Use the 3-letter IATA code, for example ATH or FRA.")
+        st.stop()
 if end < start:
     st.error("The last departure is before the first departure. Swap the two dates.")
     st.stop()
@@ -29,18 +35,18 @@ if (end - start).days >= MAX_DAYS:
 
 route(orig, dest, f"{start:%d %b} – {end:%d %b %Y} · one-way · AEGEAN")
 
-key = f"flights|{orig}|{dest}|{start}|{end}"
+key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}"
 if fetch:
     skip = set() if recheck else set(db.execute(
-        "SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND fetched>=?", (orig, dest, cutoff())))
+        "SELECT day, cabin FROM prices WHERE orig=? AND dest=? AND nonstop=? AND fetched>=?", (orig, dest, int(nonstop), cutoff())))
     total = 2 * ((end - start).days + 1) - len(skip)
 
     def work(j):
         tdb = connect()
-        for d, cabin, price, air, status in fetch_range(start, end, orig, dest, skip=skip):
+        for d, cabin, price, air, status in fetch_range(start, end, orig, dest, skip=skip, nonstop=nonstop):
             if status != "error":  # failed lookups are not saved, so the next run retries them
-                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?)",
-                            (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat()))
+                tdb.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
+                            (d.isoformat(), orig, dest, cabin, price, air, datetime.now().isoformat(), int(nonstop)))
                 tdb.commit()
             j["done"] += 1
             j["failed"] += status == "error"
@@ -53,7 +59,8 @@ if fetch:
 track(key)
 
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
-p = pd.read_sql(f"SELECT * FROM prices {q} ORDER BY fetched", db, params=args)
+p = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
+                db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
 latest = p.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="price") if len(p) else pd.DataFrame()
 days = pd.DataFrame(index=pd.date_range(start, end).strftime("%Y-%m-%d").rename("day"))
 for k in ("economy", "business"):

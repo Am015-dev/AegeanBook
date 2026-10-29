@@ -1,5 +1,5 @@
 streamlit
-fast-flights
+flights
 pandas
 plotly
 openpyxl

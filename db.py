@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 RETENTION_DAYS = 5
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT);
+CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
 CREATE TABLE IF NOT EXISTS hotel(day TEXT, query TEXT, filt TEXT, nights INT, hotel TEXT, price REAL, fetched TEXT, adults INT DEFAULT 2);
 """
@@ -22,6 +22,11 @@ def connect(path="tracker.db"):
         db.execute("ALTER TABLE hotel ADD COLUMN adults INT DEFAULT 2")
     except sqlite3.OperationalError:
         pass
+    try:  # databases from the fast-flights era: its prices were unreliable, so start clean
+        db.execute("ALTER TABLE prices ADD COLUMN nonstop INT DEFAULT 1")
+        db.execute("DELETE FROM prices")
+    except sqlite3.OperationalError:
+        pass
     for t in ("prices", "hotel"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     db.commit()
@@ -35,7 +40,7 @@ if __name__ == "__main__":  # self-check
     d = connect(p)
     old, new = (dt.now() - timedelta(days=6)).isoformat(), dt.now().isoformat()
     for f in (old, new):
-        d.execute("INSERT INTO prices VALUES('2026-11-01','ATH','FRA','economy',100,'Aegean',?)", (f,))
+        d.execute("INSERT INTO prices(day, orig, dest, cabin, price, airlines, fetched) VALUES('2026-11-01','ATH','FRA','economy',100,'Aegean',?)", (f,))
     d.commit()
     assert [r[0] for r in connect(p).execute("SELECT fetched FROM prices")] == [new]
     print("ok")

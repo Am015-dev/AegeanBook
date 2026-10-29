@@ -1,50 +1,55 @@
-"""Cash-fare collector: Google Flights via fast-flights (free, scraped, may break)."""
+"""Cash-fare collector: Google Flights date grid via `fli` (free, reverse-engineered, may break).
+One request returns the cheapest AEGEAN fare for every day in a range, the same grid Google Flights shows in its calendar."""
 from datetime import date, timedelta
 
-from fast_flights import FlightQuery, Passengers, create_query, get_flights
+from fli.models import Airline, Airport, DateSearchFilters, FlightSegment, MaxStops, PassengerInfo, SeatType
+from fli.search import SearchDates
 
 from par import parallel
 
-
-def pick(flights, orig, dest, airline="aegean"):
-    """Cheapest itinerary on exactly orig->dest operated by `airline`, or None."""
-    ok = [f for f in flights
-          if f.flights[0].from_airport.code == orig and f.flights[-1].to_airport.code == dest
-          and any(airline in a.lower() for a in f.airlines)]
-    return min(ok, key=lambda f: f.price, default=None)
+SEATS = {"economy": SeatType.ECONOMY, "business": SeatType.BUSINESS}
 
 
-def fetch_day(day, orig, dest, cabin):
-    q = create_query(flights=[FlightQuery(date=day.isoformat(), from_airport=orig, to_airport=dest)],
-                     trip="one-way", seat=cabin, passengers=Passengers(adults=1),
-                     language="en-GB", currency="EUR")
-    best = pick(get_flights(q), orig, dest)
-    return None if best is None else (best.price, ", ".join(best.airlines))
+def valid_airport(code):
+    return code in Airport.__members__
 
 
-def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=frozenset(), workers=3):
-    """Yield (day, cabin, price|None, airlines, status) as lookups finish.
-    status: ok, none (no AEGEAN flight) or error (Google didn't answer). `skip` holds (iso day, cabin) pairs to leave alone."""
+def fetch_cabin(orig, dest, cabin, start, end, nonstop=True):
+    """{iso day: cheapest AEGEAN price in EUR} for one cabin; days with no flight are absent."""
+    f = DateSearchFilters(passenger_info=PassengerInfo(adults=1), stops=MaxStops.NON_STOP if nonstop else MaxStops.ANY,
+                          flight_segments=[FlightSegment(departure_airport=[[Airport[orig], 0]],
+                                                         arrival_airport=[[Airport[dest], 0]], travel_date=start.isoformat())],
+                          seat_type=SEATS[cabin], airlines=[Airline.A3], from_date=start.isoformat(), to_date=end.isoformat())
+    r = SearchDates().search(f, currency="EUR")
+    if r is None:
+        raise RuntimeError("Google returned no date grid")
+    return {p.date[0].date().isoformat(): p.price for p in r}
+
+
+def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=frozenset(), nonstop=True, workers=2):
+    """Yield (day, cabin, price|None, airlines, status) for every day not in `skip` (a set of (iso day, cabin)).
+    status: ok, none (no AEGEAN flight that day) or error (Google didn't answer)."""
     days = [start + timedelta(i) for i in range((end - start).days + 1)]
-    todo = [(d, c) for d in days for c in cabins if (d.isoformat(), c) not in skip]
-    for (d, cabin), r, err in parallel(todo, lambda a: fetch_day(a[0], orig, dest, a[1]), workers):
-        yield d, cabin, *(r or (None, "")), "error" if err else "ok" if r else "none"
+    todo = [c for c in cabins if any((d.isoformat(), c) not in skip for d in days)]
+    for cabin, grid, err in parallel(todo, lambda c: fetch_cabin(orig, dest, c, start, end, nonstop), workers):
+        for d in days:
+            if (d.isoformat(), cabin) in skip:
+                continue
+            p = None if err else grid.get(d.isoformat())
+            yield d, cabin, p, "" if p is None else "Aegean", "error" if err else "ok" if p is not None else "none"
 
 
 if __name__ == "__main__":  # self-check, no network
-    from types import SimpleNamespace as N
-    ap = lambda c: N(code=c)
-    mk = lambda p, a, o, d: N(price=p, airlines=a, flights=[N(from_airport=ap(o), to_airport=ap(d))])
-    fl = [mk(408, ["Aegean"], "ATH", "FRA"), mk(300, ["Lufthansa"], "ATH", "FRA"),
-          mk(200, ["Aegean"], "ATH", "SKG"), mk(380, ["Aegean", "Lufthansa"], "ATH", "FRA")]
-    assert pick(fl, "ATH", "FRA").price == 380 and pick(fl, "ATH", "MUC") is None
     d0 = date(2026, 11, 1)
-    fetch_day = lambda *a: (1, "Aegean")
+    fetch_cabin = lambda o, d, cabin, s, e, n: {"2026-11-01": 100.0}
+    got = list(fetch_range(d0, d0 + timedelta(1), "ATH", "FRA", cabins=("economy",)))
+    assert [(g[0], g[2], g[4]) for g in got] == [(d0, 100.0, "ok"), (d0 + timedelta(1), None, "none")]
     got = list(fetch_range(d0, d0, "ATH", "FRA", skip={("2026-11-01", "economy")}))
-    assert [(g[1], g[4]) for g in got] == [("business", "ok")]
-    fetch_day = lambda *a: None
-    assert next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[4] == "none"
-    def boom(*a): raise RuntimeError("x")
-    fetch_day = boom
+    assert [g[1] for g in got] == ["business"]
+
+    def boom(*a):
+        raise RuntimeError("x")
+    fetch_cabin = boom
     assert next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[4] == "error"
+    assert valid_airport("ATH") and not valid_airport("XXX")
     print("ok")
