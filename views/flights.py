@@ -11,6 +11,7 @@ from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from award_view import STYLE as PLAN_STYLE, best_award, load_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
 from jobs import record, start_job, track
 from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass, cash_by_day, section_html as pass_html, with_extra
+from suggest import STYLE as SUGG_STYLE, card_html as sg_card, options as sg_options
 from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
@@ -305,6 +306,7 @@ empty = pd.Series(dtype=float)
 bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
 has_taxes = bool(view[["econ_taxes", "biz_taxes"]].notna().any().any())
 st.markdown(PLAN_STYLE, unsafe_allow_html=True)
+sugg = []  # what 'Our suggestion' compares, one entry per cabin
 for ui_col, (name, colour, cash_col, miles_col, taxes_col) in zip(st.columns(2, gap="medium"), [
         ("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"), ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")]):
     ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
@@ -321,8 +323,28 @@ for ui_col, (name, colour, cash_col, miles_col, taxes_col) in zip(st.columns(2, 
     else:
         extra = ('<div class="plan-s">Aegean Pass</div><p class="plan-v" style="color:#6E6E73">The pass is an Economy Flex fare. A Business '
                  'upgrade is free only on request when a seat is available, so it is not counted here.</p>')
+    ow = one_way_plan(view, cash_col, miles_col, taxes_col)
     with ui_col:
-        st.markdown(with_extra(plan_html(name, colour, one_way_plan(view, cash_col, miles_col, taxes_col), ret, per_k), extra), unsafe_allow_html=True)
+        st.markdown(with_extra(plan_html(name, colour, ow, ret, per_k), extra), unsafe_allow_html=True)
+    # what the suggestion below compares for this cabin: cash, miles and (Economy only) the passes, per flight or per round trip
+    day = lambda iso: f"{pd.Timestamp(iso):%a %d %b}"
+    if nights:
+        tc_ = trips[trips.cabin == cash_col].total
+        cash_in = dict(min=float(tc_.min()), typical=float(tc_.median()), when=f"{day(ret['cash'][0])} → {day(ret['cash'][1])}") if len(tc_) else None
+        mm = ret.get("miles")
+        miles_in = dict(miles=mm[3], taxes=mm[5], when=f"{day(mm[0])} → {day(mm[1])}") if mm else None
+    else:
+        c_ = view[cash_col].dropna()
+        cash_in = dict(min=float(c_.min()), typical=float(c_.median()), when=day(c_.idxmin())) if len(c_) else None
+        mm = ow.get("miles")
+        miles_in = dict(miles=mm[1], taxes=mm[3], when=day(mm[0])) if mm else None
+    pass_in = [dict(name=r[0], eff=r[4]["effective"], days=d, price=r[1], flights=r[2], break_even=r[4]["break_even"])
+               for r, (_, _, d) in zip(rows, PASSES) if r[4]] if cash_col == "economy" else []
+    sugg.append((name, colour, sg_options(cash_in, miles_in, pass_in, per_k, 2 if nights else 1)))
+st.markdown(SUGG_STYLE, unsafe_allow_html=True)
+for ui_col, (name, colour, opts) in zip(st.columns(2, gap="medium"), sugg):
+    with ui_col:
+        st.markdown(sg_card(name, colour, opts, "round trip" if nights else "flight"), unsafe_allow_html=True)
 st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is "
            + ("the cash fare minus the cash taxes of the award ticket, divided by the miles." if has_taxes else
                  "the cash fare divided by the miles, before the cash taxes an award ticket also costs (not collected for these days).")

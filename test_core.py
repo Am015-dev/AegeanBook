@@ -686,3 +686,31 @@ def test_aegean_pass_sits_inside_the_strategy_cards(tmp_path, monkeypatch):
     at.number_input(key="pass-price-7").set_value(1500.0).run()                                                  # a dearer pass changes the numbers
     assert not at.exception and "\u20ac155</b> per flight with taxes" in " ".join(m.value for m in at.markdown)  # 1500/12+30
 
+
+def test_suggestion_names_one_option_for_flexible_and_for_fixed_dates():
+    import suggest as sg
+    cash = dict(min=86.0, typical=109.0, when="Wed 18 Nov")
+    miles = dict(miles=9032.0, taxes=30.0, when="Sat 07 Nov")
+    passes = [dict(name="7-day pass", eff=95.0, days=7, price=780.0, flights=12, break_even=9),
+              dict(name="30-day pass", eff=86.0, days=30, price=672.0, flights=12, break_even=8)]
+    opts = sg.options(cash, miles, passes, 10.0, 1)
+    assert {o["name"]: round(o["flexible"]) for o in opts} == {"Pay cash": 86, "Use miles": 120, "7-day pass": 95, "30-day pass": 86}   # miles: 9.032 * 10 + 30
+    assert sg.winner(opts, "flexible")["name"] == "Pay cash"      # the 30-day pass ties with cash: no clear margin, so no commitment
+    assert sg.winner(opts, "fixed")["name"] == "30-day pass"      # against a typical 109 fare it is clearly cheaper (86 < 98.1)
+    html = sg.card_html("Economy", "#2563C9", opts, "flight")
+    assert "If your dates are flexible" in html and "Pay cash \u00b7 \u20ac86 per flight" in html
+    assert "30-day pass \u00b7 \u20ac86 per flight" in html and "about \u20ac23 less than a typical fare" in html and "8 of its 12 flights" in html
+    # miles valued low are the cheapest way to fly; a return trip doubles the pass flights
+    assert sg.winner(sg.options(cash, miles, passes, 4.0, 1), "flexible")["name"] == "Use miles"         # 36 + 30 = 66 < 86
+    assert round(sg.options(None, None, passes, 10.0, 2)[1]["flexible"]) == 172                           # 2 x 86
+    assert "No fares or award seats" in sg.card_html("Business", "#B8741A", [], "flight")
+
+
+def test_suggestion_explains_why_a_slightly_cheaper_pass_is_not_the_advice():
+    import suggest as sg
+    cash = dict(min=86.0, typical=109.0, when="Wed 18 Nov")
+    near = [dict(name="30-day pass", eff=80.0, days=30, price=672.0, flights=12, break_even=8)]     # 80 is cheaper than 86, but not by 10%
+    html = sg.card_html("Economy", "#2563C9", sg.options(cash, None, near, 10.0, 1), "flight")
+    assert "Pay cash \u00b7 \u20ac86 per flight" in html and "The 30-day pass would be about \u20ac6 cheaper, but it is a commitment" in html
+    assert "Flexible dates" in html and "Fixed dates" in html and "30-day pass \u00b7 \u20ac80 per flight" in html   # for fixed dates the pass wins (80 < 98.1)
+
