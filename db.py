@@ -1,8 +1,9 @@
 """Shared SQLite store. Rows older than RETENTION_DAYS are deleted on every connect; fresh rows are reused instead of re-fetched."""
+import os
 import sqlite3
 from datetime import datetime, timedelta
 
-RETENTION_DAYS = 5
+RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 5))  # raise it when running on your own computer
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);

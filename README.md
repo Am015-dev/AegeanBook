@@ -34,3 +34,16 @@ Xotelo) one real question and shows which failed and why. Every update also ends
 because it was never checked.
 
 Offline tests: `pytest` (`test_core.py`). Each module also has `python <module>.py` self-checks.
+
+## Run it on your own computer (recommended)
+
+Streamlit's free hosting shares one outbound address between many apps, and Google answers it with HTTP 429 (too many
+requests). On your own computer the same code runs without that limit, and your saved prices stay for 60 days.
+
+1. Install Python 3.10 or newer.
+2. Windows: double-click `run_windows.bat`. Mac or Linux: run `./run_mac_linux.sh`.
+3. Open http://localhost:8501.
+
+**From your phone, free and private:** install the Tailscale app on the computer and on the phone and sign in to the same
+account. Then open `http://<computer-name>:8501` on the phone (the name is shown in the Tailscale app). The computer has to
+be on. Nothing is exposed to the public internet.
