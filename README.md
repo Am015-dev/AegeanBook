@@ -1,6 +1,6 @@
 # AEGEAN Fare & Miles Tracker (free)
 
-Compares Economy cash, Business cash (Google Flights via `fast-flights`, scraped) and Business Miles+Bonus
+Compares Economy cash, Business cash (Google Flights date grid via `fli` (package `flights`), scraped) and Business Miles+Bonus
 (manual entry; AEGEAN has no public award API). No paid services.
 
     pip install -r requirements.txt
@@ -15,6 +15,8 @@ Self-check: `python collector.py`. Scraping may break whenever Google changes it
     python award_collector.py record   # do one manual Business award search, then press Enter
 
 Send/inspect `award_recording.json` (review for personal data first) to build the automatic daily search.
+Saved prices are kept 5 days (`db.RETENTION_DAYS`) and reused; older rows are deleted on start.
+Self-checks: `python db.py`, `python collector.py`, `python hotels.py`.
 Test: `pytest` (set `CHROME_PATH` if Playwright's own Chromium isn't installed).
 
 ## Hotel page
