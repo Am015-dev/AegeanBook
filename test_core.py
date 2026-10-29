@@ -398,7 +398,8 @@ def test_flights_page_keeps_value_metric_typed_only():
     at = AppTest.from_file("views/flights.py", default_timeout=60).run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
-    assert "Add award prices in the Awards tab" in shown  # collected miles carry no taxes: they must not feed the value metric
+    assert "Best miles value" not in shown  # collected miles carry no taxes: they must not feed the value metric (only typed ones do)
+    assert "Lowest economy award" in shown and "Lowest business award" in shown  # the miles sit in the headline, not in a hidden tab
 
 
 def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
@@ -416,3 +417,17 @@ def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception
+
+
+def test_award_view_headline_and_table():
+    import pandas as pd
+    import award_view as av
+    s = pd.Series({"2026-11-07": 9032.0, "2026-11-08": float("nan"), "2026-11-09": 9032.0})
+    assert av.best_award(s, True) == ("9,032 miles", "Sat 07 Nov \u00b7 same on all 2 days with seats")
+    mixed = pd.Series({"2026-11-07": 9032.0, "2026-11-08": 15000.0, "2026-11-09": 9032.0})
+    assert av.best_award(mixed, True) == ("9,032 miles", "Sat 07 Nov \u00b7 2 days at this level \u00b7 3 days with seats")
+    assert av.best_award(pd.Series({"2026-11-07": float("nan")}), True)[1] == "No award seats on these days"
+    assert av.best_award(pd.Series(dtype=float), False)[1] == "Not collected yet for this route"  # no data is not the same as no seats
+    t = av.miles_table(s, pd.Series({"2026-11-07": 16935.0, "2026-11-08": float("nan"), "2026-11-09": float("nan")}))
+    assert t.to_dict("list") == {"Date": ["Sat 07 Nov", "Mon 09 Nov"], "Economy miles": ["9,032", "9,032"], "Business miles": ["16,935", "\u2014"]}
+    assert len(av.miles_chart(s, s).data) == 2

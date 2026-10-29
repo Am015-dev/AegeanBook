@@ -42,6 +42,7 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 .route .line::after {{ content:''; position:absolute; right:1px; top:-2.5px; width:7px; height:7px; border-top:2px solid {MUTED}; border-right:2px solid {MUTED}; transform:rotate(45deg); }}
 .sub {{ color:{MUTED}; margin:0 0 1.25rem; font-size:.95rem; text-wrap:balance; }}
 /* the answers, as one grouped list: what, when, and the price trailing */
+.group {{ color:{MUTED}; font-size:.85rem; font-weight:600; margin:.2rem 0 .4rem 4px; }}
 .fares {{ background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; margin:0 0 1.25rem; overflow:hidden; }}
 .fare {{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; }}
 .fare + .fare {{ border-top:1px solid {GRID}; }}
@@ -50,6 +51,7 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 .fare .when {{ color:{MUTED}; font-size:.85rem; margin:2px 0 0 19px; text-wrap:pretty; }}
 .fare .price {{ font: 650 1.6rem/1 {FONT}; letter-spacing:-0.02em; color:{INK}; white-space:nowrap; }}
 .fare .price.none {{ color:{MUTED}; font-weight:500; }}
+.fare .price .unit {{ font-size:.85rem; font-weight:500; color:{MUTED}; letter-spacing:0; }}
 [data-testid="stCaptionContainer"] {{ color:{MUTED} !important; opacity:1 !important; text-wrap:pretty; }}
 .card-title {{ font:600 1.05rem {FONT}; color:{INK}; margin:.4rem 0 0; }}
 /* tabs as a segmented control */
@@ -111,7 +113,8 @@ def kpis(items):
     """items: (label, value, sub, dot colour). One grouped list: what it is and when on the left, the price trailing."""
     st.markdown('<div class="fares">' + "".join(
         f'<div class="fare"><div><div class="what"><span class="dot" style="background:{c}"></span>{e(l)}</div>'
-        f'<div class="when">{e(s)}</div></div><div class="price{" none" if v == "—" else ""}">{e(v)}</div></div>' for l, v, s, c in items) + "</div>",
+        f'<div class="when">{e(s)}</div></div><div class="price{" none" if v == "—" else ""}">{e(v[:-6]) + "<span class=unit> miles</span>" if v.endswith(" miles") else e(v)}</div></div>'
+        for l, v, s, c in items) + "</div>",
         unsafe_allow_html=True)
 
 

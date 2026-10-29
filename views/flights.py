@@ -9,6 +9,7 @@ import streamlit as st
 
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
+from award_view import best_award, miles_chart, miles_table
 from jobs import record, start_job, track
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
@@ -173,11 +174,20 @@ def best_trip(col):
 
 
 (ev, es), (bv, bs) = (best_trip("economy"), best_trip("business")) if nights else (best("economy"), best("business"))
-vv, vs = (f"€{view.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles") \
-    if view.value.notna().any() else ("—", "Add award prices in the Awards tab")
 kind = "return" if nights else ""
-kpis([(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS),
-      ("Best miles value", vv, vs, MUTED)])
+collected = bool(am.size)  # any award data for this route and range: no data is not the same as no seats
+(eav, eas), (bav, bas) = best_award(view.econ_miles, collected), best_award(view.biz_miles, collected)
+cash_col, award_col = st.columns(2, gap="medium")  # side by side on a desktop, stacked on a phone
+with cash_col:
+    st.markdown('<p class="group">Cash fares</p>', unsafe_allow_html=True)
+    kpis([(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS)])
+with award_col:
+    st.markdown('<p class="group">Award miles with Miles+Bonus, one way</p>', unsafe_allow_html=True)
+    award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
+    if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
+        award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
+                           f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
+    kpis(award_rows)
 if nights:
     best_trips(trips[trips.cabin == "economy"], ECONOMY, "Cheap economy returns", tol)
     best_trips(trips[trips.cabin == "business"], BUSINESS, "Cheap business returns", tol)
@@ -191,7 +201,7 @@ if len(seen) < 2 * len(days):
                "Press Update prices to check the rest.")
 st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
            "automatically every morning.")
-t1, t2, t3 = st.tabs(["Prices", "Awards", "Table"])
+t1, t2, t3 = st.tabs(["Prices", "Award miles", "Table"])
 with t1:
     if view[["economy", "business"]].notna().any().any():
         st.markdown(f'<p class="card-title">{orig} → {dest}, cheap days ringed</p>' if nights else
@@ -210,15 +220,19 @@ with t1:
 with t2:
     seen_aw = am.index.size if len(am) else 0
     if not seen_aw or not last_aw:
-        st.caption(f"No AEGEAN award miles collected yet for {orig} → {dest} in this range (no data, which is not the same as no seats). "
-                   "They are collected daily on the owner's computer.")
+        st.info(f"No AEGEAN award miles collected yet for {orig} → {dest} in this range. They are collected daily on the owner's computer. "
+                "No data here does not mean there are no seats.")
     else:
-        st.caption(f"AEGEAN award miles (AEGEAN-operated flights only, {'nonstop' if nonstop else 'any stops'}): {seen_aw} of {len(days)} days "
-                   f"collected for {orig} → {dest}, last on {last_aw[:10]}. An empty cell means that day was checked and has no award seats; "
-                   "days not collected are not listed.")
+        st.caption(f"{'Nonstop' if nonstop else 'Any-stops'} AEGEAN-operated flights, lowest miles per day. {seen_aw} of {len(days)} days collected "
+                   f"for {orig} → {dest}, last on {last_aw[:10]}.")
         if date.fromisoformat(last_aw[:10]) < today - timedelta(3):
             st.warning(f"These award miles were last collected on {last_aw[:10]}, so they may be out of date.")
-        st.dataframe(am.rename(columns={"economy": "Economy miles", "business": "Business miles"}), width="stretch")
+        if view[["econ_miles", "biz_miles"]].notna().any().any():
+            st.plotly_chart(miles_chart(view.econ_miles, view.biz_miles), width="stretch", config={"displayModeBar": False})
+            st.dataframe(miles_table(view.econ_miles, view.biz_miles), hide_index=True, width="stretch")
+            st.caption("Only days with award seats are listed. A gap in the chart is a day that was checked and has none.")
+        else:
+            st.info("No award seats on these days. Try other weekdays or a longer window.")
     hist = os.path.join(ROOT, "data", "award_history.csv")
     xl = award_history_xlsx(hist, os.path.getmtime(hist)) if os.path.exists(hist) else None
     if xl:  # every daily snapshot, all four legs, as one sheet
@@ -226,14 +240,17 @@ with t2:
                            help=f"{xl[1]} daily snapshots, last {xl[2]}")
     if os.path.isdir(AWARD_PROFILE):  # only where the AEGEAN login lives: your own computer
         award_job()
-    st.caption("Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN; they feed the 'Best miles value' figure.")
-    ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
-                        column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
-                                       "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
-                        key=f"{orig}{dest}{start}{end}")
-    save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
+    with st.expander("Enter award miles and taxes by hand"):
+        st.caption("Type the miles and taxes you see after logging in to AEGEAN. They feed the 'Best miles value' figure, which compares "
+                   "the cash fare, minus these taxes, with the miles.")
+        ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
+                            column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
+                                           "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
+                            key=f"{orig}{dest}{start}{end}")
+        save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
 with t3:
-    table = out.rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
+    typed = out.miles.notna().any()  # the typed-in columns only appear when something was typed
+    table = (out if typed else out.drop(columns=["miles", "taxes", "value"])).rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
                                 "taxes": "Taxes €", "value": "€ per 1,000 mi",
                                 "econ_miles": "Economy award miles", "biz_miles": "Business award miles"})
     checked = set(zip(seen.day, seen.cabin))
