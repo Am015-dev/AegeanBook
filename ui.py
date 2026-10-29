@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 ECONOMY, BUSINESS, INK, MUTED, GRID = "#2563C9", "#B8741A", "#0E1B2E", "#5B6B82", "#E3E8F0"
+BOOKING = "#0E9F6E"
+TIER_COLORS = {"cheap": "#2563C9", "average": "#7D8AA0", "high": "#C2410C"}  # diverging: blue / neutral gray / orange
 
 CSS = f"""
 <style>
@@ -73,4 +75,20 @@ def price_chart(df, series, unit="€"):
                       legend=dict(orientation="h", x=0, y=1.12, font=dict(color=INK)),
                       xaxis=dict(tickformat="%d %b", dtick=86400000 if len(df) <= 14 else None, showgrid=False, linecolor=GRID),
                       yaxis=dict(tickprefix=unit, automargin=True, gridcolor=GRID, zeroline=False, rangemode="tozero"))
+    return fig
+
+
+def heat_strip(tiers):
+    """One bar per day coloured by cheap / average / high. tiers: {iso day: tier}."""
+    s = pd.Series(tiers).sort_index()
+    fig = go.Figure()
+    for tier, colour in TIER_COLORS.items():
+        d = s[s == tier]
+        fig.add_bar(x=pd.to_datetime(d.index), y=[1] * len(d), name=tier.capitalize(), marker=dict(color=colour, line=dict(color="#F5F7FB", width=2)),
+                    hovertemplate=f"%{{x|%a %d %b}}: {tier}<extra></extra>")
+    fig.update_layout(height=130, margin=dict(l=8, r=8, t=30, b=0), barmode="stack", bargap=0, paper_bgcolor="rgba(0,0,0,0)",
+                      plot_bgcolor="rgba(0,0,0,0)", font=dict(family="IBM Plex Sans", color=MUTED),
+                      legend=dict(orientation="h", x=0, y=1.35, font=dict(color=INK), traceorder="normal"),
+                      xaxis=dict(tickformat="%d %b", dtick=86400000 * (1 if len(s) <= 14 else 7), showgrid=False),
+                      yaxis=dict(visible=False))
     return fig
