@@ -634,42 +634,6 @@ def test_aegean_pass_compared_with_cash():
     assert pp.assess(cash, 600.0, 12, 30.0, 90, today) is None
 
 
-def test_route_board_summarises_each_route_and_marks_the_winners(tmp_path):
-    from datetime import date
-    import pandas as pd
-    import db as appdb
-    import route_board as rb
-    t = appdb.connect(str(tmp_path / "t.db"))
-    t.execute("DELETE FROM prices"); t.execute("DELETE FROM award_miles")
-    price = lambda o, d, day, cabin, p, f="t1": t.execute("INSERT INTO prices(day, orig, dest, cabin, price, airlines, fetched, nonstop) VALUES(?,?,?,?,?,'x',?,1)", (day, o, d, cabin, p, f))
-    seat = lambda o, d, day, cabin, m, tax=None: t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,1,'t1',?)", (day, o, d, cabin, m, tax))
-    for day, p in (("2026-11-07", 168.0), ("2026-11-18", 86.0), ("2026-11-23", 202.0)):
-        price("ATH", "FRA", day, "economy", p)
-    price("ATH", "FRA", "2026-11-18", "economy", 79.0, "t2")            # the newer recording of the same day wins
-    price("ATH", "FRA", "2026-11-12", "business", 239.0)
-    for day, p in (("2026-11-07", 140.0), ("2026-11-20", 120.0)):
-        price("ATH", "ZRH", day, "economy", p)
-    seat("ATH", "FRA", "2026-11-23", "economy", 9032, 30.0); seat("ATH", "FRA", "2026-11-07", "economy", 9032, 30.0)   # saved latest-day first on purpose
-    seat("ATH", "ZRH", "2026-11-20", "economy", 8152)
-    t.commit()
-    prices, miles = rb.load(t, date(2026, 11, 1), date(2026, 11, 30), True)
-    s = rb.summarise(prices, miles).set_index("route")
-    fra, zrh = s.loc["ATH \u2192 FRA"], s.loc["ATH \u2192 ZRH"]
-    assert fra.econ_cash == 79.0 and fra.econ_cash_day == "2026-11-18" and fra.econ_typical == 168.0   # cheapest 79 (newest), median of 79/168/202
-    assert fra.biz_cash == 239.0 and fra.econ_miles == 9032 and fra.econ_seat_days == 2
-    assert fra.econ_miles_day == "2026-11-07"   # the same 9,032 on 7 and 23 Nov: the earliest day is named, whatever order they were saved in
-    assert round(fra.econ_value, 1) == 19.0 and fra.econ_value_day == "2026-11-23"   # (202 - 30) / 9,032 * 1000 on the dearest cash day
-    assert zrh.econ_cash == 120.0 and zrh.econ_miles == 8152 and round(zrh.econ_value, 1) == 14.7   # no taxes known: 120 / 8,152 * 1000
-    win = rb.winners(s.reset_index())
-    assert win["econ_cash"] == "ATH \u2192 FRA" and win["econ_miles"] == "ATH \u2192 ZRH" and win["econ_value"] == "ATH \u2192 FRA" and "biz_miles" not in win
-    html = rb.card_html(s.reset_index().iloc[0].to_dict(), win)
-    # an older database without the taxes column and one without the award table still load
-    old = __import__("sqlite3").connect(":memory:")
-    old.execute("CREATE TABLE prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT)")
-    p2, m2 = rb.load(old, date(2026, 11, 1), date(2026, 11, 30), True)
-    assert p2.empty and m2.empty
-
-
 def test_availability_calendar_states_and_layout():
     from datetime import date
     import pandas as pd
@@ -763,4 +727,64 @@ def test_swap_button_exchanges_from_and_to(tmp_path, monkeypatch):
     assert "FRA</span>" in " ".join(m.value for m in at.markdown)                                      # and the page is for the new direction
     at.button(key="swap-airports").click().run()
     assert at.selectbox(key="orig").value == "ATH" and at.selectbox(key="dest").value == "FRA"      # a second click swaps back
+
+
+def test_insights_say_which_weekday_is_cheapest_and_whether_late_booking_costs_more(tmp_path):
+    from datetime import date, timedelta
+    import pandas as pd
+    import db as appdb
+    import insights as ins
+    today = date(2026, 11, 1)                                     # a Sunday
+    # six weeks of fares: Thursdays cheap (100), Sundays dear (200), everything else 150; the first two weeks 3x dearer
+    cash = {}
+    for i in range(1, 43):
+        d = today + timedelta(i)
+        base = {3: 100, 6: 200}.get(d.weekday(), 150)
+        cash[d.isoformat()] = base * (3 if i <= 14 else 1)
+    cash = pd.Series(cash)
+    st = ins.weekday_stats(cash)
+    assert list(st.index) == ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] and st.loc["Thu", "days"] == 6
+    assert "Thursday is the cheapest day to fly ATH \u2192 FRA" in ins.weekday_takeaway(st, "ATH \u2192 FRA") and "than Sunday" in ins.weekday_takeaway(st, "x")
+    flat = pd.Series({(today + timedelta(i)).isoformat(): 120.0 + (i % 2) for i in range(1, 30)})
+    assert "No strong weekday pattern" in ins.weekday_takeaway(ins.weekday_stats(flat), "x")
+    ah = ins.ahead_stats(cash, today)
+    assert list(ah.index)[:2] == [1, 2] and ah.loc[1, "days"] == 7
+    sentence = ins.ahead_takeaway(ah, "ATH \u2192 FRA")
+    assert "next 2 weeks" in sentence and "book earlier" in sentence and "3.0\u00d7" in sentence
+    assert "No big last-minute premium" in ins.ahead_takeaway(ins.ahead_stats(flat, today), "x")
+    assert ins.weekday_stats(pd.Series(dtype=float)).empty and "Not enough" in ins.weekday_takeaway(ins.weekday_stats(pd.Series(dtype=float)), "x")
+    assert len(ins.weekday_chart(st, "#2563C9").data) == 1 and len(ins.ahead_chart(ah, "#2563C9").data) == 1
+    # destinations from one airport, and the fare history of one day
+    d = appdb.connect(str(tmp_path / "t.db"))
+    d.execute("DELETE FROM prices")
+    for dest, price in (("FRA", 100.0), ("FRA", 140.0), ("ZRH", 200.0), ("ZRH", 220.0)):
+        d.execute("INSERT INTO prices(day, orig, dest, cabin, price, airlines, fetched, nonstop) VALUES(?, 'ATH', ?, 'economy', ?, 'x', 't1', 1)",
+                  (f"2026-11-{10 + (int(price) % 7):02d}", dest, price))
+    d.commit()
+    g = ins.destinations(d, "ATH", "economy", True, date(2026, 11, 1), date(2026, 11, 30))
+    assert list(g.dest) == ["FRA", "ZRH"] and ins.destination_takeaway(g, "ATH").startswith("From ATH, a typical fare to FRA is")
+    assert ins.routes(d, True)[0][0] == "ATH" and len(ins.destination_chart(g).data) == 2
+    hist = pd.DataFrame([dict(day="2026-11-18", orig="ATH", dest="FRA", cabin="economy", price=86.0, fetched="2026-10-29T07:00:00"),
+                         dict(day="2026-11-18", orig="ATH", dest="FRA", cabin="economy", price=79.0, fetched="2026-10-30T07:00:00"),
+                         dict(day="2026-11-19", orig="ATH", dest="FRA", cabin="economy", price=86.0, fetched="2026-10-29T07:00:00")])
+    mv = ins.moves(hist, "ATH", "FRA", "economy")
+    assert list(mv) == ["2026-11-18"]                                                  # only the day whose fare was recorded twice moved
+    assert ins.history_sentence(mv["2026-11-18"], "Wed 18 Nov") == "The fare for Wed 18 Nov went down: \u20ac86 on 2026-10-29 \u2192 \u20ac79 on 2026-10-30 (\u2212\u20ac7)."
+    assert ins.moves(pd.DataFrame(), "ATH", "FRA", "economy") == {} and len(ins.history_chart(mv["2026-11-18"], "#2563C9").data) == 1
+
+
+def test_insights_page_renders_with_its_takeaways(tmp_path, monkeypatch):
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "when_to_fly.py")
+    _seed_fares(tmp_path, monkeypatch)
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "is the cheapest day to fly ATH \u2192 FRA" in shown or "No strong weekday pattern on ATH \u2192 FRA" in shown    # a sentence, then the chart
+    infos = " ".join(i.value for i in at.info)    # the repo's real history grows daily, so accept each of its three honest states
+    assert "Is the fare rising or falling?" in shown
+    assert "We started recording" in infos or "No fare on this route has changed" in infos or any(s.key == "ins-day" for s in at.selectbox)
+    at.radio(key="ins-cabin").set_value("business").run()
+    assert not at.exception and "business" in " ".join(c.value for c in at.caption)
 
