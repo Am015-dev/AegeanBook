@@ -47,3 +47,11 @@ requests). On your own computer the same code runs without that limit, and your 
 **From your phone, free and private:** install the Tailscale app on the computer and on the phone and sign in to the same
 account. Then open `http://<computer-name>:8501` on the phone (the name is shown in the Tailscale app). The computer has to
 be on. Nothing is exposed to the public internet.
+
+## Searching and filters
+
+- **Airports:** type a city, airport name or code. The list (`data/airports.csv`) has every airport with scheduled flights,
+  built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
+- **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
+- **Cheap days:** "Cheap means within" keeps every day within 0–30 % of the cheapest price (a route often has several days
+  at the same lowest fare); "Days of the week" limits cards, chips and chart to the weekdays you can travel.

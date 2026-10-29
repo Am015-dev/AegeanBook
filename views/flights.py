@@ -3,42 +3,34 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 import streamlit as st
 
-from collector import fetch_range, valid_airport
+from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from jobs import record, start_job, track
-from ui import BUSINESS, ECONOMY, MUTED, excel_bytes, kpis, price_chart, route
+from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, excel_bytes, kpis, near_cheapest, on_weekdays,
+                price_chart, route, smart_filters, window_picker)
 
 db = connect()
 today = date.today()
 HORIZON = 330  # Google's calendar reaches about 11 months ahead; later days would look like "no flight"
 
-with st.expander("Search settings", expanded=False):
-    c = st.columns([1, 1, 1.4, 1.4])
-    orig, dest = c[0].text_input("From (IATA)", "ATH").upper(), c[1].text_input("To (IATA)", "FRA").upper()
-    start = c[2].date_input("First departure", today + timedelta(7), min_value=today, max_value=today + timedelta(HORIZON))
-    end = c[3].date_input("Last departure", today + timedelta(36), min_value=today, max_value=today + timedelta(HORIZON))
-    fetch = st.button("Update prices", type="primary")
-    c2 = st.columns(2)
-    nonstop = c2[0].checkbox("Nonstop flights only", value=True)
-    recheck = c2[1].checkbox("Re-check days already saved")
-    st.caption(f"One-way, 1 passenger, AEGEAN flights only, Google's own price calendar. Busy routes take seconds; quiet routes are checked day by day and can take a few minutes. "
-               f"Results are saved for {RETENTION_DAYS} days and reused.")
+with st.container(border=True):
+    c = st.columns(2)
+    orig = airport_picker(c[0], "From", "ATH", "orig")
+    dest = airport_picker(c[1], "To", "FRA", "dest")
+    start, end = window_picker(st, "fl", today, HORIZON)
+    c = st.columns(2)
+    fetch = c[0].button("Update prices", type="primary", width="stretch")
+    with c[1].popover("Options", width="stretch"):
+        nonstop = st.checkbox("Nonstop flights only", value=True)
+        recheck = st.checkbox("Re-check days already saved")
+        st.caption(f"One-way, 1 passenger, AEGEAN flights only, from Google's price calendar. Busy routes take seconds, quiet "
+                   f"routes a few minutes. Results are kept {RETENTION_DAYS} days and reused.")
 
-for code in (orig, dest):
-    if not valid_airport(code):
-        st.error(f"'{code}' is not a known airport code. Use the 3-letter IATA code, for example ATH or FRA.")
-        st.stop()
 if orig == dest:
     st.error("From and To are the same airport.")
     st.stop()
-if start < today or end > today + timedelta(HORIZON):
-    st.error(f"Choose dates between today and {today + timedelta(HORIZON):%d %b %Y}. Google has no fares outside that window.")
-    st.stop()
-if end < start:
-    st.error("The last departure is before the first departure. Swap the two dates.")
-    st.stop()
 
-route(orig, dest, f"{start:%d %b} – {end:%d %b %Y} · one-way · AEGEAN")
+route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · one-way · AEGEAN")
 
 key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}"
 if fetch:
@@ -58,10 +50,10 @@ if fetch:
 
     if total > 0:
         start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
-                  "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved if you "
+                  "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved (Options) if you "
                   "expect more.", "with no flight")
     else:
-        st.info("Every day in this range is already saved. Tick Re-check days already saved to fetch again.")
+        st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
 
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
@@ -78,16 +70,25 @@ out = days.join(latest).join(a)
 out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
 
 
+tol, weekdays = smart_filters(st, "fl")
+view = on_weekdays(out, weekdays)  # the cards, chips and chart only look at the chosen weekdays
+near = {c: near_cheapest(view[c], tol) for c in ("economy", "business")}
+
+
 def best(col):
-    if out[col].notna().any():
-        return f"€{out[col].min():.0f}", f"{pd.Timestamp(out[col].idxmin()):%a %d %b}"
+    if near[col].size:
+        n = len(near[col])
+        return f"€{near[col].iloc[0]:.0f}", (f"{pd.Timestamp(near[col].index[0]):%a %d %b}" +
+                                             (f" · {n} days within {tol:.0%}" if tol and n > 1 else f" · {n} days at this price" if n > 1 else ""))
     return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
 
 
 (ev, es), (bv, bs) = best("economy"), best("business")
-vv, vs = (f"€{out.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(out.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles") \
-    if out.value.notna().any() else ("—", "Add award prices in the Awards tab")
+vv, vs = (f"€{view.value.max():.0f} / 1,000 mi", f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles") \
+    if view.value.notna().any() else ("—", "Add award prices in the Awards tab")
 kpis([("Cheapest economy", ev, es, ECONOMY), ("Cheapest business", bv, bs, BUSINESS), ("Best miles value", vv, vs, MUTED)])
+best_days(near["economy"], ECONOMY, "Cheap economy days")
+best_days(near["business"], BUSINESS, "Cheap business days")
 
 if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
@@ -97,13 +98,14 @@ if len(p):
     st.caption(f"Last updated {p.fetched.max()[:16].replace('T', ' ')} · saved results are kept for {RETENTION_DAYS} days")
 t1, t2, t3 = st.tabs(["Prices", "Awards", "Table"])
 with t1:
-    if out[["economy", "business"]].notna().any().any():
-        st.markdown('<p class="card-title">Daily AEGEAN fare, cheapest day ringed</p>', unsafe_allow_html=True)
-        st.plotly_chart(price_chart(out, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}),
+    if view[["economy", "business"]].notna().any().any():
+        st.markdown('<p class="card-title">Daily AEGEAN fare, cheap days ringed</p>', unsafe_allow_html=True)
+        st.plotly_chart(price_chart(view, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)},
+                                    near={c: list(near[c].index) for c in near}),
                         width="stretch", config={"displayModeBar": False})
     else:
-        st.info("No AEGEAN fares found for this route and these dates. Check the airport codes, or widen the dates." if len(p)
-                else "No fares yet. Open **Search settings** above, check the route and dates, then press **Update prices**.")
+        st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop flights only in Options."
+                if len(p) else "No fares yet. Pick the route and dates above, then press **Update prices**.")
 with t2:
     st.caption("Business Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN. AEGEAN offers no public award data.")
     ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
