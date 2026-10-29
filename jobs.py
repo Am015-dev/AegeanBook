@@ -71,6 +71,10 @@ def track(key):
         st.error(f"The update stopped because of an error: {j['error']}. Results saved so far are shown below.")
     elif j["cancel"]:
         st.info(f"Stopped after {j['done']} of {j['total']} lookups. Press Update prices to continue where it left off.")
+    elif any("429" in e for e in j["errors"]):
+        st.error(f"Google is rate-limiting this server (HTTP 429, too many requests), so the update stopped after {j['ok']} priced and "
+                 f"{j['failed']} failed. This is Google's limit, not a bug in your search. Results saved so far are shown. "
+                 "Wait about an hour and press Update prices to continue where it left off, or run the app on your own computer.")
     elif j["failed"] and not j["ok"] and not j["empty"]:
         st.error(f"Nothing could be fetched: all {j['failed']} lookups failed in {took} s. Google or the network is not answering. "
                  "Open the Health page to see which source is down, then press Update prices to try again.")

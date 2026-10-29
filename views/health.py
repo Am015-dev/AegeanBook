@@ -9,6 +9,9 @@ if st.button("Run checks", type="primary"):
         results = run_checks()
     for name, ok, secs, detail in results:
         (st.success if ok else st.error)(f"**{name}**: {'works' if ok else 'FAILED'} ({secs} s). {detail}")
+    if any("429" in r[3] for r in results):
+        st.warning("HTTP 429 means Google is limiting requests from this server. It clears by itself, usually within an hour. "
+                   "Avoid repeated fetches meanwhile, or run the app on your own computer.")
     if not all(r[1] for r in results):
         st.info("A failed source usually means Google or Xotelo is blocking or has changed. Try again in a few minutes. "
                 "If it keeps failing, the app needs an update.")
