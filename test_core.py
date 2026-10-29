@@ -190,3 +190,33 @@ def test_every_page_loads(tmp_path, monkeypatch):
     for page in ("views/flights.py", "views/hotel.py", "views/health.py"):
         at = AppTest.from_file(os.path.join(here, page), default_timeout=60).run()
         assert not at.exception, (page, at.exception)
+
+
+def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monkeypatch):
+    """On Streamlit Cloud Google Hotels answers HTTP 429; the page must still show prices from Booking.com (Xotelo)."""
+    import os
+    from datetime import date as _date
+    from streamlit.testing.v1 import AppTest
+    import xotelo
+
+    def limited(*a, **k):
+        raise RuntimeError("TransientBatchExecuteError: HTTP 429 from endpoint")
+    monkeypatch.setattr(hotels, "fetch_day", limited)
+    monkeypatch.setattr(xotelo, "heatmap_range", lambda key, s, e: {})
+    monkeypatch.setattr(xotelo, "booking_rate", lambda key, d, n=1: 100.0 + d.day)
+    here = os.path.dirname(os.path.abspath(__file__))
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(os.path.join(here, "views/hotel.py"), default_timeout=60).run()
+    first = at.date_input[0].value
+    at.date_input[1].set_value(first + timedelta(4)).run()
+    at.button[0].click().run()
+    deadline = time.time() + 20
+    while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:
+        time.sleep(0.2)
+    at.run()
+    cards = " ".join(m.value for m in at.markdown)
+    cheapest = min(100 + (first + timedelta(i)).day for i in range(5))
+    assert f"€{cheapest}" in cards and "Booking.com via Xotelo" in cards
+    assert any("rate-limiting" in i.value and "Booking.com" in i.value for i in at.info)
+    assert not at.exception
+    jobs.JOBS.clear()

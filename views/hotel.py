@@ -59,6 +59,24 @@ if fetch:
     def work(j):
         tdb = connect()
         now = lambda: datetime.now().isoformat()
+        fetched_now = set()
+
+        def booking_days(days):
+            """Booking.com price (via Xotelo) for each day not saved recently; returns False if the user pressed Stop."""
+            fresh = {r[0] for r in tdb.execute("SELECT day FROM booking WHERE hkey=? AND nights=? AND fetched>=?",
+                                               (hkey, int(nights), cutoff()))}
+            todo = [d for d in days if d not in fetched_now and (recheck or d.isoformat() not in fresh)]
+            j["total"] += len(todo)
+            for d, price, err in parallel(todo, lambda d: booking_rate(hkey, d, int(nights)), workers=3):
+                if j["cancel"]:
+                    return False
+                if not err:
+                    tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now()))
+                    tdb.commit()
+                    fetched_now.add(d)
+                record(j, "error" if err else "ok", err)
+            return True
+
         if hkey:  # 1) cheap-day calendar: one quick call per month
             try:
                 heat = {d: t for d, t in heatmap_range(hkey, start, end).items() if start.isoformat() <= d <= end.isoformat()}
@@ -69,26 +87,22 @@ if fetch:
             except Exception as e:
                 heat = {}
                 record(j, "error", f"Xotelo heatmap: {type(e).__name__}: {e}")
-            if booking:  # 2) Booking.com prices, cheap days only
-                fresh = {r[0] for r in tdb.execute("SELECT day FROM booking WHERE hkey=? AND nights=? AND fetched>=?",
-                                                   (hkey, int(nights), cutoff()))}
-                todo = [date.fromisoformat(d) for d, t in sorted(heat.items()) if t == "cheap" and (recheck or d not in fresh)]
-                j["total"] += len(todo)
-                for d, price, err in parallel(todo, lambda d: booking_rate(hkey, d, int(nights)), workers=3):
-                    if j["cancel"]:
-                        return
-                    if not err:
-                        tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now()))
-                        tdb.commit()
-                    record(j, "error" if err else "ok", err)
+            if booking and not booking_days([date.fromisoformat(d) for d, t in sorted(heat.items()) if t == "cheap"]):
+                return  # 2) Booking.com prices, cheap days only
+        limited = False
         for d, name, price, status, err in fetch_range(start, end, query, filt, nights, adults, skip=skip):  # 3) Google, every day
             if j["cancel"]:
-                break
+                return
             if status != "error":  # failed lookups are not saved, so the next run retries them
                 tdb.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)",
                             (d.isoformat(), query, filt, nights, name, price, now(), int(adults)))
                 tdb.commit()
+            limited = limited or bool(err and "429" in err)
             record(j, status, err)
+        if limited and hkey:  # 4) Google Hotels refuses this server: Booking.com prices for every day instead
+            j["fallback"] = ("Google Hotels is rate-limiting this server (HTTP 429), so Booking.com prices (via Xotelo) were "
+                             "fetched for every day instead. Google's prices will be added once it answers again.")
+            booking_days([start + timedelta(i) for i in range((end - start).days + 1)])
 
     if total > 0:
         start_job(key, total, work, "{n} dates show no listing for a hotel matching that name. Check the name filter.",
@@ -109,14 +123,18 @@ if hkey:
     s = s.join(b.rename("booking"), how="outer")
 
 ts = lambda i: f"{pd.Timestamp(i):%a %d %b}"
-if s.price.notna().any():
-    low, high = s.price.idxmin(), s.price.idxmax()
-    cards = [("Cheapest check-in", f"€{s.price.min():.0f}", f"{ts(low)} · {s.hotel[low]}", ECONOMY),
-             ("Average", f"€{s.price.mean():.0f}", f"{s.price.notna().sum()} dates checked", "#5B6B82"),
-             ("Most expensive", f"€{s.price.max():.0f}", ts(high), TIER_COLORS["high"])]
+has_booking = "booking" in s and s.booking.notna().any()
+main = "price" if s.price.notna().any() else "booking" if has_booking else None  # Booking.com stands in when Google is blocked
+if main:
+    col = s[main]
+    low, high = col.idxmin(), col.idxmax()
+    where = s.hotel[low] if main == "price" else "Booking.com via Xotelo"
+    cards = [("Cheapest check-in", f"€{col.min():.0f}", f"{ts(low)} · {where}", ECONOMY if main == "price" else BOOKING),
+             ("Average", f"€{col.mean():.0f}", f"{col.notna().sum()} dates checked", "#5B6B82"),
+             ("Most expensive", f"€{col.max():.0f}", ts(high), TIER_COLORS["high"])]
 else:
     cards = [("Cheapest check-in", "—", "No data yet", ECONOMY)]
-if "booking" in s and s.booking.notna().any():
+if main == "price" and has_booking:
     bl = s.booking.idxmin()
     cards.append(("Cheapest on Booking.com", f"€{s.booking.min():.0f}", ts(bl), BOOKING))
 if heat:
@@ -127,10 +145,10 @@ kpis(cards)
 if heat:
     st.markdown('<p class="card-title">Cheap, average and expensive days (TripAdvisor price tiers)</p>', unsafe_allow_html=True)
     st.plotly_chart(heat_strip(heat), width="stretch", config={"displayModeBar": False})
-if s.price.notna().any():
+if main:
     st.markdown('<p class="card-title">Price per night, cheapest ringed</p>', unsafe_allow_html=True)
-    series = {"price": ("Google lowest", ECONOMY)}
-    if "booking" in s and s.booking.notna().any():
+    series = {"price": ("Google lowest", ECONOMY)} if s.price.notna().any() else {}
+    if has_booking:
         series["booking"] = ("Booking.com", BOOKING)
     st.plotly_chart(price_chart(s, series), width="stretch", config={"displayModeBar": False})
     with st.expander("Table and export"):
