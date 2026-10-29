@@ -48,5 +48,5 @@ table = summary.drop(columns=["orig", "dest"]).rename(columns={
     "biz_value_day": "Business value day"})
 st.download_button("Download this comparison (Excel)", excel_bytes(table.set_index("Route")), "aegean_routes.xlsx")
 st.caption(f"Cheapest fare and lowest award miles over the next {days} days, {'nonstop AEGEAN flights only' if nonstop else 'including flights with stops'}. "
-           "Routes differ in length, so compare each one with itself over time as well as with the others. The value per 1,000 miles is the cash fare "
+           "Each direction is its own route: the cheapest day of FRA → ATH is not tied to the cheapest day of ATH → FRA. Routes differ in length, so compare each one with itself over time as well as with the others. The value per 1,000 miles is the cash fare "
            "(minus award taxes when known) divided by the miles, on the day it is highest.")

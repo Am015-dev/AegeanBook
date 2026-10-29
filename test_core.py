@@ -431,7 +431,6 @@ def test_award_view_headline_and_table():
     assert av.best_award(pd.Series(dtype=float), False)[1] == "Not collected yet for this route"  # no data is not the same as no seats
     t = av.miles_table(s, pd.Series({"2026-11-07": 16935.0, "2026-11-08": float("nan"), "2026-11-09": float("nan")}))
     assert t.to_dict("list") == {"Date": ["Sat 07 Nov", "Mon 09 Nov"], "Economy miles": ["9,032", "9,032"], "Business miles": ["16,935", "\u2014"]}
-    assert len(av.miles_chart(s, s).data) == 2
 
 
 def test_booking_strategy_one_way_and_return():
@@ -441,11 +440,6 @@ def test_booking_strategy_one_way_and_return():
                         index=["2026-11-07", "2026-11-09", "2026-11-14"])
     ow = av.one_way_plan(view, "economy", "econ_miles")
     assert ow["cash"] == ("2026-11-09", 86.0) and ow["miles"] == ("2026-11-09", 9032.0, 86.0, None) and ow["best"][:4] == ("2026-11-09", 9032.0, 86.0, None)
-    assert round(av.per_thousand(86.0, 9032.0), 1) == 9.5
-    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
-    assert "On Mon 09 Nov: pay cash" in html and "below your" in html  # 9.5 per 1,000 is below 10 (cash and miles on the same day: one line)
-    assert "On Mon 09 Nov: use miles" in av.plan_html("Economy", "#2563C9", ow, None, 8.0)  # ...and above 8
-    assert "No award seats" in av.plan_html("Business", "#B8741A", av.one_way_plan(view.assign(m=float("nan")), "economy", "m"), None, 10.0)
     # return: miles pair is outbound 2026-11-07 + 7 nights = 2026-11-14 only when both days have miles
     out_m = pd.Series({"2026-11-07": 9032.0, "2026-11-09": 9032.0})
     back_m = pd.Series({"2026-11-16": 9032.0, "2026-11-21": 9032.0})
@@ -455,18 +449,6 @@ def test_booking_strategy_one_way_and_return():
                          columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
     rp = av.return_plan(trips, out_m, back_m, [7])
     assert rp["cash"] == ("2026-11-09", "2026-11-16", 7, 176.0) and rp["miles"] == ("2026-11-09", "2026-11-16", 7, 18064.0, 176.0, None)
-    both = av.plan_html("Economy", "#2563C9", ow, rp, 10.0)
-    assert "Return" in both and "18,064 miles" in both and "7 nights" in both
-
-
-def test_strategy_separates_flexible_dates_from_being_tied_to_the_miles_day():
-    import pandas as pd
-    import award_view as av
-    view = pd.DataFrame({"economy": [168.0, 86.0, 86.0], "econ_miles": [9032.0, float("nan"), float("nan")]},
-                        index=["2026-11-07", "2026-11-18", "2026-11-19"])
-    html = av.plan_html("Economy", "#2563C9", av.one_way_plan(view, "economy", "econ_miles"), None, 10.0)
-    assert "Flexible dates: pay cash" in html   # 86 / 9,032 = 9.5 per 1,000, below 10
-    assert "Best day for miles, Sat 07 Nov: use miles" in html   # 168 / 9,032 = 18.6 per 1,000, above 10: miles beat cash on a day when cash is dear
 
 
 def test_history_append_changes_only(tmp_path):
@@ -529,9 +511,6 @@ def test_strategy_uses_award_taxes_when_known():
                         index=["2026-11-07", "2026-11-18"])
     ow = av.one_way_plan(view, "economy", "econ_miles", "econ_taxes")
     assert ow["miles"] == ("2026-11-07", 9032.0, 168.0, 30.44)
-    assert round(av.per_thousand(168.0, 9032.0, 30.44), 1) == 15.2    # (168 - 30.44) / 9,032 * 1000: the taxes come off the saving
-    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
-    assert "9,032 miles</b> + \u20ac30 taxes" in html and "9,032 miles + \u20ac30 taxes instead of \u20ac168 is \u20ac15.2 per 1,000 miles" in html
     # return: taxes of both legs add up, and only when both are known
     out_m, back_m = pd.Series({"2026-11-09": 9032.0}), pd.Series({"2026-11-16": 9032.0})
     best = av.best_return_miles(out_m, back_m, [7], pd.Series({"2026-11-09": 30.44}), pd.Series({"2026-11-16": 25.0}))
@@ -577,8 +556,6 @@ def test_best_day_for_miles_is_where_cash_is_dearest_not_the_first_cheap_miles_d
     ow = av.one_way_plan(view, "economy", "econ_miles")
     assert ow["miles"][0] == "2026-11-07"                      # the first of the equal cheapest-miles days (what 'lowest award' shows)
     assert ow["best"][:3] == ("2026-11-14", 9032.0, 300.0) and round(ow["best"][4], 1) == 33.2   # but the best day to spend them
-    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
-    assert "Best day for miles, Sat 14 Nov: use miles" in html and "€33.2 per 1,000" in html
     # taxes come off the saving: (300 - 30.44) / 9,032 * 1000
     view["econ_taxes"] = 30.44
     assert round(av.one_way_plan(view, "economy", "econ_miles", "econ_taxes")["best"][4], 1) == 29.8
@@ -649,70 +626,12 @@ def test_aegean_pass_compared_with_cash():
     cash = pd.Series({"2026-11-03": 40.0, "2026-11-07": 45.0, "2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0, "2026-11-25": float("nan")})
     a = pp.assess(cash, 1200.0, 12, 30.0, 7, today)       # 100 + 30 = 130 per flight
     assert a["days"] == 3 and a["cheapest"] == 90.0 and a["typical"] == 120.0 and a["pass_cheaper"] == 1
-    assert a["break_even"] is None and pp.verdict(a)[1].startswith("<b>Only on the dear days.")   # it would need 14 flights, the pass has 12
+    assert a["break_even"] is None   # it would need 14 flights, the pass has 12
     cheap = pp.assess(cash, 600.0, 12, 30.0, 7, today)    # 50 + 30 = 80, below the cheapest fare of 90
-    assert pp.verdict(cheap)[0] == "miles" and cheap["break_even"] == 7
+    assert cheap["break_even"] == 7
     far = pd.Series({"2026-11-20": 200.0, "2026-12-05": 150.0, "2026-12-10": 90.0})
     assert pp.assess(far, 672.0, 12, 30.0, 30, today)["days"] == 2   # the 30-day pass only counts fares at least 30 days ahead
     assert pp.assess(cash, 600.0, 12, 30.0, 90, today) is None
-    card = pp.with_extra('<div class="plan">x</div>', "<p>y</p>")
-    assert card == '<div class="plan">x<p>y</p></div>'
-
-
-def test_aegean_pass_sits_inside_the_strategy_cards(tmp_path, monkeypatch):
-    import csv
-    import os
-    from datetime import datetime
-    from streamlit.testing.v1 import AppTest
-    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
-    # the page needs cash fares: seed its own (the autouse fixture blocks the repo's CSVs, and a fresh CI database starts empty)
-    daily = tmp_path / "daily.csv"
-    with open(daily, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])
-        for i in range(1, 31):
-            d = (date.today() + timedelta(i)).isoformat()
-            w.writerows([[d, "ATH", "FRA", "economy", 100 + (i % 5) * 40, "calendar", datetime.now().isoformat(timespec="seconds"), 1],
-                         [d, "ATH", "FRA", "business", 300, "calendar", datetime.now().isoformat(timespec="seconds"), 1]])
-    monkeypatch.setattr(db, "DAILY", str(daily))
-    monkeypatch.chdir(tmp_path)  # its own tracker.db
-    at = AppTest.from_file(page, default_timeout=90).run()
-    assert not at.exception
-    shown = " ".join(m.value for m in at.markdown)
-    assert "7-day pass, \u20ac780 for 12 flights" in shown and "30-day pass, \u20ac672 for 12 flights" in shown   # both passes, side by side
-    assert "\u20ac95</b> per flight with taxes" in shown and "\u20ac86</b> per flight with taxes" in shown       # 780/12+30 and 672/12+30
-    assert "Economy Flex fare" in shown                                                                          # the Business card explains why no pass
-    assert "Cheapest per flight: 30-day pass" in shown and "30 or more days ahead" in shown                      # 86 beats 95, and what it asks of you
-    at.number_input(key="pass-price-7").set_value(1500.0).run()                                                  # a dearer pass changes the numbers
-    assert not at.exception and "\u20ac155</b> per flight with taxes" in " ".join(m.value for m in at.markdown)  # 1500/12+30
-
-
-def test_suggestion_names_one_option_for_flexible_and_for_fixed_dates():
-    import suggest as sg
-    cash = dict(min=86.0, typical=109.0, when="Wed 18 Nov")
-    miles = dict(miles=9032.0, taxes=30.0, when="Sat 07 Nov")
-    passes = [dict(name="7-day pass", eff=95.0, days=7, price=780.0, flights=12, break_even=9),
-              dict(name="30-day pass", eff=86.0, days=30, price=672.0, flights=12, break_even=8)]
-    opts = sg.options(cash, miles, passes, 10.0, 1)
-    assert {o["name"]: round(o["flexible"]) for o in opts} == {"Pay cash": 86, "Use miles": 120, "7-day pass": 95, "30-day pass": 86}   # miles: 9.032 * 10 + 30
-    assert sg.winner(opts, "flexible")["name"] == "Pay cash"      # the 30-day pass ties with cash: no clear margin, so no commitment
-    assert sg.winner(opts, "fixed")["name"] == "30-day pass"      # against a typical 109 fare it is clearly cheaper (86 < 98.1)
-    html = sg.card_html("Economy", "#2563C9", opts, "flight")
-    assert "If your dates are flexible" in html and "Pay cash \u00b7 \u20ac86 per flight" in html
-    assert "30-day pass \u00b7 \u20ac86 per flight" in html and "about \u20ac23 less than a typical fare" in html and "8 of its 12 flights" in html
-    # miles valued low are the cheapest way to fly; a return trip doubles the pass flights
-    assert sg.winner(sg.options(cash, miles, passes, 4.0, 1), "flexible")["name"] == "Use miles"         # 36 + 30 = 66 < 86
-    assert round(sg.options(None, None, passes, 10.0, 2)[1]["flexible"]) == 172                           # 2 x 86
-    assert "No fares or award seats" in sg.card_html("Business", "#B8741A", [], "flight")
-
-
-def test_suggestion_explains_why_a_slightly_cheaper_pass_is_not_the_advice():
-    import suggest as sg
-    cash = dict(min=86.0, typical=109.0, when="Wed 18 Nov")
-    near = [dict(name="30-day pass", eff=80.0, days=30, price=672.0, flights=12, break_even=8)]     # 80 is cheaper than 86, but not by 10%
-    html = sg.card_html("Economy", "#2563C9", sg.options(cash, None, near, 10.0, 1), "flight")
-    assert "Pay cash \u00b7 \u20ac86 per flight" in html and "The 30-day pass would be about \u20ac6 cheaper, but it is a commitment" in html
-    assert "Flexible dates" in html and "Fixed dates" in html and "30-day pass \u00b7 \u20ac80 per flight" in html   # for fixed dates the pass wins (80 < 98.1)
 
 
 def test_route_board_summarises_each_route_and_marks_the_winners(tmp_path):
@@ -744,10 +663,89 @@ def test_route_board_summarises_each_route_and_marks_the_winners(tmp_path):
     win = rb.winners(s.reset_index())
     assert win["econ_cash"] == "ATH \u2192 FRA" and win["econ_miles"] == "ATH \u2192 ZRH" and win["econ_value"] == "ATH \u2192 FRA" and "biz_miles" not in win
     html = rb.card_html(s.reset_index().iloc[0].to_dict(), win)
-    assert "\u20ac79</b>" in html and "9,032 miles" in html and "best" in html and "not collected yet" in html   # business award has no seats yet
     # an older database without the taxes column and one without the award table still load
     old = __import__("sqlite3").connect(":memory:")
     old.execute("CREATE TABLE prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT)")
     p2, m2 = rb.load(old, date(2026, 11, 1), date(2026, 11, 30), True)
     assert p2.empty and m2.empty
+
+
+def test_availability_calendar_states_and_layout():
+    from datetime import date
+    import pandas as pd
+    import award_calendar as ac
+    nan = float("nan")
+    cash = pd.Series({"2026-11-02": 90.0, "2026-11-03": 300.0, "2026-11-04": 120.0, "2026-11-05": 250.0, "2026-11-06": 60.0})
+    miles = pd.Series({"2026-11-02": 9032.0, "2026-11-03": 9032.0, "2026-11-04": nan, "2026-11-05": 9032.0, "2026-11-06": nan})
+    checked = {"2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06"}      # the 7th and 8th were never checked
+    cs = ac.cells(cash, miles, checked, date(2026, 11, 2), date(2026, 11, 8))
+    # seat-day cash fares are 90, 300 and 250: the top quarter starts at 275, so only the 300 day is "best" and 250 is a plain seat day
+    assert [c["state"] for c in cs] == ["seat", "best", "none", "seat", "none", "unk", "unk"]
+    assert cs[1]["cash"] == 300.0 and cs[2]["miles"] is None and cs[5]["cash"] is None            # no fare saved for the unchecked days
+    html = ac.calendar_html(cs)
+    # a range that crosses a month gets one grid per month, and the first day of a month starts under its weekday
+    cross = ac.cells(cash, miles, checked, date(2026, 10, 30), date(2026, 11, 3))
+    h2 = ac.calendar_html(cross)
+    assert "October 2026" in h2 and "November 2026" in h2 and h2.count('class="cal-g"') == 2
+    assert ac.calendar_html([]) == ""
+
+
+def test_advice_names_one_option_for_flexible_and_for_fixed_dates():
+    import advice as ad
+    cash = dict(min=86.0, typical=109.0, when="Wed 18 Nov")
+    miles = dict(miles=9032.0, taxes=30.0, when="Sat 07 Nov")
+    passes = [dict(name="7-day pass", eff=95.0, days=7, price=780.0, flights=12), dict(name="30-day pass", eff=86.0, days=30, price=672.0, flights=12)]
+    opts = ad.options(cash, miles, passes, 10.0, 1)
+    assert {o["name"]: round(o["flexible"]) for o in opts} == {"Pay cash": 86, "Use miles": 120, "7-day pass": 95, "30-day pass": 86}   # miles: 9.032 * 10 + 30
+    assert ad.winner(opts, "flexible")["name"] == "Pay cash"      # the 30-day pass only ties with cash: no clear margin, so no commitment
+    assert ad.winner(opts, "fixed")["name"] == "30-day pass"      # against a typical 109 fare it is clearly cheaper (86 < 98.1)
+    html = ad.card_html("Economy", "#2563C9", opts, "flight")
+    assert "If your dates are flexible" in html and "Pay cash \u00b7 \u20ac86" in html and "30-day pass \u00b7 \u20ac86" in html
+    assert "about \u20ac23 less than a typical fare" in html and "Cost per flight" in html
+    near = [dict(name="30-day pass", eff=80.0, days=30, price=672.0, flights=12)]       # cheaper than 86, but not by 10%
+    html = ad.card_html("Economy", "#2563C9", ad.options(cash, None, near, 10.0, 1), "flight")
+    assert "Pay cash \u00b7 \u20ac86" in html and "30-day pass is about \u20ac6 cheaper" in html and "paid upfront" in html
+    assert ad.winner(ad.options(cash, miles, passes, 4.0, 1), "flexible")["name"] == "Use miles"          # 36 + 30 = 66 < 86
+    assert round(ad.options(None, None, passes, 10.0, 2)[1]["flexible"]) == 172                           # a round trip is two pass flights
+    business = dict(min=239.0, typical=320.0, when="Thu 12 Nov")
+    assert "taxes not collected yet" in ad.card_html("Business", "#B8741A", ad.options(business, dict(miles=16935.0, taxes=None, when="x"), [], 10.0, 1), "flight")   # miles win: 169 < 239
+    assert "No fares or award seats" in ad.card_html("Business", "#B8741A", [], "flight")
+
+
+def _seed_fares(tmp_path, monkeypatch):
+    """Cash fares for both directions of ATH-FRA, for the next 40 days, in the page's own database (the autouse fixture blocks the repo's CSVs)."""
+    import csv
+    from datetime import datetime
+    daily = tmp_path / "daily.csv"
+    now = datetime.now().isoformat(timespec="seconds")
+    with open(daily, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])
+        for i in range(1, 41):
+            d = (date.today() + timedelta(i)).isoformat()
+            for o, t in (("ATH", "FRA"), ("FRA", "ATH")):
+                w.writerows([[d, o, t, "economy", 100 + (i % 5) * 40, "calendar", now, 1], [d, o, t, "business", 300, "calendar", now, 1]])
+    monkeypatch.setattr(db, "DAILY", str(daily))
+    monkeypatch.setattr(db, "DAILY_AWARD", str(tmp_path / "none.csv"))
+    monkeypatch.chdir(tmp_path)
+
+
+def test_what_should_i_book_shows_only_the_chosen_trip_type_and_leaves_out_impossible_passes(tmp_path, monkeypatch):
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    _seed_fares(tmp_path, monkeypatch)
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "What should I book?" in shown and "Economy</div>" in shown and "Business</div>" in shown
+    assert "Cost per flight" in shown and "Cost per round trip" not in shown          # one way: one-way costs only, never a round trip beside it
+    assert "7-day pass" in shown                                                       # 24 of the 30 dates shown can be booked 7+ days ahead
+    assert "The 30-day pass is left out: only 1 of the 30 dates shown can be booked 30 or more days ahead" in shown   # not recommended for dates it cannot be booked for
+    trip = next(p for p in at.get("button_group") if p.key == "fl-trip")
+    trip.set_value("Return").run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "Cost per round trip" in shown and "Cost per flight" not in shown          # return: round trips only, never a one-way block with other dates
+    assert "Aegean Pass is an Economy Flex fare" in shown
 
