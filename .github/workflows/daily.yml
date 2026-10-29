@@ -3,6 +3,8 @@ on:
   schedule:
     - cron: "17 4 * * *"  # 04:17 UTC, 07:17 Athens
   workflow_dispatch:
+  push:
+    branches: [daily-hotel]  # temporary: test run before merging
 permissions:
   contents: write
 concurrency: daily
@@ -15,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install flights==0.9.0
+      - run: pip install flights==0.9.0 stays==0.1.1
       - id: run
         run: python collect_daily.py
         continue-on-error: true  # save what was collected even if some days are still missing
@@ -23,7 +25,7 @@ jobs:
         run: |
           git config user.name "daily-fares"
           git config user.email "actions@users.noreply.github.com"
-          git add data/daily.csv
+          git add data/daily.csv data/daily_hotel.csv
           git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} && git push
       - if: steps.run.outcome == 'failure'

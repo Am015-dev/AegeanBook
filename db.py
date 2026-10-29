@@ -80,6 +80,32 @@ def load_daily(db, path=None):
                                                                  fetched, None, len(got), priced, len(got) - priced, 0, None))
 
 
+DAILY_HOTEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_hotel.csv")
+
+
+def load_daily_hotel(db, path=None):
+    """Load the hotel prices the daily GitHub job saved, once per file version."""
+    path = path or DAILY_HOTEL
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    seen = {r[0] for t in ("hotel", "booking", "heat") for r in db.execute(f"SELECT DISTINCT fetched FROM {t}")}
+    for fetched in {r["fetched"] for r in rows} - seen:
+        got = [r for r in rows if r["fetched"] == fetched]
+        price = lambda r: float(r["price"]) if r["price"] else None
+        db.executemany("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", [(r["day"], r["query"], r["filt"], int(r["nights"]),
+                       r["hotel"] or None, price(r), fetched, int(r["adults"])) for r in got if r["source"] == "google"])
+        db.executemany("INSERT INTO booking VALUES(?,?,?,?,?)", [(r["hkey"], r["day"], int(r["nights"]), price(r), fetched)
+                                                                 for r in got if r["source"] == "booking"])
+        db.executemany("INSERT INTO heat VALUES(?,?,?,?)", [(r["hkey"], r["day"], r["tier"], fetched)
+                                                            for r in got if r["source"] == "heat"])
+        lookups = [r for r in got if r["source"] != "heat"]
+        priced = sum(bool(r["price"]) for r in lookups)
+        db.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?)", ("daily", "Daily: hotel", fetched, None, len(lookups), priced,
+                                                                 len(lookups) - priced, 0, None))
+
+
 def connect(path="tracker.db"):
     db = sqlite3.connect(path, check_same_thread=False)
     db.executescript(SCHEMA)
@@ -93,6 +119,7 @@ def connect(path="tracker.db"):
     except sqlite3.OperationalError:
         pass
     load_daily(db)
+    load_daily_hotel(db)
     for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     db.execute("DELETE FROM runs WHERE started < ?", ((datetime.now() - timedelta(days=30)).isoformat(),))  # stats: 30 days
