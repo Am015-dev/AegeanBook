@@ -4,13 +4,15 @@ import time
 
 import streamlit as st
 
+import db
+
 JOBS = {}  # key -> job dict
 _lock = threading.Lock()
 STALL_SECONDS = 45
 KEEP_FINISHED = 3600  # forget finished jobs after an hour so the server's memory does not grow forever
 
 
-def start_job(key, total, work, empty_note="{n} lookups found nothing to match.", empty_label="with nothing found"):
+def start_job(key, total, work, empty_note="{n} lookups found nothing to match.", empty_label="with nothing found", label=""):
     """Run work(job) in a thread unless the same key is already running."""
     with _lock:
         if JOBS.get(key, {}).get("running"):
@@ -27,6 +29,11 @@ def start_job(key, total, work, empty_note="{n} lookups found nothing to match."
             j["error"] = f"{type(e).__name__}: {e}"
         finally:
             j["running"], j["ended"] = False, time.time()
+            try:  # statistics are a bonus: never let them break an update
+                db.log_run(db.connect(), key.split("|", 1)[0], label, time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(j["started"])),
+                           j["ended"] - j["started"], j)
+            except Exception:
+                pass
 
     threading.Thread(target=run, daemon=True).start()
 
