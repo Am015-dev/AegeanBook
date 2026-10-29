@@ -7,12 +7,12 @@ JOBS = {}  # key -> {done, total, failed, empty, running, error}
 _lock = threading.Lock()
 
 
-def start_job(key, total, work):
+def start_job(key, total, work, empty_note="{n} lookups found nothing to match."):
     """Run work(job) in a thread unless the same key is already running. work updates job done/failed/empty."""
     with _lock:
         if JOBS.get(key, {}).get("running"):
             return
-        j = JOBS[key] = dict(done=0, total=total, failed=0, empty=0, running=True, error=None)
+        j = JOBS[key] = dict(done=0, total=total, failed=0, empty=0, running=True, error=None, note=empty_note)
 
     def run():
         try:
@@ -48,7 +48,7 @@ def track(key):
     if j["failed"]:
         st.warning(f"{j['failed']} lookups failed because Google did not answer. Press Update prices again to retry just those.")
     if j["empty"]:
-        st.caption(f"{j['empty']} lookups found nothing to match (no AEGEAN flight, or no hotel with that name).")
+        st.caption(j["note"].format(n=j["empty"]))
 
 
 if __name__ == "__main__":  # self-check
