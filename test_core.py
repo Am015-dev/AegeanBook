@@ -238,3 +238,20 @@ def test_airport_search_finds_cities_and_names():
     assert len(names) > 3000 and {"ATH", "FRA", "BIO"} <= set(names)
     assert "MMI" not in names  # McMinn County (Athens, USA) has no scheduled flights: typing Athens must not pick it
     assert "Athens" in names["ATH"] and "Bilbao" in names["BIO"] and "Frankfurt" in names["FRA"]
+
+
+
+def test_start_date_plus_window(tmp_path, monkeypatch):
+    """Pick a start date (e.g. 29 Nov) and 15 days: the route header shows 29 Nov to 13 Dec."""
+    import os
+    from datetime import date as _date
+    from streamlit.testing.v1 import AppTest
+    here = os.path.dirname(os.path.abspath(__file__))
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
+    first = _date.today() + timedelta(31)
+    at.date_input(key="fl-from").set_value(first).run()
+    at.button_group(key="fl-win").set_value("15 days").run()
+    sub = " ".join(m.value for m in at.markdown if 'class="sub"' in m.value)
+    assert f"{first:%a %d %b}" in sub and f"{first + timedelta(14):%a %d %b %Y}" in sub and "15 days" in sub, sub
+    assert not at.exception
