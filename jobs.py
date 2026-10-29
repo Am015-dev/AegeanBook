@@ -71,10 +71,12 @@ def track(key):
         _live(key)
         return
     took = int((j["ended"] or time.time()) - j["started"])
-    if j.get("fallback"):
-        st.info(j["fallback"])
     if j["error"]:
         st.error(f"The update stopped because of an error: {j['error']}. Results saved so far are shown below.")
+    elif j.get("fallback"):  # Google Hotels blocked, Booking.com filled in: a normal outcome on Streamlit Cloud, not a failure
+        st.success(f"Finished in {took} s: {j['ok']} prices saved. Google Hotels refuses this server right now (HTTP 429), so the "
+                   "prices shown are Booking.com's (via Xotelo). Google's will be added automatically once it answers again.")
+        return
     elif j["cancel"]:
         st.info(f"Stopped after {j['done']} of {j['total']} lookups. Press Update prices to continue where it left off.")
     elif any("429" in e for e in j["errors"]) and not j.get("fallback"):
