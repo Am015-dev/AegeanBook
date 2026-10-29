@@ -9,7 +9,7 @@ import streamlit as st
 
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
-from award_view import best_award, miles_chart, miles_table
+from award_view import STYLE as PLAN_STYLE, best_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
 from jobs import record, start_job, track
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
@@ -266,3 +266,25 @@ with t3:
         st.markdown(f'<p class="card-title">{orig} → {dest} by day</p>', unsafe_allow_html=True)
     st.dataframe(table, width="stretch")
     st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")
+
+# booking strategy: the cash fares and the award miles above, put together per cabin, one way and (when compared) return
+st.markdown('<p class="card-title">Booking strategy</p>', unsafe_allow_html=True)
+per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
+                        help="Miles are recommended when they buy more than this per 1,000, cash otherwise. Set it to what you would "
+                             "otherwise get for your miles.")
+bam = pd.DataFrame()
+if nights:  # miles on the way back
+    try:
+        bam = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
+                          db, params=(dest, orig, int(nonstop), rstart.isoformat(), rend.isoformat()))
+    except (pd.errors.DatabaseError, sqlite3.Error):
+        pass
+    bam = bam.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="miles") if len(bam) else pd.DataFrame()
+st.markdown(PLAN_STYLE, unsafe_allow_html=True)
+for ui_col, (name, colour, cash_col, miles_col) in zip(st.columns(2, gap="medium"), [("Economy", ECONOMY, "economy", "econ_miles"),
+                                                                                       ("Business", BUSINESS, "business", "biz_miles")]):
+    ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, pd.Series(dtype=float)), nights) if nights else None
+    with ui_col:
+        st.markdown(plan_html(name, colour, one_way_plan(view, cash_col, miles_col), ret, per_k), unsafe_allow_html=True)
+st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is the cash fare "
+           "divided by the miles, before the taxes an award ticket also costs." + ("" if nights else " Set Trip to Return at the top to compare round trips too."))

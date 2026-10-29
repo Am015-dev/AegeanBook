@@ -15,6 +15,7 @@ import re
 from datetime import date, datetime, timedelta
 from urllib.parse import parse_qs
 
+import history
 from award_api import PACE, Blocked, best_by_cabin, parse_flights as parse_api_flights, post_day, template_day
 
 from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
@@ -51,7 +52,6 @@ OUT_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "dail
 FIELDS = ["day", "orig", "dest", "cabin", "miles", "nonstop", "fetched"]
 DAYS = 90
 HISTORY_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "award_history.csv")
-HISTORY_DAYS = 90  # daily snapshots kept in the history file
 DAY_TAB = "a[role=button]:has(time.date)"
 
 
@@ -318,17 +318,11 @@ def save_csv(rows, path=OUT_CSV, today=None):
         w.writerows(r for k, r in sorted(old.items()) if k[0] > today)
 
 
-def append_history(rows, path=HISTORY_CSV, keep_days=HISTORY_DAYS, today=None):
-    """Append this run's rows to the history file (one snapshot per run), dropping snapshots older than keep_days."""
-    old = []
-    if os.path.exists(path):
-        with open(path, newline="") as f:
-            old = list(csv.DictReader(f))
-    cut = ((today or date.today()) - timedelta(keep_days)).isoformat()
-    with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, FIELDS)
-        w.writeheader()
-        w.writerows(r for r in old + [{**r, "nonstop": str(r["nonstop"])} for r in rows] if r["fetched"][:10] >= cut)
+def append_history(rows, path=HISTORY_CSV):
+    """Add this run's changes to the permanent history, which is never trimmed: a row only when the miles differ from the last one stored
+    for that day, route, cabin and nonstop flag."""
+    return history.append_changes(path, rows, ("day", "orig", "dest", "cabin", "nonstop"), ("miles",))
+
 
 def collected_today(orig, dest, path=OUT_CSV, today=None):
     """True when this leg was already collected today: running it again only adds load on AEGEAN, which is what got us blocked."""
@@ -364,7 +358,7 @@ def fetch(legs, days=DAYS, headless=False, log=say, today=None, force=False, api
         finally:  # save what we have even if the run broke half way
             save_csv(rows, today=today)
             if rows:
-                append_history(rows, today=today)
+                append_history(rows)
             if not os.environ.get("AEGEAN_CDP"):
                 ctx.close()
     return rows

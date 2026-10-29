@@ -7,6 +7,7 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import history
 import hotels
 from collector import fetch_range
 from par import parallel
@@ -54,9 +55,15 @@ def save(got, path=OUT):
     if path.exists():
         with path.open() as f:
             rows = {(r["day"], r["orig"], r["dest"], r["cabin"]): r for r in csv.DictReader(f)}
+    fresh = []
     for (day, o, t, c), (price, source) in got.items():
         rows[(day, o, t, c)] = dict(day=day, orig=o, dest=t, cabin=c, price="" if price is None else price, source=source,
                                     fetched=now, nonstop=1)
+        fresh.append(rows[(day, o, t, c)])
+    try:  # the permanent history next to the file: never trimmed, one row per change
+        history.append_changes(path.with_name("history_prices.csv"), fresh, ("day", "orig", "dest", "cabin", "nonstop"), ("price",))
+    except Exception as e:  # the history is a bonus: never let it break the daily run
+        print(f"  history: {type(e).__name__}: {e}")
     today = date.today().isoformat()
     with path.open("w", newline="") as f:
         w = csv.DictWriter(f, FIELDS)
@@ -106,9 +113,16 @@ def save_hotel(got, path=HOTEL_OUT):
     if path.exists():
         with path.open() as f:
             rows = {(r["source"], r["day"]): r for r in csv.DictReader(f)}
+    fresh = []
     for (src, day), (name, price, tier) in got.items():
         rows[(src, day)] = dict(source=src, day=day, hotel=name or "", price="" if price is None else price, tier=tier or "",
                                 fetched=now, **HOTEL)
+        fresh.append(rows[(src, day)])
+    try:
+        history.append_changes(path.with_name("history_hotel.csv"), fresh, ("source", "day", "query", "filt", "nights", "adults"),
+                               ("price", "tier", "hotel"))
+    except Exception as e:
+        print(f"  history: {type(e).__name__}: {e}")
     today = date.today().isoformat()
     with path.open("w", newline="") as f:
         w = csv.DictWriter(f, HOTEL_FIELDS)

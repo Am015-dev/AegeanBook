@@ -18,7 +18,7 @@ def test_record(tmp_path, monkeypatch):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     monkeypatch.chdir(tmp_path)
     seen = ac.run("record", host="127.0.0.1", url=f"http://127.0.0.1:{srv.server_port}/", headless=True,
-                  wait=lambda m: __import__("time").sleep(1))
+                  wait=lambda m: __import__("time").sleep(3))  # the page's background request needs a moment; 1 s was flaky
     assert [s["body"] for s in seen] == [{"miles": 25000}]
     assert json.load(open(ac.OUT))[0]["url"].endswith("/api")
 
@@ -80,14 +80,13 @@ def test_save_csv_merges_and_drops_past(tmp_path):
     assert [(r["day"], r["miles"]) for r in rows] == [("2026-11-01", "90")]
 
 
-def test_append_history_keeps_snapshots_and_prunes(tmp_path):
-    from datetime import date
+def test_append_history_keeps_only_changes_and_never_trims(tmp_path):
     p = str(tmp_path / "h.csv")
     row = lambda fetched, miles: dict(day="2026-11-11", orig="ATH", dest="FRA", cabin="economy", miles=miles, nonstop=1, fetched=fetched)
-    ac.append_history([row("2026-07-01T07:00:00", 1)], p, keep_days=90, today=date(2026, 7, 1))
-    ac.append_history([row("2026-10-29T07:00:00", 2)], p, keep_days=90, today=date(2026, 10, 29))  # first snapshot is now > 90 days old
-    ac.append_history([row("2026-10-30T07:00:00", 3)], p, keep_days=90, today=date(2026, 10, 30))
-    assert [r["miles"] for r in __import__("csv").DictReader(open(p))] == ["2", "3"]
+    assert ac.append_history([row("2026-01-01T07:00:00", 1)], p) == 1
+    assert ac.append_history([row("2026-01-02T07:00:00", 1)], p) == 0   # same miles: nothing new to remember
+    assert ac.append_history([row("2026-10-30T07:00:00", 3)], p) == 1   # much later: the first row is still there, history is never trimmed
+    assert [r["miles"] for r in __import__("csv").DictReader(open(p))] == ["1", "3"]
 
 
 def test_access_denied_stops_the_run():

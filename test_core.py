@@ -431,3 +431,64 @@ def test_award_view_headline_and_table():
     t = av.miles_table(s, pd.Series({"2026-11-07": 16935.0, "2026-11-08": float("nan"), "2026-11-09": float("nan")}))
     assert t.to_dict("list") == {"Date": ["Sat 07 Nov", "Mon 09 Nov"], "Economy miles": ["9,032", "9,032"], "Business miles": ["16,935", "\u2014"]}
     assert len(av.miles_chart(s, s).data) == 2
+
+
+def test_booking_strategy_one_way_and_return():
+    import pandas as pd
+    import award_view as av
+    view = pd.DataFrame({"economy": [120.0, 86.0, float("nan")], "econ_miles": [float("nan"), 9032.0, 9032.0]},
+                        index=["2026-11-07", "2026-11-09", "2026-11-14"])
+    ow = av.one_way_plan(view, "economy", "econ_miles")
+    assert ow == {"cash": ("2026-11-09", 86.0), "miles": ("2026-11-09", 9032.0, 86.0)}
+    assert round(av.per_thousand(86.0, 9032.0), 1) == 9.5
+    html = av.plan_html("Economy", "#2563C9", ow, None, 10.0)
+    assert "On Mon 09 Nov: pay cash" in html and "below your" in html  # 9.5 per 1,000 is below 10 (cash and miles on the same day: one line)
+    assert "On Mon 09 Nov: use miles" in av.plan_html("Economy", "#2563C9", ow, None, 8.0)  # ...and above 8
+    assert "No award seats" in av.plan_html("Business", "#B8741A", av.one_way_plan(view.assign(m=float("nan")), "economy", "m"), None, 10.0)
+    # return: miles pair is outbound 2026-11-07 + 7 nights = 2026-11-14 only when both days have miles
+    out_m = pd.Series({"2026-11-07": 9032.0, "2026-11-09": 9032.0})
+    back_m = pd.Series({"2026-11-16": 9032.0, "2026-11-21": 9032.0})
+    assert av.best_return_miles(out_m, back_m, [7, 5]) == (18064.0, "2026-11-09", "2026-11-16", 7)
+    assert av.best_return_miles(out_m, back_m, [3]) is None
+    trips = pd.DataFrame([("economy", "2026-11-09", "2026-11-16", 7, 86.0, 90.0, 176.0)],
+                         columns=["cabin", "depart", "back", "nights", "outbound", "return", "total"])
+    rp = av.return_plan(trips, out_m, back_m, [7])
+    assert rp["cash"] == ("2026-11-09", "2026-11-16", 7, 176.0) and rp["miles"] == ("2026-11-09", "2026-11-16", 7, 18064.0, 176.0)
+    both = av.plan_html("Economy", "#2563C9", ow, rp, 10.0)
+    assert "Return" in both and "18,064 miles" in both and "7 nights" in both
+
+
+def test_strategy_separates_flexible_dates_from_being_tied_to_the_miles_day():
+    import pandas as pd
+    import award_view as av
+    view = pd.DataFrame({"economy": [168.0, 86.0, 86.0], "econ_miles": [9032.0, float("nan"), float("nan")]},
+                        index=["2026-11-07", "2026-11-18", "2026-11-19"])
+    html = av.plan_html("Economy", "#2563C9", av.one_way_plan(view, "economy", "econ_miles"), None, 10.0)
+    assert "Flexible dates: pay cash" in html   # 86 / 9,032 = 9.5 per 1,000, below 10
+    assert "Tied to Sat 07 Nov: use miles" in html   # 168 / 9,032 = 18.6 per 1,000, above 10: miles beat cash on a day when cash is dear
+
+
+def test_history_append_changes_only(tmp_path):
+    import csv
+    import history
+    p = tmp_path / "h.csv"
+    row = lambda day, price, fetched: dict(day=day, price=price, fetched=fetched, source="x")
+    assert history.append_changes(p, [row("d1", 100, "t1"), row("d2", 50, "t1")], ("day",), ("price",)) == 2
+    assert history.append_changes(p, [row("d1", 100, "t2"), row("d2", 55, "t2"), row("d3", "", "t2")], ("day",), ("price",)) == 2  # d2 changed, d3 is new
+    assert history.append_changes(p, [row("d3", None, "t3")], ("day",), ("price",)) == 0  # None and "" are the same: no price
+    rows = list(csv.DictReader(open(p)))
+    assert [(r["day"], r["price"]) for r in rows] == [("d1", "100"), ("d2", "50"), ("d2", "55"), ("d3", "")]
+
+
+def test_database_page_renders_and_keeps_only_changes():
+    import os
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "database.py")
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception and [t.label for t in at.tabs] == ["Cash fares", "Award miles", "Hotels"]
+    src = open(page, encoding="utf-8").read()
+    ns = {}
+    exec(src[src.index("def changes_only"):src.index("def overview")], {"pd": pd}, ns)  # the pure helper, without running the page
+    df = pd.DataFrame({"day": ["d"] * 4, "fetched": ["t1", "t2", "t3", "t4"], "price": [100.0, 100.0, 90.0, 90.0]})
+    assert list(ns["changes_only"](df, ["day"], "price").fetched) == ["t1", "t3"]
