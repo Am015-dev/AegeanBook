@@ -217,6 +217,7 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
     cards = " ".join(m.value for m in at.markdown)
     cheapest = min(100 + (first + timedelta(i)).day for i in range(5))
     assert f"€{cheapest}" in cards and "Booking.com via Xotelo" in cards
-    assert any("rate-limiting" in i.value and "Booking.com" in i.value for i in at.info)
+    assert any("HTTP 429" in m.value and "Booking.com" in m.value for m in at.success)
+    assert not at.warning  # no "press Update again" advice that cannot help while Google blocks the server
     assert not at.exception
     jobs.JOBS.clear()
