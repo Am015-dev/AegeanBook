@@ -618,64 +618,6 @@ def test_trip_cost_adds_flights_and_every_hotel_night(tmp_path):
     assert r.iloc[0].to_dict() == dict(depart="2026-11-07", back="2026-11-09", nights=2, flights=120.0, hotel=210.0, total=330.0)
 
 
-def test_aegean_pass_compared_with_cash():
-    from datetime import date
-    import pandas as pd
-    import pass_value as pv
-    today = date(2026, 11, 1)
-    # fares by day; the first two are inside the 7-day booking window and must not count
-    cash = pd.Series({"2026-11-03": 40.0, "2026-11-07": 45.0, "2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0, "2026-11-25": float("nan")})
-    assert pv.effective_cost(1200.0, 12, 12, 30.0) == 130.0          # 1,200 / 12 flights + 30 taxes
-    assert pv.effective_cost(1200.0, 12, 6, 30.0) == 230.0           # use only 6 of the 12 and each flight costs more
-    assert pv.effective_cost(1200.0, 12, 99, 30.0) == 130.0          # you cannot use more flights than the pass has
-    a = pv.assess(cash, 1200.0, 12, 12, 30.0, 7, today)
-    assert a["days"] == 3 and a["cheapest"] == 90.0 and a["typical"] == 120.0   # only 10, 12 and 20 Nov are bookable 7+ days ahead
-    assert a["pass_cheaper"] == 1 and round(a["share"], 2) == 0.33              # cash is above the pass's 130 only on the 200 day
-    assert a["break_even_uses"] is None   # it would need 1,200 / (120 - 30) = 14 flights to beat the typical fare, but the pass only has 12
-    assert pv.verdict(a)[1].startswith("<b>Only on the dear days.")
-    cheap = pv.assess(cash, 600.0, 12, 12, 30.0, 7, today)                       # 80 per flight: below the cheapest fare of 90
-    assert pv.verdict(cheap)[0] == "miles" and cheap["break_even_uses"] == 7     # 600 / (120 - 30) = 6.7 -> 7 flights
-    assert pv.assess(cash, 600.0, 12, 12, 30.0, 60, today) is None               # nothing bookable that far ahead
-    assert len(pv.chart(a).data) == 1
-
-
-def test_pass_card_shows_the_numbers_and_the_unpriced_benefits():
-    from datetime import date
-    import pandas as pd
-    import pass_value as pv
-    cash = pd.Series({"2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0})
-    a = pv.assess(cash, 600.0, 12, 12, 30.0, 7, date(2026, 11, 1))
-    html = pv.card_html(a, 600.0, 12, 12, 30.0, 7, ret=(2, 5))
-    assert "booked 7 days ahead" in html and "\u20ac80</b>" in html and "3 of 3 days" in html and "2 of 5" in html and "7 flights</b> used" in html
-    assert "Free changes".lower() in html.lower() and "Worth it on price" in html
-
-
-def test_aegean_pass_section_appears_once_a_price_is_entered(tmp_path, monkeypatch):
-    import csv
-    import os
-    from datetime import datetime
-    from streamlit.testing.v1 import AppTest
-    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
-    # the page needs cash fares: seed its own (the autouse fixture blocks the repo's CSVs, and a fresh CI database starts empty)
-    daily = tmp_path / "daily.csv"
-    with open(daily, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])
-        for i in range(1, 31):
-            d = (date.today() + timedelta(i)).isoformat()
-            w.writerows([[d, "ATH", "FRA", "economy", 100 + (i % 5) * 40, "calendar", datetime.now().isoformat(timespec="seconds"), 1],
-                         [d, "ATH", "FRA", "business", 300, "calendar", datetime.now().isoformat(timespec="seconds"), 1]])
-    monkeypatch.setattr(db, "DAILY", str(daily))
-    monkeypatch.chdir(tmp_path)  # its own tracker.db
-    at = AppTest.from_file(page, default_timeout=90).run()
-    assert not at.exception and "Is the Aegean Pass worth it?" in " ".join(m.value for m in at.markdown)
-    assert "Aegean Pass, booked" not in " ".join(m.value for m in at.markdown)       # no price yet: only the prompt
-    at.number_input(key="pass-price").set_value(900.0).run()
-    assert not at.exception
-    shown = " ".join(m.value for m in at.markdown)
-    assert "Aegean Pass, booked 7 days ahead" in shown and "Effective cost per flight" in shown   # 7 days is the default window
-
-
 def test_digest_lists_changes_and_ignores_first_sightings(tmp_path):
     import digest
     p = tmp_path / "history_prices.csv"
@@ -694,3 +636,53 @@ def test_digest_lists_changes_and_ignores_first_sightings(tmp_path):
     assert "Wed 18 Nov, economy: \u20ac86 \u2192 \u20ac79 (\u2212\u20ac7)" in md and "\u20ac100 \u2192 \u20ac120 (+\u20ac20)" in md
     assert "Fri 20 Nov, business: 16,935 miles (was none)" in md and "2027" not in md and "Jan" not in md
     assert digest.build(str(tmp_path / "nothing")) == ""   # no files: nothing to say, and no error
+
+
+def test_aegean_pass_compared_with_cash():
+    from datetime import date
+    import pandas as pd
+    import pass_plan as pp
+    today = date(2026, 11, 1)
+    assert pp.PASSES == (("7-day pass", 780.0, 7), ("30-day pass", 672.0, 30))   # the defaults: what the two passes cost
+    assert pp.effective_cost(780.0, 12, 30.0) == 95.0 and pp.effective_cost(672.0, 12, 30.0) == 86.0   # price / flights + taxes
+    # fares by day; the first two fall inside the 7-day booking window and must not count
+    cash = pd.Series({"2026-11-03": 40.0, "2026-11-07": 45.0, "2026-11-10": 90.0, "2026-11-12": 120.0, "2026-11-20": 200.0, "2026-11-25": float("nan")})
+    a = pp.assess(cash, 1200.0, 12, 30.0, 7, today)       # 100 + 30 = 130 per flight
+    assert a["days"] == 3 and a["cheapest"] == 90.0 and a["typical"] == 120.0 and a["pass_cheaper"] == 1
+    assert a["break_even"] is None and pp.verdict(a)[1].startswith("<b>Only on the dear days.")   # it would need 14 flights, the pass has 12
+    cheap = pp.assess(cash, 600.0, 12, 30.0, 7, today)    # 50 + 30 = 80, below the cheapest fare of 90
+    assert pp.verdict(cheap)[0] == "miles" and cheap["break_even"] == 7
+    far = pd.Series({"2026-11-20": 200.0, "2026-12-05": 150.0, "2026-12-10": 90.0})
+    assert pp.assess(far, 672.0, 12, 30.0, 30, today)["days"] == 2   # the 30-day pass only counts fares at least 30 days ahead
+    assert pp.assess(cash, 600.0, 12, 30.0, 90, today) is None
+    card = pp.with_extra('<div class="plan">x</div>', "<p>y</p>")
+    assert card == '<div class="plan">x<p>y</p></div>'
+
+
+def test_aegean_pass_sits_inside_the_strategy_cards(tmp_path, monkeypatch):
+    import csv
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    # the page needs cash fares: seed its own (the autouse fixture blocks the repo's CSVs, and a fresh CI database starts empty)
+    daily = tmp_path / "daily.csv"
+    with open(daily, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])
+        for i in range(1, 31):
+            d = (date.today() + timedelta(i)).isoformat()
+            w.writerows([[d, "ATH", "FRA", "economy", 100 + (i % 5) * 40, "calendar", datetime.now().isoformat(timespec="seconds"), 1],
+                         [d, "ATH", "FRA", "business", 300, "calendar", datetime.now().isoformat(timespec="seconds"), 1]])
+    monkeypatch.setattr(db, "DAILY", str(daily))
+    monkeypatch.chdir(tmp_path)  # its own tracker.db
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "7-day pass, \u20ac780 for 12 flights" in shown and "30-day pass, \u20ac672 for 12 flights" in shown   # both passes, side by side
+    assert "\u20ac95</b> per flight with taxes" in shown and "\u20ac86</b> per flight with taxes" in shown       # 780/12+30 and 672/12+30
+    assert "Economy Flex fare" in shown                                                                          # the Business card explains why no pass
+    assert "Cheapest per flight: 30-day pass" in shown and "30 or more days ahead" in shown                      # 86 beats 95, and what it asks of you
+    at.number_input(key="pass-price-7").set_value(1500.0).run()                                                  # a dearer pass changes the numbers
+    assert not at.exception and "\u20ac155</b> per flight with taxes" in " ".join(m.value for m in at.markdown)  # 1500/12+30
+

@@ -10,7 +10,7 @@ from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from award_view import STYLE as PLAN_STYLE, best_award, load_award, miles_chart, miles_table, one_way_plan, plan_html, return_plan
 from jobs import record, start_job, track
-from pass_value import assess, card_html, chart as pass_chart
+from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass, cash_by_day, section_html as pass_html, with_extra
 from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, scraped, smart_filters, window_picker)
@@ -290,6 +290,17 @@ st.markdown('<p class="card-title">Booking strategy</p>', unsafe_allow_html=True
 per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
                         help="Miles are recommended when they buy more than this per 1,000, cash otherwise. Set it to what you would "
                              "otherwise get for your miles.")
+with st.expander("Aegean Pass prices"):
+    pcols = st.columns(4)
+    pass_prices = [pcols[i].number_input(f"{name} (€)", min_value=0.0, value=default, step=10.0, key=f"pass-price-{days}")
+                   for i, (name, default, days) in enumerate(PASSES)]
+    pass_flights = pcols[2].number_input("Flights in each pass", min_value=1, max_value=40, value=DEFAULT_FLIGHTS, key="pass-flights",
+                                         help="The price per flight depends on how many flights the pass has. Check yours.")
+    pass_taxes = pcols[3].number_input("Taxes per flight (€)", min_value=0.0, max_value=300.0, value=DEFAULT_TAXES, step=5.0, key="pass-taxes",
+                                       help="Airport taxes and surcharges are paid on top of the pass, flight by flight. €30 is what AEGEAN's award "
+                                            "response showed for a nonstop Athens to Frankfurt flight: use your own route's.")
+    st.caption("A pass is only compared with fares you could book that many days ahead (7 or 30). Current prices: "
+               "https://en.aegeanair.com/flight-deals/aegean-pass/")
 empty = pd.Series(dtype=float)
 bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
 has_taxes = bool(view[["econ_taxes", "biz_taxes"]].notna().any().any())
@@ -298,40 +309,21 @@ for ui_col, (name, colour, cash_col, miles_col, taxes_col) in zip(st.columns(2, 
         ("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"), ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")]):
     ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
                       view[taxes_col], bamt.get(cash_col, empty)) if nights else None
+    if cash_col == "economy":  # each pass against the fares that could be booked that far ahead (the next 90 days, whatever range is shown)
+        pass_cash = cash_by_day(db, orig, dest, nonstop, today + timedelta(1), today + timedelta(90))
+        te = trips[trips.cabin == "economy"].total if nights else empty
+        rows = []
+        for (pname, _, days), price in zip(PASSES, pass_prices):
+            pa = assess_pass(pass_cash, price, pass_flights, pass_taxes, days, today) if price else None
+            ret_cmp = (float(te.min()), len(te), int((te > 2 * pa["effective"]).sum())) if pa and len(te) else None
+            rows.append((pname, price, pass_flights, pass_taxes, pa, ret_cmp))
+        extra = pass_html(rows)
+    else:
+        extra = ('<div class="plan-s">Aegean Pass</div><p class="plan-v" style="color:#6E6E73">The pass is an Economy Flex fare. A Business '
+                 'upgrade is free only on request when a seat is available, so it is not counted here.</p>')
     with ui_col:
-        st.markdown(plan_html(name, colour, one_way_plan(view, cash_col, miles_col, taxes_col), ret, per_k), unsafe_allow_html=True)
+        st.markdown(with_extra(plan_html(name, colour, one_way_plan(view, cash_col, miles_col, taxes_col), ret, per_k), extra), unsafe_allow_html=True)
 st.caption("Cash fares come from Google Flights and award miles from AEGEAN's own award search. The value per 1,000 miles is "
            + ("the cash fare minus the cash taxes of the award ticket, divided by the miles." if has_taxes else
                  "the cash fare divided by the miles, before the cash taxes an award ticket also costs (not collected for these days).")
            + ("" if nights else " Set Trip to Return at the top to compare round trips too."))
-
-
-# Aegean Pass: a block of one-way flights at a fixed price. It only pays off if its cost per flight, taxes included, beats the cash fares you
-# could really book with it. The price is typed in (it depends on the pass and changes); the comparison uses the economy fares above.
-st.markdown('<p class="card-title">Is the Aegean Pass worth it?</p>', unsafe_allow_html=True)
-pc = st.columns(4)
-pass_price = pc[0].number_input("Pass price (€)", min_value=0.0, value=None, step=10.0, placeholder="from aegeanair.com", key="pass-price",
-                                help="The total price of the pass you are considering. Current prices: https://en.aegeanair.com/flight-deals/aegean-pass/")
-pass_flights = pc[1].number_input("Flights in the pass", min_value=1, max_value=40, value=12, key="pass-flights")
-pass_uses = pc[2].number_input("Flights you will use", min_value=1, max_value=40, value=12, key="pass-uses",
-                               help="Unused flights are lost after 12 months, so flying fewer makes each flight cost more.")
-pass_taxes = pc[3].number_input("Taxes per flight (€)", min_value=0.0, max_value=300.0, value=30.0, step=5.0, key="pass-taxes",
-                                help="Airport taxes and surcharges are paid on top of the pass, flight by flight. €30 is what AEGEAN's award "
-                                     "response showed for a nonstop flight Athens to Frankfurt: use the taxes of your own route.")
-pass_window = st.radio("Book each flight at least", [0, 7, 30], index=1, horizontal=True, key="pass-window",
-                       format_func=lambda d: "on the day" if d == 0 else f"{d} days ahead",
-                       help="The pass has a minimum booking window; Flex 7 days means 7 days or more before departure.")
-if not pass_price:
-    st.caption("Enter the price of the pass to compare it with the cash fares above. The pass price leaves out airport taxes and surcharges, "
-               "so they are added per flight.")
-else:
-    pa = assess(out["economy"], pass_price, pass_flights, pass_uses, pass_taxes, pass_window, today)
-    if pa is None:
-        st.info(f"No cash fare in this range is {pass_window} or more days ahead. Choose a longer range at the top.")
-    else:
-        te = trips[trips.cabin == "economy"].total if nights else pd.Series(dtype=float)
-        st.markdown(card_html(pa, pass_price, pass_flights, pass_uses, pass_taxes, pass_window,
-                              (int((te > 2 * pa["effective"]).sum()), len(te)) if len(te) else None), unsafe_allow_html=True)
-        st.plotly_chart(pass_chart(pa), width="stretch", config={"displayModeBar": False})
-        st.caption("Economy fares for the days in the range above, nonstop AEGEAN flights only. The pass covers direct AEGEAN and Olympic Air "
-                   "flights on the routes it was bought for.")
