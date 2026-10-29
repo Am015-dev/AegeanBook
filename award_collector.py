@@ -1,4 +1,4 @@
-﻿"""Miles+Bonus award helper, runs on YOUR machine with YOUR account (may breach AEGEAN's terms; keep it slow).
+"""Miles+Bonus award helper, runs on YOUR machine with YOUR account (may breach AEGEAN's terms; keep it slow).
 
   python award_collector.py login    # log in once in the opened browser; profile is kept in .aegean_profile/
   python award_collector.py record   # do ONE manual award search; JSON responses are saved to award_recording.json

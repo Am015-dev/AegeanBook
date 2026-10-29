@@ -92,10 +92,16 @@ def load_daily_award(db, path=None):
         return
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
-    for fetched in {r["fetched"] for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM award_miles")}:
+    def num(x):  # a file that went through pandas or Excel writes 9032.0
+        try:
+            return int(float(x))
+        except (TypeError, ValueError):
+            return None
+
+    for fetched in {r.get("fetched") for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM award_miles")}:
         db.executemany("INSERT INTO award_miles VALUES(?,?,?,?,?,?,?)",
-                       [(r["day"], r["orig"], r["dest"], r["cabin"], int(r["miles"]) if r["miles"] else None, int(r["nonstop"]), fetched)
-                        for r in rows if r["fetched"] == fetched])
+                       [(r["day"], r["orig"], r["dest"], r["cabin"], num(r["miles"]), num(r["nonstop"]), fetched)
+                        for r in rows if r.get("fetched") == fetched and num(r.get("nonstop")) is not None])  # bad rows are skipped
 
 
 DAILY_HOTEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_hotel.csv")
@@ -139,8 +145,11 @@ def connect(path="tracker.db"):
     load_daily(db)
     load_daily_hotel(db)
     load_daily_award(db)
-    for t in ("prices", "hotel", "heat", "booking", "award_miles"):
+    for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
+    # award miles live as long as the flight day is ahead: they come from the repo's CSV, so the 5-day fetch retention would make
+    # them vanish from the deployed app whenever the owner's computer skips a few days
+    db.execute("DELETE FROM award_miles WHERE day <= ?", (datetime.now().date().isoformat(),))
     db.execute("DELETE FROM runs WHERE started < ?", ((datetime.now() - timedelta(days=30)).isoformat(),))  # stats: 30 days
     db.commit()
     return db

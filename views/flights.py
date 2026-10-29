@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import subprocess
 import sys
 from datetime import date, datetime, timedelta
@@ -19,6 +20,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AWARD_PROFILE = os.path.join(ROOT, ".aegean_profile")  # exists only after the one-time `python award_collector.py login`
 AWARD_LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]  # the legs collect_daily.py also tracks
 AWARD_DAYS = 90
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def award_history_xlsx(path, mtime):
+    """(xlsx bytes, snapshot count, last snapshot day) of the whole history, built once per file version instead of on every rerun."""
+    h = pd.read_csv(path)
+    if h.empty:
+        return None
+    h = h.rename(columns={"fetched": "collected", "miles": "award miles"}).sort_values(["collected", "orig", "dest", "day", "cabin"])
+    return excel_bytes(h.set_index("collected")), h.collected.str[:10].nunique(), h.collected.max()[:10]
 
 
 def award_job():
@@ -114,14 +125,20 @@ for k in ("economy", "business"):
         latest[k] = float("nan")
 a = pd.read_sql(f"SELECT day, miles, taxes FROM awards {q}", db, params=args).set_index("day")
 out = days.join(latest).join(a)
-am = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
-                 db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
+try:  # award miles are an extra: if their table is missing (Streamlit Cloud can run this page against an older, already loaded
+      # db.py until the app restarts) the page must still work, just without them
+    am = pd.read_sql("SELECT day, cabin, miles FROM award_miles WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
+                     db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
+    last_aw = db.execute("SELECT MAX(fetched) FROM award_miles WHERE orig=? AND dest=?", (orig, dest)).fetchone()[0]
+except (pd.errors.DatabaseError, sqlite3.Error):
+    am, last_aw = pd.DataFrame(), None
 am = am.drop_duplicates(["day", "cabin"], keep="last").pivot(index="day", columns="cabin", values="miles") if len(am) else pd.DataFrame()
 out = out.join(am.rename(columns={"economy": "econ_miles", "business": "biz_miles"}))
 for k in ("econ_miles", "biz_miles"):
     if k not in out:
         out[k] = float("nan")
-out["miles"] = out.miles.fillna(out.biz_miles)  # typed award miles win; otherwise the collected Business miles
+# ponytail: collected miles stay in their own columns. Filling `miles` with them would make the 'best miles value' metric use zero
+# taxes (collected rows have none) and overstate it, so that metric stays typed-awards-only.
 out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
 
 
@@ -192,18 +209,24 @@ with t1:
                         width="stretch", config={"displayModeBar": False})
 with t2:
     seen_aw = am.index.size if len(am) else 0
-    st.caption(f"AEGEAN award miles (AEGEAN-operated flights only, {'nonstop' if nonstop else 'any stops'}): {seen_aw} days collected for "
-               f"{orig} → {dest} in this range. A day with no miles has no award seats. Collected daily on the owner's computer.")
-    if am.size:
+    if not seen_aw or not last_aw:
+        st.caption(f"No AEGEAN award miles collected yet for {orig} → {dest} in this range (no data, which is not the same as no seats). "
+                   "They are collected daily on the owner's computer.")
+    else:
+        st.caption(f"AEGEAN award miles (AEGEAN-operated flights only, {'nonstop' if nonstop else 'any stops'}): {seen_aw} of {len(days)} days "
+                   f"collected for {orig} → {dest}, last on {last_aw[:10]}. An empty cell means that day was checked and has no award seats; "
+                   "days not collected are not listed.")
+        if date.fromisoformat(last_aw[:10]) < today - timedelta(3):
+            st.warning(f"These award miles were last collected on {last_aw[:10]}, so they may be out of date.")
         st.dataframe(am.rename(columns={"economy": "Economy miles", "business": "Business miles"}), width="stretch")
     hist = os.path.join(ROOT, "data", "award_history.csv")
-    if os.path.exists(hist):  # every daily snapshot, all four legs, as one sheet
-        h = pd.read_csv(hist).rename(columns={"fetched": "collected", "miles": "award miles"}).sort_values(["collected", "orig", "dest", "day", "cabin"])
-        st.download_button("Download award history (Excel, all routes)", excel_bytes(h.set_index("collected")),
-                           "aegean_award_history.xlsx", help=f"{h.collected.str[:10].nunique()} daily snapshots, last {h.collected.max()[:10]}")
+    xl = award_history_xlsx(hist, os.path.getmtime(hist)) if os.path.exists(hist) else None
+    if xl:  # every daily snapshot, all four legs, as one sheet
+        st.download_button("Download award history (Excel, all routes)", xl[0], "aegean_award_history.xlsx",
+                           help=f"{xl[1]} daily snapshots, last {xl[2]}")
     if os.path.isdir(AWARD_PROFILE):  # only where the AEGEAN login lives: your own computer
         award_job()
-    st.caption("Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN to override the collected Business miles.")
+    st.caption("Miles+Bonus awards: type the miles and taxes you see after logging in to AEGEAN; they feed the 'Best miles value' figure.")
     ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
                         column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
                                        "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},

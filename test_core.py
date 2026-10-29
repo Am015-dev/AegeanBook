@@ -377,3 +377,42 @@ def test_load_daily_award(tmp_path):
     db.load_daily_award(t, str(p))
     db.load_daily_award(t, str(p))  # loading the same file twice adds nothing
     assert t.execute("SELECT COUNT(*), COUNT(miles), MAX(miles) FROM award_miles").fetchone() == (2, 1, 9032)
+
+
+def test_award_miles_survive_old_fetch_stamp_but_not_past_days(tmp_path, monkeypatch):
+    from datetime import date
+    old = "2020-01-01T00:00:00"  # far older than RETENTION_DAYS: a skipped daily run must not erase the data
+    future, past = (date.today() + timedelta(10)).isoformat(), (date.today() - timedelta(1)).isoformat()
+    p = tmp_path / "a.csv"
+    p.write_text("day,orig,dest,cabin,miles,nonstop,fetched\n"
+                 f"{future},ATH,FRA,economy,9032.0,1.0,{old}\n"  # pandas/Excel style numbers
+                 f"{past},ATH,FRA,economy,9032,1,{old}\n"
+                 f"{future},ATH,FRA,business,,x,{old}\n")  # malformed row is skipped, not fatal
+    monkeypatch.setattr(db, "DAILY_AWARD", str(p))
+    t = db.connect(str(tmp_path / "t.db"))
+    assert t.execute("SELECT day, miles, nonstop FROM award_miles").fetchall() == [(future, 9032, 1)]
+
+
+def test_flights_page_keeps_value_metric_typed_only():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file("views/flights.py", default_timeout=60).run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "Add award prices in the Awards tab" in shown  # collected miles carry no taxes: they must not feed the value metric
+
+
+def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
+    """Streamlit Cloud once ran the new page against an old, already loaded db.py with no award_miles table and crashed."""
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    real = db.connect
+
+    def stale(*a, **k):
+        c = real(*a, **k)
+        c.execute("DROP TABLE award_miles")
+        return c
+    monkeypatch.setattr(db, "connect", stale)
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60).run()
+    assert not at.exception
