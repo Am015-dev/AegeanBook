@@ -125,3 +125,68 @@ def test_rate_limit_stops_everything_immediately(monkeypatch):
     rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "FRA"))
     assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
     assert len(calls) <= 2  # only the two calendar calls; no day-by-day hammering
+
+
+def test_saved_days_only_count_the_chosen_dates(tmp_path):
+    """Regression: with Nov and Dec saved, a January update used to say "already saved" and fetch nothing."""
+    from datetime import datetime
+    d = db.connect(str(tmp_path / "t.db"))
+    now = datetime.now().isoformat()
+    for i in range(61):
+        for cab in ("economy", "business"):
+            d.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
+                      ((date(2026, 11, 1) + timedelta(i)).isoformat(), "ATH", "FRA", cab, 100.0, "calendar", now, 1))
+    assert db.saved_flight_days(d, "ATH", "FRA", True, date(2027, 1, 1), date(2027, 1, 31)) == set()
+    assert len(db.saved_flight_days(d, "ATH", "FRA", True, date(2026, 12, 1), date(2026, 12, 31))) == 62
+    d.execute("INSERT INTO hotel VALUES('2026-11-14','q','f',1,'H',150,?,2)", (now,))
+    assert db.saved_hotel_days(d, "q", "f", 1, 2, date(2026, 12, 1), date(2026, 12, 31)) == set()
+    assert db.saved_hotel_days(d, "q", "f", 1, 2, date(2026, 11, 1), date(2026, 11, 30)) == {"2026-11-14"}
+
+
+def test_awards_can_be_cleared_and_bad_values_are_ignored(tmp_path):
+    d = db.connect(str(tmp_path / "t.db"))
+    nan = float("nan")
+    db.save_awards(d, [("2026-11-01", 25000, nan), ("2026-11-02", 30000.0, 60), ("2026-11-03", 0, 10)], "ATH", "FRA")
+    assert d.execute("SELECT day, miles, taxes FROM awards ORDER BY day").fetchall() == [("2026-11-01", 25000, 0), ("2026-11-02", 30000, 60)]
+    db.save_awards(d, [("2026-11-01", nan, nan), ("2026-11-02", 30000, 60)], "ATH", "FRA")  # user cleared the first cell
+    assert d.execute("SELECT day FROM awards").fetchall() == [("2026-11-02",)]
+
+
+def test_page_text_is_escaped(monkeypatch):
+    import ui
+    shown = []
+    monkeypatch.setattr(ui.st, "markdown", lambda s, **k: shown.append(s))
+    ui.route('<img src=x onerror=alert(1)>', None, "a & b")
+    ui.kpis([("Cheapest", "€1", '<script>x</script>', "#000")])
+    assert "<img" not in shown[0] and "&lt;img" in shown[0] and "a &amp; b" in shown[0]
+    assert "<script>" not in shown[1] and "&lt;script&gt;" in shown[1]
+
+
+def test_excel_export_is_in_memory():
+    import io as _io
+    import pandas as pd
+    import ui
+    data = ui.excel_bytes(pd.DataFrame({"x": [1, 2]}))
+    assert pd.read_excel(_io.BytesIO(data)).x.tolist() == [1, 2]
+
+
+def test_running_job_is_only_shown_on_its_own_page():
+    jobs.JOBS.clear()
+    jobs.JOBS["hotel|q"] = dict(running=True, ended=None)
+    page = "flights|ATH".split("|", 1)[0] + "|"
+    assert next((k for k, v in jobs.JOBS.items() if v["running"] and k.startswith(page)), None) is None
+    jobs.JOBS["old"] = dict(running=False, ended=time.time() - 7200)
+    jobs.start_job("new", 1, lambda j: None)
+    assert "old" not in jobs.JOBS and "hotel|q" in jobs.JOBS
+    jobs.JOBS.clear()
+
+
+def test_every_page_loads(tmp_path, monkeypatch):
+    """Catches a page that does not even compile or crashes on open (no network: nothing is fetched on load)."""
+    import os
+    from streamlit.testing.v1 import AppTest
+    here = os.path.dirname(os.path.abspath(__file__))
+    monkeypatch.chdir(tmp_path)
+    for page in ("views/flights.py", "views/hotel.py", "views/health.py"):
+        at = AppTest.from_file(os.path.join(here, page), default_timeout=60).run()
+        assert not at.exception, (page, at.exception)

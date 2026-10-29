@@ -7,15 +7,18 @@ import streamlit as st
 JOBS = {}  # key -> job dict
 _lock = threading.Lock()
 STALL_SECONDS = 45
+KEEP_FINISHED = 3600  # forget finished jobs after an hour so the server's memory does not grow forever
 
 
-def start_job(key, total, work, empty_note="{n} lookups found nothing to match."):
+def start_job(key, total, work, empty_note="{n} lookups found nothing to match.", empty_label="with nothing found"):
     """Run work(job) in a thread unless the same key is already running."""
     with _lock:
         if JOBS.get(key, {}).get("running"):
             return
+        for k in [k for k, v in JOBS.items() if not v["running"] and time.time() - (v["ended"] or 0) > KEEP_FINISHED]:
+            del JOBS[k]
         j = JOBS[key] = dict(done=0, total=total, ok=0, failed=0, empty=0, running=True, error=None, note=empty_note,
-                             errors=[], cancel=False, started=time.time(), beat=time.time(), ended=None)
+                             label=empty_label, errors=[], cancel=False, started=time.time(), beat=time.time(), ended=None)
 
     def run():
         try:
@@ -58,8 +61,9 @@ def _live(key):
 
 
 def track(key):
-    """Show this key's job, or any job still running (a reload resets the dates, so the key may differ)."""
-    key = key if key in JOBS else next((k for k, v in JOBS.items() if v["running"]), key)
+    """Show this key's job, or a job of the same page still running (a reload resets the dates, so the key may differ)."""
+    page = key.split("|", 1)[0] + "|"
+    key = key if key in JOBS else next((k for k, v in JOBS.items() if v["running"] and k.startswith(page)), key)
     j = JOBS.get(key)
     if not j:
         return
@@ -79,10 +83,10 @@ def track(key):
         st.error(f"Nothing could be fetched: all {j['failed']} lookups failed in {took} s. Google or the network is not answering. "
                  "Open the Health page to see which source is down, then press Update prices to try again.")
     elif j["failed"]:
-        st.warning(f"Finished in {took} s with problems: {j['ok']} priced, {j['empty']} with no flight, {j['failed']} failed. "
+        st.warning(f"Finished in {took} s with problems: {j['ok']} priced, {j['empty']} {j['label']}, {j['failed']} failed. "
                    "Press Update prices again to retry just the failed ones.")
     else:
-        st.success(f"Finished in {took} s: {j['ok']} priced, {j['empty']} with no flight.")
+        st.success(f"Finished in {took} s: {j['ok']} priced, {j['empty']} {j['label']}.")
     if j["empty"]:
         st.caption(j["note"].format(n=j["empty"]))
     if j["errors"]:

@@ -1,16 +1,18 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import streamlit as st
 
-from db import RETENTION_DAYS, connect, cutoff
+from db import RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from hotels import fetch_range
 from jobs import record, start_job, track
 from par import parallel
-from ui import BOOKING, ECONOMY, TIER_COLORS, heat_strip, kpis, price_chart, route
+from ui import BOOKING, ECONOMY, TIER_COLORS, excel_bytes, heat_strip, kpis, price_chart, route
 from xotelo import booking_rate, heatmap_range, hotel_key
 
 db = connect()
+today = date.today()
+HORIZON = 330  # Google Hotels prices about a year ahead
 
 with st.expander("Search settings", expanded=False):
     c = st.columns(2)
@@ -19,7 +21,8 @@ with st.expander("Search settings", expanded=False):
                          help="Open the hotel on TripAdvisor and paste its address, or just the part like g187337-d202275. "
                               "It unlocks the cheap-day calendar and Booking.com prices. Leave empty for Google prices only.")
     c = st.columns(4)
-    start, end = c[0].date_input("Check-in from", date(2026, 11, 1)), c[1].date_input("Check-in to", date(2026, 11, 30))
+    start = c[0].date_input("Check-in from", today + timedelta(7), min_value=today, max_value=today + timedelta(HORIZON))
+    end = c[1].date_input("Check-in to", today + timedelta(36), min_value=today, max_value=today + timedelta(HORIZON))
     nights, adults = c[2].number_input("Nights", 1, 14, 1), c[3].number_input("Adults", 1, 6, 2)
     fetch = st.button("Update prices", type="primary")
     c = st.columns(2)
@@ -39,6 +42,9 @@ if link.strip() and not hkey:
 if end < start:
     st.error("The last check-in is before the first check-in. Swap the two dates.")
     st.stop()
+if start < today or end > today + timedelta(HORIZON):
+    st.error(f"Choose check-in dates between today and {today + timedelta(HORIZON):%d %b %Y}.")
+    st.stop()
 if (end - start).days >= MAX_DAYS:
     st.error(f"Choose a range of at most {MAX_DAYS} days.")
     st.stop()
@@ -47,9 +53,7 @@ route(filt.title(), None, f"{query} · {start:%d %b} – {end:%d %b %Y} · {nigh
 
 key = f"hotel|{query}|{filt}|{hkey}|{nights}|{adults}|{start}|{end}"
 if fetch:
-    skip = set() if recheck else {r[0] for r in db.execute(
-        "SELECT day FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND fetched>=?",
-        (query, filt, int(nights), int(adults), cutoff()))}
+    skip = set() if recheck else saved_hotel_days(db, query, filt, nights, adults, start, end)
     total = (end - start).days + 1 - len(skip) + (1 if hkey else 0)
 
     def work(j):
@@ -71,6 +75,8 @@ if fetch:
                 todo = [date.fromisoformat(d) for d, t in sorted(heat.items()) if t == "cheap" and (recheck or d not in fresh)]
                 j["total"] += len(todo)
                 for d, price, err in parallel(todo, lambda d: booking_rate(hkey, d, int(nights)), workers=3):
+                    if j["cancel"]:
+                        return
                     if not err:
                         tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now()))
                         tdb.commit()
@@ -85,7 +91,8 @@ if fetch:
             record(j, status, err)
 
     if total > 0:
-        start_job(key, total, work)
+        start_job(key, total, work, "{n} dates show no listing for a hotel matching that name. Check the name filter.",
+                  "with no listing")
     else:
         st.info("Every date in this range is already saved. Tick Re-check days already saved to fetch again.")
 track(key)
@@ -131,8 +138,7 @@ if s.price.notna().any():
         if heat:
             out["Tier"] = pd.Series(heat)
         st.dataframe(out, width="stretch")
-        out.to_excel("hotel_export.xlsx")
-        st.download_button("Download Excel", open("hotel_export.xlsx", "rb"), "hotel_prices.xlsx")
+        st.download_button("Download Excel", excel_bytes(out), "hotel_prices.xlsx")
 elif not heat:
     st.info("No hotel matching that name was found on these dates. Check the name filter, or try other dates." if len(p)
             else "No rates yet. Set your dates, then open **Search settings** above and press **Update prices**.")
