@@ -63,3 +63,12 @@ be on. Nothing is exposed to the public internet.
 - **Statistics page:** every price update of the last 30 days (priced / nothing found / failed, time taken, first problem),
   plus what is saved now per route: days checked, how many came from Google's calendar vs. day-by-day search, and
   cheapest / median / dearest prices.
+
+## Daily fares (automatic, free)
+
+Every morning at 07:17 Athens time GitHub Actions (`.github/workflows/daily.yml`) runs `collect_daily.py`. It fetches
+ATH–FRA, FRA–ATH, ATH–ZRH and ZRH–ATH, both cabins, nonstop, for the next 90 days. That is 720 prices. Days that fail
+are retried in up to 4 passes. If any are still missing, the run is marked red, and those days keep yesterday's price.
+The results go to `data/daily.csv`, and the app loads that file when it starts, so these routes are ready without
+pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
+edit `LEGS` in `collect_daily.py`.

@@ -18,7 +18,13 @@ CSS = f"""
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 html, body, [class*="css"], .stApp {{ font-family: 'IBM Plex Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; }}
 .stApp {{ background: #F5F7FB; }}
-.block-container {{ padding-top: 2rem; max-width: 1080px; }}
+.block-container {{ padding-top: 5.5rem; max-width: 1080px; }}
+[data-testid="stHeader"] {{ background:#fff; border-bottom:1px solid {GRID}; height:64px; box-shadow:0 1px 3px rgba(14,27,46,.05); }}
+[data-testid="stHeader"] img {{ height:36px !important; max-width:none; }}
+[data-testid="stHeader"] a[data-testid="stTopNavLink"], [data-testid="stHeader"] [data-testid="stTopNavLink"] {{ border-radius:999px; padding:6px 14px; }}
+.scraped {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:-.8rem 0 1.2rem; }}
+.scraped .bl {{ color:{MUTED}; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }}
+.scraped .old {{ color:#9A5B00; }}
 [data-testid="stSidebar"] {{ background: {INK}; }}
 [data-testid="stSidebar"] * {{ color: #E8EEF8 !important; }}
 h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-spacing: -0.02em; color: {INK}; }}
@@ -49,7 +55,7 @@ h1, h2, h3 {{ font-family: 'Bricolage Grotesque', sans-serif !important; letter-
 .chip {{ background:#fff; border:1px solid {GRID}; border-radius:999px; padding:4px 12px; font-size:.88rem; color:{INK}; }}
 .chip b {{ font-weight:600; margin-right:4px; }}
 .best .more {{ color:{MUTED}; font-size:.85rem; }}
-@media (max-width: 640px) {{ .block-container {{ padding-top: 4rem; }} }}
+@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} }}
 @media (prefers-reduced-motion: no-preference) {{ .kpi {{ transition: transform .15s; }} .kpi:hover {{ transform: translateY(-2px); }} }}
 </style>
 """
@@ -62,6 +68,19 @@ def route(a, b, sub):
     """Big title; with `b` it becomes a route strip a ✈ b."""
     mid = f'<span class="line"></span><span class="code">{e(b)}</span>' if b else ""
     st.markdown(f'<div class="route"><span class="code">{e(a)}</span>{mid}</div><p class="sub">{e(sub)}</p>', unsafe_allow_html=True)
+
+
+def scraped(items):
+    """Strip under the title: when each part of the search was last fetched. items: (label, `fetched` per day, days in range)."""
+    def chip(label, f, n):
+        if not len(f):
+            return f'<span class="chip"><b>{e(label)}</b>not fetched yet</span>'
+        new, old = pd.Timestamp(f.max()), pd.Timestamp(f.min())
+        part = f" · {len(f)} of {n} days" if len(f) < n else f" · all {n} days"
+        since = f' <span class="old">· oldest {old:%d %b %H:%M}</span>' if new - old > pd.Timedelta(hours=12) else ""
+        return f'<span class="chip"><b>{e(label)}</b>{new:%a %d %b %H:%M}{part}{since}</span>'
+    st.markdown('<div class="scraped"><span class="bl">Last fetched</span>' + "".join(chip(*i) for i in items) + "</div>",
+                unsafe_allow_html=True)
 
 
 def kpis(items):
