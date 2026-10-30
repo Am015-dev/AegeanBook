@@ -7,12 +7,14 @@ With neither, the pages hide the expert. The app is public, so a daily cap stops
 A new module name on purpose (it replaces expert.py and ai_expert.py): Streamlit Cloud keeps already loaded modules across redeploys."""
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from datetime import date
 
 import streamlit as st
 
+VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -68,28 +70,45 @@ def _system(facts):
 
 def _gemini(history, facts, key, urlopen):
     """The whole answer from the first Gemini model that answers. Raises RuntimeError with a plain message otherwise."""
-    body = json.dumps({"systemInstruction": {"parts": [{"text": _system(facts)}]},
-                       "contents": [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
-                                    for m in history],
-                       "generationConfig": {"maxOutputTokens": 16000}}).encode()  # thinking counts toward the limit
+    def body(think):
+        config = {"maxOutputTokens": 16000}  # thinking counts toward the limit
+        if think:
+            config["thinkingConfig"] = {"thinkingLevel": "low"}  # the default (medium) took over 90 s for the briefing
+        return json.dumps({"systemInstruction": {"parts": [{"text": _system(facts)}]},
+                           "contents": [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
+                                        for m in history],
+                           "generationConfig": config}).encode()
+
+    def post(model, think):
+        req = urllib.request.Request(GEMINI_URL.format(model), data=body(think), method="POST",
+                                     headers={"Content-Type": "application/json", "x-goog-api-key": key})  # header, so the key is never in a URL or log
+        with urlopen(req, timeout=60) as r:
+            return json.load(r)
+
     last = None
     for model in GEMINI:
-        req = urllib.request.Request(GEMINI_URL.format(model), data=body, method="POST",
-                                     headers={"Content-Type": "application/json", "x-goog-api-key": key})  # header, so the key is never in a URL or log
         try:
-            with urlopen(req, timeout=90) as r:
-                res = json.load(r)
+            try:
+                res = post(model, True)
+            except urllib.error.HTTPError as err:
+                if err.code != 400:
+                    raise
+                res = post(model, False)  # a model that does not take thinkingLevel: ask again without it
         except urllib.error.HTTPError as err:
             last = err.code
             if err.code in (404, 429, 500, 503):  # model gone, free quota used up, or busy: try the next one
                 continue
             raise RuntimeError(f"Gemini refused the request (HTTP {err.code}). Check GEMINI_API_KEY in the app's secrets.") from None
+        except (TimeoutError, urllib.error.URLError):
+            last = "timeout"
+            continue
         cand = (res.get("candidates") or [{}])[0]
         text = "".join(p.get("text", "") for p in cand.get("content", {}).get("parts", []) if not p.get("thought"))
         if not text:
             raise RuntimeError("The expert declined to answer that. Try asking about prices, dates or miles.")
         return text + ("\n\n(The answer was cut short.)" if cand.get("finishReason") == "MAX_TOKENS" else "")
-    raise RuntimeError("Gemini's free quota is used up for now. Try again later." if last == 429 else f"Gemini is unavailable right now (HTTP {last}).")
+    raise RuntimeError("Gemini's free quota is used up for now. Try again later." if last == 429 else
+                       "Gemini did not answer in time. Try again in a minute." if last == "timeout" else f"Gemini is unavailable right now (HTTP {last}).")
 
 
 def _claude(history, facts, key, client):
@@ -122,12 +141,24 @@ def chat(history, facts, cfg, client=None, urlopen=urllib.request.urlopen):
         yield from _claude(history, facts, key, client)
 
 
-@st.cache_data(ttl=3 * 3600, show_spinner=False, max_entries=4)
+@st.cache_data(ttl=12 * 3600, show_spinner=False, max_entries=4)
+def _briefing(facts, cfg, day):
+    return "".join(chat([{"role": "user", "content": BRIEFING}], facts, cfg))  # an exception is not cached
+
+
+_failed = {}
+
+
 def briefing(facts, cfg, day):
-    """Today's three-bullet briefing, or the reason it is missing as ('error', message). Cached per day and per data version (`facts`
-    changes when the daily run brings new prices), so every visitor sees the same one and it costs one request a day. A failure is
-    cached too (for up to 3 hours), so a broken key or a used-up quota does not spend a question on every page view."""
+    """Today's three-bullet briefing, or ('error', message). Cached per day and per data version (`facts` changes when the daily run
+    brings new prices), so every visitor sees the same one and it costs one request a day. A failure is remembered for 15 minutes, so a
+    broken key or a used-up quota does not spend a question (and a long wait) on every page view, but is retried soon after."""
+    k = (hash(facts), day)
+    if k in _failed and time.time() - _failed[k][0] < 900:
+        return "error", _failed[k][1]
     try:
-        return "".join(chat([{"role": "user", "content": BRIEFING}], facts, cfg))
+        return _briefing(facts, cfg, day)
     except Exception as err:  # never crash a page for the briefing
-        return "error", str(err) if isinstance(err, RuntimeError) else f"The briefing is unavailable right now ({type(err).__name__})."
+        msg = str(err) if isinstance(err, RuntimeError) else f"The briefing is unavailable right now ({type(err).__name__})."
+        _failed[k] = (time.time(), msg)
+        return "error", msg

@@ -1,6 +1,7 @@
 """Overview, the first page: the best fares on every route the daily run tracks, the cheapest whole Frankfurt trip, a short briefing in
 plain sentences, and (when an AI key is set) the expert's take on today's prices with a link to ask it more."""
 import html
+import importlib
 from datetime import date
 
 import pandas as pd
@@ -11,6 +12,8 @@ from db import connect
 from overview import collect, briefing, facts
 from ui import BUSINESS, ECONOMY, kpis, route
 
+if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
+    ex = importlib.reload(ex)
 db = connect()
 today = date.today()
 fares, summary, trips, weekday, hotel_night, awards = collect(db, today)
