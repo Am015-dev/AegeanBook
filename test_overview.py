@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import db
-import ai_expert as expert
+import expert_chat as ex
 import overview
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -69,65 +69,116 @@ def fake_client(parts, stop="end_turn", seen=None):
     return SimpleNamespace(messages=SimpleNamespace(stream=stream))
 
 
-def test_expert_streams_uses_haiku_and_has_a_daily_cap(monkeypatch):
-    monkeypatch.setattr(expert, "_used", {})
+def user(text):
+    return {"role": "user", "content": text}
+
+
+def test_claude_chat_keeps_the_conversation_and_has_a_daily_cap(monkeypatch):
+    monkeypatch.setattr(ex, "_used", {})
     seen = {}
-    assert "".join(expert.ask("When?", "day,leg\n...", ("claude", "k"), fake_client(["Fly ", "Thursday."], seen=seen))) == "Fly Thursday."
-    assert seen["model"] == "claude-haiku-5-5" and "<data>" in seen["messages"][0]["content"]
+    history = [user("When?"), {"role": "assistant", "content": "Thursday."}, user("And for 4 nights?")]
+    assert "".join(ex.chat(history, "day,leg", ("claude", "k"), fake_client(["Fri ", "22 Jan."], seen=seen))) == "Fri 22 Jan."
+    assert seen["model"] == "claude-haiku-5-5" and "<data>\nday,leg" in seen["system"]
+    assert [m["role"] for m in seen["messages"]] == ["user", "assistant", "user"] and seen["messages"][-1]["content"] == "And for 4 nights?"
+    long = [user(str(i)) if i % 2 == 0 else {"role": "assistant", "content": str(i)} for i in range(25)]
+    list(ex.chat(long, "", ("claude", "k"), fake_client(["ok"], seen=seen)))
+    assert len(seen["messages"]) <= ex.TURNS and seen["messages"][0]["role"] == "user"  # trimmed, still starting with the traveller
     with pytest.raises(RuntimeError, match="declined"):
-        list(expert.ask("x", "", ("claude", "k"), fake_client([], stop="refusal")))
-    monkeypatch.setattr(expert, "_used", {date.today(): expert.MAX_PER_DAY})
+        list(ex.chat([user("x")], "", ("claude", "k"), fake_client([], stop="refusal")))
+    monkeypatch.setattr(ex, "_used", {date.today(): ex.MAX_PER_DAY})
     with pytest.raises(RuntimeError, match="daily limit"):
-        list(expert.ask("x", "", ("claude", "k"), fake_client(["never"])))
-
-
-def test_overview_page_empty_filled_and_with_expert(tmp_path, monkeypatch):
-    from streamlit.testing.v1 import AppTest
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    page = os.path.join(HERE, "views/overview.py")
-    at = AppTest.from_file(page, default_timeout=60).run()
-    assert not at.exception and "No fares are saved yet" in at.info[0].value
-    seed(tmp_path / "tracker.db")
-    at = AppTest.from_file(page, default_timeout=60).run()
-    assert not at.exception
-    html = " ".join(m.value for m in at.markdown)
-    assert "€60" in html and "Cheapest whole trip to Frankfurt" in html and not at.button  # no key: no Ask button
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
-    monkeypatch.setattr(expert, "ask", lambda q, f, k: iter(["Thursday ", "is cheapest."]))
-    at = AppTest.from_file(page, default_timeout=60).run()
-    at.text_area[0].input("When is it cheapest?")
-    at.button[0].click().run()
-    assert not at.exception and "Thursday is cheapest." in " ".join(m.value for m in at.markdown)
-    assert "Google Gemini (free tier)" in at.caption[-1].value
+        list(ex.chat([user("x")], "", ("claude", "k"), fake_client(["never"])))
 
 
 def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypatch):
     import io
     import json
     import urllib.error
-    monkeypatch.setattr(expert, "_used", {})
+    monkeypatch.setattr(ex, "_used", {})
     monkeypatch.setenv("GEMINI_API_KEY", "g")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "a")
-    assert expert.available() == ("gemini", "g")  # the free key wins when both are set
+    assert ex.available() == ("gemini", "g")  # the free key wins when both are set
     calls = []
 
     def urlopen(req, timeout):
         calls.append(req)
         if "3.8-flash" in req.full_url:  # the first model's free quota is used up
             raise urllib.error.HTTPError(req.full_url, 429, "quota", {}, None)
-        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": "Fly Thursday."}]}, "finishReason": "STOP"}]}).encode())
-    assert "".join(expert.ask("When?", "data", ("gemini", "g"), urlopen=urlopen)) == "Fly Thursday."
+        parts = [{"text": "thinking...", "thought": True}, {"text": "Fly Thursday."}]
+        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": parts}, "finishReason": "STOP"}]}).encode())
+    history = [user("When?"), {"role": "assistant", "content": "Thursday."}, user("Why?")]
+    assert "".join(ex.chat(history, "data", ("gemini", "g"), urlopen=urlopen)) == "Fly Thursday."  # thoughts are not shown
     assert ["gemini-3.8-flash" in calls[0].full_url, "gemini-3.5-flash-lite" in calls[1].full_url] == [True, True]
     assert calls[1].get_header("X-goog-api-key") == "g" and "key=" not in calls[1].full_url
     body = json.loads(calls[1].data)
-    assert "<data>" in body["contents"][0]["parts"][0]["text"] and "AEGEAN" in body["systemInstruction"]["parts"][0]["text"]
+    assert [c["role"] for c in body["contents"]] == ["user", "model", "user"] and "<data>" in body["systemInstruction"]["parts"][0]["text"]
     empty = lambda req, timeout: io.BytesIO(b'{"candidates": [{"finishReason": "SAFETY"}]}')
     with pytest.raises(RuntimeError, match="declined"):
-        list(expert.ask("x", "", ("gemini", "g"), urlopen=empty))
+        list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=empty))
 
     def busy(req, timeout):
         raise urllib.error.HTTPError(req.full_url, 429, "quota", {}, None)
     with pytest.raises(RuntimeError, match="free quota"):
-        list(expert.ask("x", "", ("gemini", "g"), urlopen=busy))
+        list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=busy))
+
+
+def test_briefing_is_asked_once_per_day_and_data(monkeypatch):
+    asked = []
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (asked.append(history), iter(["- **Book** now"]))[1])
+    ex.briefing.clear()
+    assert ex.briefing("data v1", ("gemini", "g"), "2026-10-30") == "- **Book** now"
+    ex.briefing("data v1", ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 1 and asked[0][0]["content"] == ex.BRIEFING  # the second visitor gets the cached briefing
+    ex.briefing("data v2", ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 2  # new prices, new briefing
+
+    def broken(history, facts, cfg):
+        asked.append(history)
+        raise RuntimeError("Gemini's free quota is used up for now.")
+    monkeypatch.setattr(ex, "chat", broken)
+    assert ex.briefing("data v3", ("gemini", "g"), "2026-10-30") == ("error", "Gemini's free quota is used up for now.")
+    ex.briefing("data v3", ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 3  # a failure is remembered too: the next visitor does not spend another question on it
+
+
+def pages(tmp_path, monkeypatch, key):
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.chdir(tmp_path)
+    for name in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    if key:
+        monkeypatch.setenv("GEMINI_API_KEY", key)
+    return lambda name: AppTest.from_file(os.path.join(HERE, "views", name), default_timeout=60)
+
+
+def test_overview_page_empty_filled_and_with_the_experts_take(tmp_path, monkeypatch):
+    open_page = pages(tmp_path, monkeypatch, None)
+    at = open_page("overview.py").run()
+    assert not at.exception and "No fares are saved yet" in at.info[0].value
+    seed(tmp_path / "tracker.db")
+    at = open_page("overview.py").run()
+    assert not at.exception
+    text = " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
+    assert "€60" in text and "Cheapest whole trip to Frankfurt" in text and "needs a free key" in text
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** ATH → FRA at €60")
+    at = open_page("overview.py").run()
+    assert not at.exception and "ATH → FRA at €60" in " ".join(m.value for m in at.markdown)
+
+
+def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monkeypatch):
+    open_page = pages(tmp_path, monkeypatch, None)
+    seed(tmp_path / "tracker.db")
+    at = open_page("expert.py").run()
+    assert not at.exception and "needs an AI key" in at.info[0].value and not at.chat_input
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** €60")
+    seen = []
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append([m["content"] for m in history]), iter([f"Answer {len(seen)}"]))[1])
+    at = open_page("expert.py").run()
+    assert "€60" in " ".join(m.value for m in at.markdown)
+    at.chat_input[0].set_value("When is it cheapest?").run()
+    at.chat_input[0].set_value("And for 4 nights?").run()
+    assert not at.exception and seen[-1] == ["When is it cheapest?", "Answer 1", "And for 4 nights?"]  # the follow-up carries the conversation
+    assert [m.markdown[0].value for m in at.chat_message] == ["When is it cheapest?", "Answer 1", "And for 4 nights?", "Answer 2"]
+    assert "Google Gemini (free tier)" in at.caption[-1].value
