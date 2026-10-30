@@ -88,7 +88,11 @@ def section(name, cfg):
                       hovermode="x unified", legend=dict(orientation="h", x=0, y=1.15, font=dict(color=INK)), xaxis=dict(showgrid=False, linecolor=GRID),
                       yaxis=dict(tickprefix="€" if cfg["unit"] == "€" else "", ticksuffix="" if cfg["unit"] == "€" else " mi", tickformat=",",
                                  gridcolor=GRID, zeroline=False))
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    if view[view.day == day].fetched.str.slice(0, 10).nunique() > 1:  # one recording day is a dot on an axis of milliseconds: say it instead
+        fig.update_xaxes(tickformat="%d %b")
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    else:
+        st.caption("This day has been recorded once so far; the chart of how it moved appears after the next daily run.")
     table = view.sort_values("fetched", ascending=False).rename(columns={"fetched": "Recorded", "day": cfg["day"], "route": "Route",
                                                                            "series": "Cabin" if cfg["series"] == "cabin" else "Source",
                                                                            cfg["value"]: "Price €" if cfg["unit"] == "€" else "Miles"})
