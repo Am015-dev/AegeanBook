@@ -82,7 +82,7 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 /* a column with nothing in it (Nights away on a one-way trip) must not leave a gap on phones */
 [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"]:empty) {{ display:none; }}
 @media (pointer: coarse) {{ [data-testid="stButtonGroup"] button, .chip {{ min-height:44px; }} .chip {{ display:inline-flex; align-items:center; }} }}
-@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} .st-key-search {{ padding:14px; }} .fare {{ padding:12px 14px; }} .fare .price {{ font-size:1.4rem; }} }}
+@media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} .st-key-search {{ padding:14px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports), .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) {{ flex-wrap:nowrap !important; gap:8px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports) > [data-testid="stColumn"], .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) > [data-testid="stColumn"] {{ min-width:0 !important; width:auto !important; flex:1 1 0 !important; }} .st-key-search [data-testid="stColumn"]:has(.st-key-swap-airports) {{ flex:0 0 auto !important; }} .st-key-search [data-testid="stColumn"]:has([data-testid="stNumberInput"]) {{ min-width:0 !important; width:auto !important; flex:1 1 calc(50% - 8px) !important; }} .fare {{ padding:12px 14px; }} .fare .price {{ font-size:1.4rem; }} }}
 </style>
 """
 
