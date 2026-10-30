@@ -13,8 +13,10 @@ from award_view import load_award
 from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 
+VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 HOME = "ATH"
 PAY = {"cash": "Cash", "miles": "Miles", "both": "Cash or miles"}
+LEGS = ["out_cash", "out_miles", "out_taxes", "back_cash", "back_miles", "back_taxes"]  # each direction of a return, for mixed trips
 
 
 def _plain(s):
@@ -74,7 +76,8 @@ def candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay="both")
     """The trips to choose from, cheapest first, as a DataFrame. One way: one row per departure day. Return: one row per departure day
     with the flight back `nights` later, plus the hotel for every night when a hotel is chosen. Columns: depart, back, cash (flights),
     miles, taxes, hotel, total_cash (flights + hotel), value_per_1000 (euros of cash fare saved per 1,000 miles, after award taxes).
-    Paying with miles sorts by miles, otherwise by total cash."""
+    Paying with miles sorts by miles, otherwise by total cash. Returns also keep each direction's cash, miles and taxes, so a trip can
+    use miles one way and cash the other (award seats rarely line up both ways)."""
     out = _leg(db, HOME, dest, cabin, start, end)
     out = out[[DAYS[pd.Timestamp(d).weekday()] in weekdays for d in out.index]] if weekdays else out
     if not nights:
@@ -90,13 +93,14 @@ def candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay="both")
             k = back.loc[b]
             stay = [(pd.Timestamp(d) + pd.Timedelta(days=i)).strftime("%Y-%m-%d") for i in range(nights)]
             h = sum(night[s] for s in stay) if hotel and all(s in night.index for s in stay) else float("nan")
-            rows.append(dict(depart=d, back=b, cash=r.cash + k.cash, miles=r.miles + k.miles, taxes=r.taxes + k.taxes, hotel=h))
-        t = pd.DataFrame(rows, columns=["depart", "back", "cash", "miles", "taxes", "hotel"])
+            rows.append(dict(depart=d, back=b, cash=r.cash + k.cash, miles=r.miles + k.miles, taxes=r.taxes + k.taxes, hotel=h,
+                             out_cash=r.cash, out_miles=r.miles, out_taxes=r.taxes, back_cash=k.cash, back_miles=k.miles, back_taxes=k.taxes))
+        t = pd.DataFrame(rows, columns=["depart", "back", "cash", "miles", "taxes", "hotel"] + LEGS)
     if t.empty:
         return t
     t["total_cash"] = t.cash + t.hotel.fillna(0)
     t["value_per_1000"] = ((t.cash - t.taxes.fillna(0)) / t.miles * 1000).round(2)
-    t = t[["depart", "back", "cash", "miles", "taxes", "hotel", "total_cash", "value_per_1000"]]
+    t = t[["depart", "back", "cash", "miles", "taxes", "hotel", "total_cash", "value_per_1000"] + [c for c in LEGS if c in t]]
     return t.sort_values(["miles", "depart"] if pay == "miles" else ["total_cash", "depart"]).reset_index(drop=True)
 
 
@@ -132,10 +136,31 @@ def facts(t, dest, label, start, end, cabin, pay, nights, hotel, today):
         low = t.loc[t.miles.idxmin()]
         lines.append(f"Fewest miles: depart {low.depart}, {low.miles:,.0f} miles"
                      + (f"; best value for miles: depart {best.depart}, €{best.value_per_1000:.2f} per 1,000 miles." if best is not None else "."))
-    cols = ["depart", "back", "cash", "miles", "taxes", "hotel", "total_cash", "value_per_1000"]
+    if pay != "cash" and nights:
+        lines += mixed(t)
+    cols = ["depart", "back", "cash", "miles", "taxes", "hotel", "total_cash", "value_per_1000"] + [c for c in LEGS if c in t]
     lines.append("\n" + ",".join(cols))
     for r in t.itertuples():
         lines.append(",".join("" if v is None or (isinstance(v, float) and pd.isna(v)) else
                               (f"{v:.2f}" if c == "value_per_1000" else f"{v:.0f}" if isinstance(v, float) else str(v))
                               for c, v in zip(cols, (getattr(r, c) for c in cols))))
     return "\n".join(lines)
+
+
+def mixed(t, top=3):
+    """Sentences for the best trips that use miles one way and cash the other: the least cash paid first (the other leg plus the hotel),
+    then the most euros of cash fare saved per 1,000 miles."""
+    out = []
+    for leg, other, name in (("out", "back", "Miles out, cash back"), ("back", "out", "Cash out, miles back")):
+        m = t.dropna(subset=[f"{leg}_miles", f"{leg}_cash", f"{other}_cash"])
+        if not len(m):
+            out.append(f"{name}: no trip in this period has award seats on that leg.")
+            continue
+        value = (m[f"{leg}_cash"] - m[f"{leg}_taxes"].fillna(0)) / m[f"{leg}_miles"] * 1000
+        paid = m[f"{other}_cash"] + m.hotel.fillna(0)
+        for i in pd.DataFrame({"paid": paid, "value": -value}).sort_values(["paid", "value"]).index[:top]:
+            r = m.loc[i]
+            hotel = f" + €{r.hotel:,.0f} hotel" if pd.notna(r.hotel) else ""
+            out.append(f"{name}: depart {r.depart}, back {r.back}: {r[f'{leg}_miles']:,.0f} miles replace a €{r[f'{leg}_cash']:,.0f} fare "
+                       f"(€{value[i]:.2f} per 1,000 miles); you pay €{r[f'{other}_cash']:,.0f} in cash the other way{hotel}.")
+    return out

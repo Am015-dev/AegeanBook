@@ -195,6 +195,7 @@ def test_overview_page_empty_filled_and_with_the_experts_take(tmp_path, monkeypa
     assert not at.exception
     text = " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
     assert "€60" in text and "Cheapest whole trip to Frankfurt" in text and "needs a free key" in text
+    assert "Cheapest month to fly" in text and len(at.dataframe) == 1
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** ATH → FRA at €60")
     at = open_page("overview.py").run()
@@ -272,3 +273,34 @@ def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):
     at.chat_input[0].set_value("And with miles?").run()
     history, facts = seen[-1]
     assert [m["content"] for m in history][-1] == "And with miles?" and len(history) == 3 and "candidate trips" in facts  # follow-up keeps the plan
+
+
+def test_cheapest_month_table_and_colours():
+    import deals
+    days = pd.date_range("2026-10-31", "2026-12-10").strftime("%Y-%m-%d")
+    fares = pd.Series([300.0] + [100.0 + i for i in range(len(days) - 1)], index=days)
+    m = deals.by_month(fares)
+    assert list(m.index) == ["Nov 2026", "Dec 2026"] and m["Nov 2026"] == 100.0  # one day of October is not October's cheapest fare
+    t = deals.month_table({("ATH", "FRA"): {"economy": fares}}, "economy")
+    assert list(t.index) == ["ATH → FRA"] and list(t.columns) == ["Nov 2026", "Dec 2026"]
+    two = pd.DataFrame({"Nov 2026": [100.0, 80.0], "Dec 2026": [120.0, 85.0]}, index=["ATH → FRA", "ATH → ZRH"])
+    css = deals.month_colours(two)
+    assert "0E7A53" in css.iloc[0, 0] and "C2410C" in css.iloc[0, 1]  # cheapest month green, 20% dearer orange
+    assert "0E7A53" in css.iloc[1, 0] and css.iloc[1, 1] == ""  # 6% dearer: plain
+
+
+def test_mixed_trips_use_miles_one_way(tmp_path):
+    import trip_plan as tp
+    t = seed(tmp_path / "t.db")
+    today = date.today()
+    out_day = (today + timedelta(5)).isoformat()  # award seats only on the way out
+    t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+              (out_day, "ATH", "ZRH", "business", 15000, 1, datetime.now().isoformat(), None))
+    t.commit()
+    start, end = today + timedelta(1), today + timedelta(20)
+    c = tp.candidates(t, "ZRH", start, end, "business", 3, [], None)
+    assert c.miles.isna().all()  # no trip has seats both ways
+    text = tp.facts(c, "ZRH", "Next 30 days", start, end, "business", "both", 3, None, today)
+    assert f"Miles out, cash back: depart {out_day}" in text and "15,000 miles replace" in text
+    assert "Cash out, miles back: no trip" in text and "out_miles" in text
+    assert "Miles out" not in tp.facts(c, "ZRH", "Next 30 days", start, end, "business", "cash", 3, None, today)  # not asked for miles

@@ -7,6 +7,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
+import deals
 import expert_chat as ex
 from db import connect
 import overview as ov
@@ -76,6 +77,15 @@ if trips:
     st.caption("The hotel is the Frankfurt hotel you searched most recently on the Hotels page; search another there to change it."
                if hotel_night is not None and len(hotel_night) else
                "Search a Frankfurt hotel on the Hotels page (1 night) to add it to these trips.")
+
+st.markdown('<p class="group">Cheapest month to fly</p>', unsafe_allow_html=True)
+cab = st.pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-month-cabin",
+               label_visibility="collapsed")
+months = deals.month_table(fares, cab)
+if len(months):
+    st.dataframe(months.style.format("€{:,.0f}", na_rep="—").apply(deals.month_colours, axis=None), width="stretch")
+    st.caption("The cheapest one-way fare of each month. Green: the route's cheapest month; orange: at least 15% dearer than that. "
+               "Months with less than a week of fares saved are left out.")
 
 if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)
