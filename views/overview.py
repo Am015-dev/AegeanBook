@@ -16,8 +16,10 @@ from ui import BUSINESS, ECONOMY, kpis, route
 
 if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
     ex = importlib.reload(ex)
-if getattr(ov, "VERSION", 0) < 2:
+if getattr(ov, "VERSION", 0) < 3:
     ov = importlib.reload(ov)
+if getattr(tp, "VERSION", 0) < 3:
+    tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 3:
     deals = importlib.reload(deals)
 collect, briefing, facts = ov.collect, ov.briefing, ov.facts
@@ -93,19 +95,22 @@ if len(months):
                "Months with less than a week of fares saved are left out.")
 
 st.markdown('<p class="group">Return trip by date</p>', unsafe_allow_html=True)
-c = st.columns([1.5, 1.3, 1.1, 1.6])
-dests = [d for o, d in fares if o == "ATH" and (d, "ATH") in fares]
-dest = c[0].pills("To", dests, default=dests[0] if dests else None, format_func=tp.city, required=True, key="ov-grid-dest")
-gcab = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin")
-pay = c[2].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
+pairs = [(o, d) for o, d in fares if (d, o) in fares]  # routes with fares saved both ways
+froms = list(dict.fromkeys(o for o, _ in pairs))
+c = st.columns([1, 2]) + st.columns([1.3, 1.1, 1.6])  # From and To, then the cabin, the payment and the dates
+orig = c[0].selectbox("From", froms, format_func=tp.city, key="ov-grid-orig")
+dests = [d for o, d in pairs if o == orig]
+dest = c[1].pills("To", dests, default=dests[0] if dests else None, format_func=tp.city, required=True, key=f"ov-grid-dest-{orig}")
+gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin")
+pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                  key="ov-grid-pay")
 lastday = max(date.fromisoformat(s.index.max()) for f in fares.values() for s in f.values() if len(s))
 periods = tp.months(today, lastday)
-when = c[3].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="ov-grid-when")
+when = c[4].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="ov-grid-when")
 if dest:
     _, a, b = periods[when]
     src = fares if pay == "cash" else awards
-    out_, back_ = src.get(("ATH", dest)), src.get((dest, "ATH"))
+    out_, back_ = src.get((orig, dest)), src.get((dest, orig))
     grid = deals.trip_grid(out_[gcab], back_[gcab], a, b) if out_ is not None and back_ is not None else pd.DataFrame()
     money = (lambda v: f"€{v:,.0f}") if pay == "cash" else (lambda v: f"{v:,.0f} miles")
     if len(grid):
@@ -113,14 +118,14 @@ if dest:
                      width="stretch", height=min(36 * len(grid) + 38, 560))
         leave, stay = grid.stack().idxmin()
         same = grid.min().min() == grid.max().max()
-        st.caption(f"Return {'fare' if pay == 'cash' else 'award'} Athens → {tp.city(dest)} → Athens, {gcab}: the day you leave down the "
+        st.caption(f"Return {'fare' if pay == 'cash' else 'award'} {tp.city(orig)} → {tp.city(dest)} → {tp.city(orig)}, {gcab}: the day you leave down the "
                    "side, the nights you stay across. "
                    + (f"Every trip shown costs **{money(grid.min().min())}**; green marks the dates you can go." if same else
                       f"Cheapest: **{money(grid.min().min())}**, leaving {leave} for {stay} (dark green); light green: within 10% of it.") + (" Miles only: award taxes and fees come on top. — means no award seat that "
                                                        "way on one of the two days." if pay == "miles" else ""))
         try:
-            st.page_link("views/alerts.py", label=f"Alert me when ATH → {dest} {gcab} gets cheaper", icon=":material/notifications:",
-                         query_params={"route": f"ATH-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"})
+            st.page_link("views/alerts.py", label=f"Alert me when {orig} → {dest} {gcab} gets cheaper", icon=":material/notifications:",
+                         query_params={"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"})
         except Exception:  # the page runs on its own (tests), outside the app's navigation
             pass
     else:

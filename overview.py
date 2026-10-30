@@ -6,12 +6,12 @@ from datetime import timedelta
 import pandas as pd
 
 from award_view import load_award
-from insights import FULL, cash_by_day, weekday_stats
+from insights import FULL, cash_by_day, routes, weekday_stats
 from trip_cost import night_prices, trip_costs
-from trip_plan import hotels as searched_hotels
+from trip_plan import city, hotels as searched_hotels
 from ui import round_trips
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 
 LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]
 CABINS = ("economy", "business")
@@ -20,10 +20,11 @@ DAYS = 90
 
 
 def legs(db, today):
-    """{(orig, dest): {cabin: Series of fares by iso day}} over the next DAYS days; legs with no fare at all are left out."""
+    """{(orig, dest): {cabin: Series of fares by iso day}} over the next DAYS days: the daily run's LEGS first, then every other route with
+    fares saved (searched on Flights), so a route like BIO -> ATH shows up as soon as its fares are in. Legs with no fare are left out."""
     start, end = today + timedelta(1), today + timedelta(DAYS)
     out = {}
-    for o, d in LEGS:
+    for o, d in LEGS + [r for r in routes(db, True) if r not in LEGS]:
         fares = {c: cash_by_day(db, o, d, c, True, start, end) for c in CABINS}
         if any(len(s) for s in fares.values()):
             out[(o, d)] = fares
@@ -74,11 +75,11 @@ def briefing(summary, trips, weekday):
         say.append(f"Best value in Frankfurt: {n} nights, {pd.Timestamp(r['depart']):%a %d %b} → {pd.Timestamp(r['back']):%a %d %b}, "
                    f"€{r['total']:,.0f} in all (€{r['flights']:,.0f} flights{hotel}), €{r['total'] / n:,.0f} a night.")
     for (o, d), w in weekday.items():
-        if o == "ATH" and len(w) >= 5 and w["mean"].max() - w["mean"].min() >= 25:
-            say.append(f"Leaving Athens for {d}, {FULL[w['mean'].idxmin()]}s are cheapest: €{w['mean'].min():,.0f} on average, "
+        if len(w) >= 5 and w["mean"].max() - w["mean"].min() >= 25:
+            say.append(f"Leaving {city(o)} for {d}, {FULL[w['mean'].idxmin()]}s are cheapest: €{w['mean'].min():,.0f} on average, "
                        f"€{w['mean'].max() - w['mean'].min():,.0f} less than {FULL[w['mean'].idxmax()]}s.")
-    for o, d in (("ATH", "FRA"), ("ATH", "ZRH")):
-        a, b = summary.get((o, d), {}).get("business"), summary.get((o, d), {}).get("economy")
+    for (o, d), s in summary.items():
+        a, b = s.get("business"), s.get("economy")
         if a and b and a["min"] - b["min"] <= 120:
             say.append(f"{o} → {d}: business from €{a['min']:,.0f} is only €{a['min'] - b['min']:,.0f} more than the cheapest economy.")
     return say[:5]

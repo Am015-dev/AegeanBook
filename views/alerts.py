@@ -14,7 +14,7 @@ import trip_plan as tp
 from db import connect
 from ui import route
 
-if getattr(ov, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ov, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
 db = connect()
 today = date.today()

@@ -265,7 +265,8 @@ def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter([f"Answer {len(seen)}"]))[1])
     at = open_page("expert.py").run()
-    at.selectbox(key="plan-dest").set_value("FRA")
+    at.selectbox(key="plan-orig").set_value("ATH").run()
+    at.selectbox(key="plan-dest-ATH").set_value("FRA")
     at.button[0].click().run()  # Ask the expert, with the defaults: economy, return 3 nights, cash or miles, the searched hotel
     assert not at.exception
     history, facts = seen[-1]
@@ -352,3 +353,33 @@ def test_pages_reload_guards_match_the_module_versions():
         for alias, n in re.findall(r'getattr\((\w+), "VERSION", 0\) < (\d+)', src):
             mod = importlib.import_module(aliases.get(alias, alias))
             assert int(n) == mod.VERSION, f"{os.path.basename(page)}: guard for {mod.__name__} says {n}, the module is VERSION {mod.VERSION}"
+
+
+def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypatch):
+    """BIO searched on the Flights page: it shows on the Overview (route cards, return grid From Bilbao) and the expert plans from it."""
+    open_page = pages(tmp_path, monkeypatch, "test")
+    t = seed(tmp_path / "tracker.db")
+    now = datetime.now().isoformat()
+    for i in range(1, 31):
+        for o, d in (("BIO", "ATH"), ("ATH", "BIO")):
+            t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), o, d, "economy",
+                                                                     90.0 + i, "calendar", now, 1))
+    t.commit()
+    import trip_plan as tp
+    assert "BIO" in tp.origins(t) and tp.destinations(t, "BIO") == ["ATH"]
+    plan = tp.candidates(t, "ATH", date.today() + timedelta(1), date.today() + timedelta(20), "economy", 3, None, None, "cash", "BIO")
+    assert plan.iloc[0].cash == 91 + 94  # out on day 1 (€91), back 3 nights later on day 4 (€94)
+    assert "from Bilbao (BIO) to Athens (ATH)" in tp.question("ATH", "Next 30 days", "economy", "cash", 3, None, None, "BIO")
+
+    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- ok")
+    at = open_page("overview.py").run()
+    assert not at.exception and any("BIO → ATH" in str(m.value) for m in at.markdown)
+    at.selectbox(key="ov-grid-orig").set_value("BIO").run()
+    assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
+
+    seen = []
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
+    at = open_page("expert.py").run()
+    at.selectbox(key="plan-orig").set_value("BIO").run()
+    at.button[0].click().run()
+    assert not at.exception and "from Bilbao (BIO) to Athens (ATH)" in seen[-1][0][-1]["content"] and "Bilbao (BIO) to Athens" in seen[-1][1]

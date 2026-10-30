@@ -1,4 +1,4 @@
-"""Expert: plan a trip from your own choices (destination, month, cabin, cash or miles, hotel) and get the best time to fly and why, then
+"""Expert: plan a trip from your own choices (from and to any airport with fares saved, month, cabin, cash or miles, hotel) and get the best time to fly and why, then
 ask follow-ups; plus today's briefing. The AI is in expert_chat, the trip maths in trip_plan."""
 import importlib
 from datetime import date
@@ -14,9 +14,9 @@ from ui import route
 
 if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
-if getattr(ov, "VERSION", 0) < 2:
+if getattr(ov, "VERSION", 0) < 3:
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 2:
+if getattr(tp, "VERSION", 0) < 3:
     tp = importlib.reload(tp)
 db = connect()
 today = date.today()
@@ -34,8 +34,8 @@ if not cfg:
     st.stop()
 
 fares, summary, trips, weekday, hotel_night, awards = ov.collect(db, today)
-dests = tp.destinations(db)
-if not summary or not dests:
+froms = tp.origins(db)
+if not summary or not froms:
     st.info("No fares are saved yet, so there is nothing to analyse. The daily run fills them in every morning.")
     st.stop()
 general = ov.facts(summary, fares, trips, hotel_night, awards, today)
@@ -59,11 +59,14 @@ def answer(q, data):
 
 with st.container(border=True, key="search"):
     st.markdown('<p class="group">Plan a trip</p>', unsafe_allow_html=True)
-    c = st.columns([1, 1])
-    dest = c[0].selectbox("Fly from Athens to", dests, format_func=lambda d: f"{tp.city(d)} ({d})", key="plan-dest")
+    c = st.columns([1, 1, 1])
+    place = lambda a: f"{tp.city(a)} ({a})"
+    orig = c[0].selectbox("From", froms, format_func=place, key="plan-orig",
+                          help="Every airport with fares saved: the daily routes, plus any route you searched on the Flights page.")
+    dest = c[1].selectbox("To", tp.destinations(db, orig), format_func=place, key=f"plan-dest-{orig}")
     last = date.fromisoformat(max(s.index.max() for leg in fares.values() for s in leg.values() if len(s)))  # the last day with fares
     periods = tp.months(today, last)
-    when = c[1].selectbox("When", range(len(periods)), format_func=lambda i: periods[i][0], key="plan-when")
+    when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i][0], key="plan-when")
     c = st.columns([1, 1, 2])
     cabin = c[0].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="plan-cabin")
     trip = c[1].pills("Trip", ["One way", "Return"], default="Return", required=True, key="plan-trip")
@@ -84,14 +87,14 @@ with st.container(border=True, key="search"):
 
 if go:
     label, start, end = periods[when]
-    t = tp.candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay)
+    t = tp.candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay, orig)
     if t.empty:
         st.warning("No fares are saved for this choice: try another month, more weekdays or fewer nights.")
     else:
         chat.clear()
-        data = tp.facts(t, dest, label, start, end, cabin, pay, nights, hotel, today) + "\n\nAll tracked routes, for follow-ups:\n" + general
+        data = tp.facts(t, dest, label, start, end, cabin, pay, nights, hotel, today, orig) + "\n\nAll tracked routes, for follow-ups:\n" + general
         st.session_state["expert-data"] = data
-        answer(tp.question(dest, label, cabin, pay, nights, weekdays, hotel), data)
+        answer(tp.question(dest, label, cabin, pay, nights, weekdays, hotel, orig), data)
 
 for m in chat[:-2] if go else chat:  # this run's answer is already on the page
     with st.chat_message(m["role"], avatar=":material/person:" if m["role"] == "user" else ":material/auto_awesome:"):
