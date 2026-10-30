@@ -1,5 +1,5 @@
 """Price alerts for every visitor: choose a route and a limit, get an email or a phone notification when a fare drops below it. The alert is
-saved by alert_store (needs GITHUB_TOKEN in the secrets) and delivered by the daily run (alerts.py). Also opens the confirm and stop
+saved by alert_store (needs GITHUB_TOKEN, or GITHUB, in the secrets) and delivered by the daily run (alerts.py). Also opens the confirm and stop
 links that the alert's messages carry."""
 import importlib
 import urllib.request
@@ -20,7 +20,9 @@ db = connect()
 today = date.today()
 route("Price alerts", None, "Get an email or a phone notification when a fare drops below your limit. Checked every morning, free.")
 try:
-    token = st.secrets.get("GITHUB_TOKEN")
+    token = st.secrets.get("GITHUB_TOKEN") or st.secrets.get("GITHUB")  # either name works
+    if hasattr(token, "values"):  # saved as a [GITHUB] section with the token inside
+        token = next((v for v in token.values() if isinstance(v, str) and v.strip()), None)
 except Exception:  # no secrets file at all
     token = None
 

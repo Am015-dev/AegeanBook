@@ -108,7 +108,7 @@ addresses stay private), at most 5 per address and 300 in all.
 
 **One-time setup by the owner** (free):
 1. **Saving alerts:** on GitHub, Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: only this
-   repository; Permissions → Issues: Read and write. Add it to the app's Streamlit secrets as `GITHUB_TOKEN = "..."`.
+   repository; Permissions → Issues: Read and write. Add it to the app's Streamlit secrets as `GITHUB_TOKEN = "..."` (or `GITHUB = "..."`).
    Without it, the Alerts page offers the owner a filled-in GitHub issue instead.
 2. **Sending email:** turn on 2-step verification for a Gmail account, create an app password (Google Account → Security → App
    passwords), and add two repository secrets on GitHub (Settings → Secrets and variables → Actions): `SMTP_USER` (the Gmail address)
