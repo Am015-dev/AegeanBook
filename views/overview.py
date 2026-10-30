@@ -11,12 +11,15 @@ import deals
 import expert_chat as ex
 from db import connect
 import overview as ov
+import trip_plan as tp
 from ui import BUSINESS, ECONOMY, kpis, route
 
 if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 2:
     ov = importlib.reload(ov)
+if getattr(deals, "VERSION", 0) < 2:
+    deals = importlib.reload(deals)
 collect, briefing, facts = ov.collect, ov.briefing, ov.facts
 db = connect()
 today = date.today()
@@ -88,6 +91,31 @@ if len(months):
     st.dataframe(months.style.format("€{:,.0f}", na_rep="—").apply(deals.month_colours, axis=None), width="stretch")
     st.caption("The cheapest one-way fare of each month. Green: the route's cheapest month; orange: at least 15% dearer than that. "
                "Months with less than a week of fares saved are left out.")
+
+st.markdown('<p class="group">Return trip by date</p>', unsafe_allow_html=True)
+c = st.columns([1, 1, 2])
+dests = [d for o, d in fares if o == "ATH" and (d, "ATH") in fares]
+dest = c[0].pills("To", dests, default=dests[0] if dests else None, format_func=tp.city, required=True, key="ov-grid-dest")
+gcab = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin")
+lastday = max(date.fromisoformat(s.index.max()) for f in fares.values() for s in f.values() if len(s))
+periods = tp.months(today, lastday)
+when = c[2].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="ov-grid-when")
+if dest:
+    _, a, b = periods[when]
+    grid = deals.trip_grid(fares[("ATH", dest)][gcab], fares[(dest, "ATH")][gcab], a, b)
+    if len(grid):
+        st.dataframe(grid.style.format("€{:,.0f}", na_rep="—").apply(deals.grid_colours, axis=None), width="stretch",
+                     height=min(36 * len(grid) + 38, 560))
+        leave, stay = grid.stack().idxmin()
+        st.caption(f"Return fare Athens → {tp.city(dest)} → Athens, {gcab}: the day you leave down the side, the nights you stay across. "
+                   f"Cheapest: **€{grid.min().min():,.0f}**, leaving {leave} for {stay} (dark green); light green: within 10% of it.")
+        try:
+            st.page_link("views/alerts.py", label=f"Alert me when ATH → {dest} {gcab} gets cheaper", icon=":material/notifications:",
+                         query_params={"route": f"ATH-{dest}", "cabin": gcab})
+        except Exception:  # the page runs on its own (tests), outside the app's navigation
+            pass
+    else:
+        st.caption("No return fares saved for those days.")
 
 if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)
