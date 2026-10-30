@@ -16,6 +16,8 @@ if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a mo
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 2:
     ov = importlib.reload(ov)
+if getattr(tp, "VERSION", 0) < 2:
+    tp = importlib.reload(tp)
 db = connect()
 today = date.today()
 route("Expert", None, "Tell it your trip and it finds the best time to fly, in cash or miles, and explains why. Then ask follow-ups.")
