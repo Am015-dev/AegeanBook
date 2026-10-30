@@ -93,3 +93,11 @@ An AI model reads the saved fares, award miles and hotel prices, writes a three-
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
 Without either key, the expert is hidden. Either way the app answers at most 60 questions a day (`MAX_PER_DAY` in `expert_chat.py`).
+
+## Price alerts (free, by email)
+
+At the bottom of the Overview, choose a route, cabin, cash or miles, a limit and optionally a month, then press **Create the alert on
+GitHub**: GitHub's new-issue page opens filled in; press **Submit**. Every morning, after the daily run, `alerts.py` checks each open
+issue labelled `price-alert` and comments when a fare (or award) meets it: the first time, and again only when it gets cheaper. GitHub
+sends you each comment by email and in its app (Settings → Notifications on GitHub). Close the issue to stop the alert. An alert can also
+be written by hand: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or `miles below: 16000`), optional `from:` and `to:` dates.

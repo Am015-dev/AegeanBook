@@ -31,6 +31,11 @@ jobs:
           [ ! -f data/latest_changes.md ] || git add data/latest_changes.md  # only when the digest step wrote it: it must never block the data
           git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} && git push
+      - name: Price alerts
+        continue-on-error: true  # comments on each open price-alert issue that today's fares meet; never blocks the run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python alerts.py
       - name: Post what changed as an issue
         if: steps.digest.outputs.changed == 'true'
         continue-on-error: true
