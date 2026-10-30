@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-import expert
+import ai_expert as expert
 from db import connect
 from overview import collect, briefing, facts
 from ui import BUSINESS, ECONOMY, kpis, route

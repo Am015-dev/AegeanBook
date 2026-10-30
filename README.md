@@ -92,4 +92,4 @@ An AI model reads the saved fares, award miles and hotel prices and answers ques
   `gemini-3.5-flash-lite` when the first is busy or out of free quota.
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
-Without either key, the expert is hidden. Either way the app answers at most 40 questions a day (`MAX_PER_DAY` in `expert.py`).
+Without either key, the expert is hidden. Either way the app answers at most 40 questions a day (`MAX_PER_DAY` in `ai_expert.py`).

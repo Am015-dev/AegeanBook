@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import db
-import expert
+import ai_expert as expert
 import overview
 
 HERE = os.path.dirname(os.path.abspath(__file__))
