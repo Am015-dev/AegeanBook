@@ -18,7 +18,7 @@ if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the 
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 2:
     ov = importlib.reload(ov)
-if getattr(deals, "VERSION", 0) < 2:
+if getattr(deals, "VERSION", 0) < 3:
     deals = importlib.reload(deals)
 collect, briefing, facts = ov.collect, ov.briefing, ov.facts
 db = connect()

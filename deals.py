@@ -2,7 +2,7 @@
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
 import pandas as pd
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 
 def by_month(fares, min_days=7):

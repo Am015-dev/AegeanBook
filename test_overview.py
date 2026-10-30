@@ -338,3 +338,17 @@ def test_overview_grid_in_miles(tmp_path, monkeypatch):
     assert grid.loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
     text = " ".join(c.value for c in at.caption)
     assert "Cheapest: **19,000 miles**" in text and "taxes and fees come on top" in text
+
+
+def test_pages_reload_guards_match_the_module_versions():
+    """Streamlit Cloud keeps already loaded modules across redeploys; a page reloads one only when its VERSION is below the number in the
+    page's guard. A guard left behind when the module's VERSION goes up lets the page run against the old copy (AttributeError live)."""
+    import glob
+    import importlib
+    import re
+    for page in glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "*.py")):
+        src = open(page, encoding="utf-8").read()
+        aliases = {alias: mod for mod, alias in re.findall(r"^import (\w+) as (\w+)$", src, re.M)}  # import overview as ov -> ov: overview
+        for alias, n in re.findall(r'getattr\((\w+), "VERSION", 0\) < (\d+)', src):
+            mod = importlib.import_module(aliases.get(alias, alias))
+            assert int(n) == mod.VERSION, f"{os.path.basename(page)}: guard for {mod.__name__} says {n}, the module is VERSION {mod.VERSION}"
