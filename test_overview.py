@@ -3,6 +3,7 @@ import os
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 import db
@@ -223,3 +224,51 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     at.chat_input[0].set_value("And for 7 nights?").run()
     assert "did not answer in time" in at.error[0].value
     assert len(at.session_state["expert-chat"]) == 4  # the unanswered question is not kept, so it does not confuse the next answer
+
+
+def test_trip_planner_months_hotels_candidates_and_question(tmp_path):
+    import trip_plan as tp
+    t = seed(tmp_path / "t.db")
+    today = date.today()
+    d = lambda i: (today + timedelta(i)).isoformat()
+    for i in (5, 6):  # business award seats on two days each way
+        for o, dest in (("ATH", "ZRH"), ("ZRH", "ATH")):
+            t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+                      (d(i) if o == "ATH" else d(i + 3), o, dest, "business", 15000, 1, datetime.now().isoformat(), None))
+    t.commit()
+    assert tp.city("ZRH") == "Zurich" and set(tp.destinations(t)) == {"FRA", "ZRH"}
+    m = tp.months(today, today + timedelta(60))
+    assert m[0][0] == "Next 30 days" and m[0][1] == today + timedelta(1) and all(a <= b for _, a, b in m)
+    assert [h["name"] for h in tp.hotels(t, "FRA")] == ["Steigenberger"] and tp.hotels(t, "ZRH") == []  # matched by the city's name
+    start, end = today + timedelta(1), today + timedelta(20)
+    biz = tp.candidates(t, "ZRH", start, end, "business", 3, [], None, "miles")
+    assert biz.miles.iloc[0] == 30000 and biz.depart.iloc[0] in (d(5), d(6))  # miles first when paying with miles
+    assert biz.value_per_1000.notna().any()
+    hotel = tp.hotels(t, "FRA")[0]
+    eco = tp.candidates(t, "FRA", start, end, "economy", 3, [], hotel)
+    first = eco.iloc[0]
+    assert first.depart == d(10) and first.hotel == 600.0 and first.total_cash == first.cash + 600.0  # the €60 day wins, plus 3 nights
+    friday = tp.candidates(t, "FRA", start, end, "economy", None, ["Fri"], None)
+    assert len(friday) and all(pd.Timestamp(x).weekday() == 4 for x in friday.depart)  # only the weekdays asked for
+    q = tp.question("ZRH", "December 2026", "business", "both", 4, ["Fri", "Sat"], None)
+    assert "Zurich (ZRH)" in q and "business" in q and "Fri/Sat" in q and "why" in q
+    text = tp.facts(biz, "ZRH", "Next 30 days", start, end, "business", "miles", 3, None, today)
+    assert "fewest miles first" in text and "award taxes are not collected yet" in text and "depart,back,cash,miles" in text
+
+
+def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):
+    open_page = pages(tmp_path, monkeypatch, "test")
+    seed(tmp_path / "tracker.db")
+    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** €60")
+    seen = []
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter([f"Answer {len(seen)}"]))[1])
+    at = open_page("expert.py").run()
+    at.selectbox(key="plan-dest").set_value("FRA")
+    at.button[0].click().run()  # Ask the expert, with the defaults: economy, return 3 nights, cash or miles, the searched hotel
+    assert not at.exception
+    history, facts = seen[-1]
+    assert "Frankfurt am Main (FRA)" in history[-1]["content"] and "3-night return" in history[-1]["content"]
+    assert "Steigenberger" in history[-1]["content"] and "candidate trips" in facts and "All tracked routes" in facts
+    at.chat_input[0].set_value("And with miles?").run()
+    history, facts = seen[-1]
+    assert [m["content"] for m in history][-1] == "And with miles?" and len(history) == 3 and "candidate trips" in facts  # follow-up keeps the plan

@@ -9,11 +9,14 @@ import streamlit as st
 
 import expert_chat as ex
 from db import connect
-from overview import collect, briefing, facts
+import overview as ov
 from ui import BUSINESS, ECONOMY, kpis, route
 
 if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
     ex = importlib.reload(ex)
+if getattr(ov, "VERSION", 0) < 2:
+    ov = importlib.reload(ov)
+collect, briefing, facts = ov.collect, ov.briefing, ov.facts
 db = connect()
 today = date.today()
 fares, summary, trips, weekday, hotel_night, awards = collect(db, today)
@@ -68,8 +71,11 @@ if trips:
     st.markdown('<p class="group">Cheapest whole trip to Frankfurt, economy return' + (" plus hotel" if hotel_night is not None and len(hotel_night)
                 else "") + '</p>', unsafe_allow_html=True)
     kpis([(f"{n} nights", f"€{r['total']:,.0f}", f"{day(r['depart'])} → {day(r['back'])} · €{r['flights']:,.0f} flights"
-           + (f" + €{r['hotel']:,.0f} Steigenberger Frankfurter Hof" if r.get("hotel") is not None else ""), ECONOMY)
+           + (f" + €{r['hotel']:,.0f} {hotel_night.name}" if r.get("hotel") is not None else ""), ECONOMY)
           for n, r in sorted(trips.items())])
+    st.caption("The hotel is the Frankfurt hotel you searched most recently on the Hotels page; search another there to change it."
+               if hotel_night is not None and len(hotel_night) else
+               "Search a Frankfurt hotel on the Hotels page (1 night) to add it to these trips.")
 
 if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)
