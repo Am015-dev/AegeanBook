@@ -39,15 +39,25 @@ def trip_grid(out, back, start, end, nights=range(2, 8)):
     """Google Flights' date grid for a return trip: outbound days from `start` to `end` (dates) as rows, nights away as columns, the two
     one-way fares added up in each cell (NaN when either day has no fare). out, back: Series of fares by iso day."""
     days = pd.date_range(start, end)
-    out = out.copy(); out.index = pd.to_datetime(out.index)
-    back = back.copy(); back.index = pd.to_datetime(back.index)
+    out = pd.to_numeric(out, errors="coerce").set_axis(pd.to_datetime(out.index))  # award days without seats can come as None
+    back = pd.to_numeric(back, errors="coerce").set_axis(pd.to_datetime(back.index))
     t = pd.DataFrame({f"{n} nights": [out.get(d, float("nan")) + back.get(d + pd.Timedelta(days=n), float("nan")) for d in days]
                       for n in nights}, index=[f"{d:%a %d %b}" for d in days])
     return t.dropna(how="all")
 
 
 def grid_colours(t, near=0.10):
-    """CSS per cell of trip_grid: the cheapest trip green, trips within `near` (10%) of it light green."""
+    """CSS per cell of trip_grid: the cheapest trip green, trips within `near` (10%) of it light green. When every trip costs the same
+    (award miles often do), all of them are light green: the grid then shows which dates are possible, not which is cheapest."""
     low = t.min().min()
+    if low == t.max().max():
+        return t.apply(lambda c: ["background-color:#E3F4EA;color:#0E7A53" if pd.notna(v) else "" for v in c])
     return t.apply(lambda c: ["background-color:#0E7A53;color:#fff;font-weight:650" if v == low else
                               "background-color:#E3F4EA;color:#0E7A53" if pd.notna(v) and v <= low * (1 + near) else "" for v in c])
+
+
+def styled(t, fmt, colours):
+    """A Styler that shows `t` formatted by `fmt` with "—" where empty, coloured by `colours(t)` on the numbers. st.dataframe shows
+    NaN as "None" whatever the Styler's na_rep says, so the cells are turned into text first."""
+    text = t.apply(lambda c: c.map(lambda v: fmt(v) if pd.notna(v) else "—"))
+    return text.style.apply(lambda _: colours(t), axis=None)

@@ -88,34 +88,43 @@ cab = st.pills("Cabin", ["economy", "business"], default="economy", format_func=
                label_visibility="collapsed")
 months = deals.month_table(fares, cab)
 if len(months):
-    st.dataframe(months.style.format("€{:,.0f}", na_rep="—").apply(deals.month_colours, axis=None), width="stretch")
+    st.dataframe(deals.styled(months, "€{:,.0f}".format, deals.month_colours), width="stretch")
     st.caption("The cheapest one-way fare of each month. Green: the route's cheapest month; orange: at least 15% dearer than that. "
                "Months with less than a week of fares saved are left out.")
 
 st.markdown('<p class="group">Return trip by date</p>', unsafe_allow_html=True)
-c = st.columns([1, 1, 2])
+c = st.columns([1.5, 1.3, 1.1, 1.6])
 dests = [d for o, d in fares if o == "ATH" and (d, "ATH") in fares]
 dest = c[0].pills("To", dests, default=dests[0] if dests else None, format_func=tp.city, required=True, key="ov-grid-dest")
 gcab = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin")
+pay = c[2].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
+                 key="ov-grid-pay")
 lastday = max(date.fromisoformat(s.index.max()) for f in fares.values() for s in f.values() if len(s))
 periods = tp.months(today, lastday)
-when = c[2].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="ov-grid-when")
+when = c[3].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="ov-grid-when")
 if dest:
     _, a, b = periods[when]
-    grid = deals.trip_grid(fares[("ATH", dest)][gcab], fares[(dest, "ATH")][gcab], a, b)
+    src = fares if pay == "cash" else awards
+    out_, back_ = src.get(("ATH", dest)), src.get((dest, "ATH"))
+    grid = deals.trip_grid(out_[gcab], back_[gcab], a, b) if out_ is not None and back_ is not None else pd.DataFrame()
+    money = (lambda v: f"€{v:,.0f}") if pay == "cash" else (lambda v: f"{v:,.0f} miles")
     if len(grid):
-        st.dataframe(grid.style.format("€{:,.0f}", na_rep="—").apply(deals.grid_colours, axis=None), width="stretch",
-                     height=min(36 * len(grid) + 38, 560))
+        st.dataframe(deals.styled(grid, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format, deals.grid_colours),
+                     width="stretch", height=min(36 * len(grid) + 38, 560))
         leave, stay = grid.stack().idxmin()
-        st.caption(f"Return fare Athens → {tp.city(dest)} → Athens, {gcab}: the day you leave down the side, the nights you stay across. "
-                   f"Cheapest: **€{grid.min().min():,.0f}**, leaving {leave} for {stay} (dark green); light green: within 10% of it.")
+        same = grid.min().min() == grid.max().max()
+        st.caption(f"Return {'fare' if pay == 'cash' else 'award'} Athens → {tp.city(dest)} → Athens, {gcab}: the day you leave down the "
+                   "side, the nights you stay across. "
+                   + (f"Every trip shown costs **{money(grid.min().min())}**; green marks the dates you can go." if same else
+                      f"Cheapest: **{money(grid.min().min())}**, leaving {leave} for {stay} (dark green); light green: within 10% of it.") + (" Miles only: award taxes and fees come on top. — means no award seat that "
+                                                       "way on one of the two days." if pay == "miles" else ""))
         try:
             st.page_link("views/alerts.py", label=f"Alert me when ATH → {dest} {gcab} gets cheaper", icon=":material/notifications:",
-                         query_params={"route": f"ATH-{dest}", "cabin": gcab})
+                         query_params={"route": f"ATH-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"})
         except Exception:  # the page runs on its own (tests), outside the app's navigation
             pass
     else:
-        st.caption("No return fares saved for those days.")
+        st.caption("No return " + ("fares" if pay == "cash" else "award seats both ways") + " saved for those days.")
 
 if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)

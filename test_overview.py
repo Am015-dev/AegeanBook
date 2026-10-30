@@ -317,3 +317,24 @@ def test_trip_grid_adds_both_ways_and_marks_the_cheapest():
     css = deals.grid_colours(t)
     assert "#0E7A53;color:#fff" in css.loc["Tue 03 Nov", "2 nights"] and "#E3F4EA" in css.loc["Tue 03 Nov", "3 nights"]  # 140 <= 143
     assert css.loc["Mon 02 Nov", "4 nights"] == ""  # 160 is more than 10% dearer
+    flat = deals.trip_grid(pd.Series({"2026-11-02": 9000, "2026-11-03": None}, dtype=object), pd.Series({"2026-11-05": 9000.0}),
+                           date(2026, 11, 1), date(2026, 11, 3), nights=range(2, 4))  # award miles: the same price, None on days without seats
+    assert flat.loc["Mon 02 Nov", "3 nights"] == 18000 and pd.isna(flat.loc["Mon 02 Nov", "2 nights"])
+    assert deals.grid_colours(flat).loc["Mon 02 Nov", "3 nights"] == "background-color:#E3F4EA;color:#0E7A53"  # possible, not "cheapest"
+
+
+def test_overview_grid_in_miles(tmp_path, monkeypatch):
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")
+    d = lambda i: (date.today() + timedelta(i)).isoformat()
+    for o, dest, i, miles in (("ATH", "FRA", 5, 9000), ("FRA", "ATH", 8, 10000), ("FRA", "ATH", 9, 12000)):
+        t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+                  (d(i), o, dest, "economy", miles, 1, datetime.now().isoformat(), None))
+    t.commit()
+    at = open_page("overview.py").run()
+    at.button_group(key="ov-grid-pay").set_value("miles").run()
+    assert not at.exception
+    grid = at.dataframe[1].value
+    assert grid.loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
+    text = " ".join(c.value for c in at.caption)
+    assert "Cheapest: **19,000 miles**" in text and "taxes and fees come on top" in text
