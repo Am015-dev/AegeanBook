@@ -72,19 +72,20 @@ def fake_client(parts, stop="end_turn", seen=None):
 def test_expert_streams_uses_haiku_and_has_a_daily_cap(monkeypatch):
     monkeypatch.setattr(expert, "_used", {})
     seen = {}
-    assert "".join(expert.ask("When?", "day,leg\n...", "k", fake_client(["Fly ", "Thursday."], seen=seen))) == "Fly Thursday."
+    assert "".join(expert.ask("When?", "day,leg\n...", ("claude", "k"), fake_client(["Fly ", "Thursday."], seen=seen))) == "Fly Thursday."
     assert seen["model"] == "claude-haiku-5-5" and "<data>" in seen["messages"][0]["content"]
     with pytest.raises(RuntimeError, match="declined"):
-        list(expert.ask("x", "", "k", fake_client([], stop="refusal")))
+        list(expert.ask("x", "", ("claude", "k"), fake_client([], stop="refusal")))
     monkeypatch.setattr(expert, "_used", {date.today(): expert.MAX_PER_DAY})
     with pytest.raises(RuntimeError, match="daily limit"):
-        list(expert.ask("x", "", "k", fake_client(["never"])))
+        list(expert.ask("x", "", ("claude", "k"), fake_client(["never"])))
 
 
 def test_overview_page_empty_filled_and_with_expert(tmp_path, monkeypatch):
     from streamlit.testing.v1 import AppTest
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     page = os.path.join(HERE, "views/overview.py")
     at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception and "No fares are saved yet" in at.info[0].value
@@ -93,9 +94,40 @@ def test_overview_page_empty_filled_and_with_expert(tmp_path, monkeypatch):
     assert not at.exception
     html = " ".join(m.value for m in at.markdown)
     assert "€60" in html and "Cheapest whole trip to Frankfurt" in html and not at.button  # no key: no Ask button
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.setattr(expert, "ask", lambda q, f, k: iter(["Thursday ", "is cheapest."]))
     at = AppTest.from_file(page, default_timeout=60).run()
     at.text_area[0].input("When is it cheapest?")
     at.button[0].click().run()
     assert not at.exception and "Thursday is cheapest." in " ".join(m.value for m in at.markdown)
+    assert "Google Gemini (free tier)" in at.caption[-1].value
+
+
+def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypatch):
+    import io
+    import json
+    import urllib.error
+    monkeypatch.setattr(expert, "_used", {})
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "a")
+    assert expert.available() == ("gemini", "g")  # the free key wins when both are set
+    calls = []
+
+    def urlopen(req, timeout):
+        calls.append(req)
+        if "3.8-flash" in req.full_url:  # the first model's free quota is used up
+            raise urllib.error.HTTPError(req.full_url, 429, "quota", {}, None)
+        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": "Fly Thursday."}]}, "finishReason": "STOP"}]}).encode())
+    assert "".join(expert.ask("When?", "data", ("gemini", "g"), urlopen=urlopen)) == "Fly Thursday."
+    assert ["gemini-3.8-flash" in calls[0].full_url, "gemini-3.5-flash-lite" in calls[1].full_url] == [True, True]
+    assert calls[1].get_header("X-goog-api-key") == "g" and "key=" not in calls[1].full_url
+    body = json.loads(calls[1].data)
+    assert "<data>" in body["contents"][0]["parts"][0]["text"] and "AEGEAN" in body["systemInstruction"]["parts"][0]["text"]
+    empty = lambda req, timeout: io.BytesIO(b'{"candidates": [{"finishReason": "SAFETY"}]}')
+    with pytest.raises(RuntimeError, match="declined"):
+        list(expert.ask("x", "", ("gemini", "g"), urlopen=empty))
+
+    def busy(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 429, "quota", {}, None)
+    with pytest.raises(RuntimeError, match="free quota"):
+        list(expert.ask("x", "", ("gemini", "g"), urlopen=busy))

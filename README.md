@@ -82,3 +82,14 @@ are retried in up to 4 passes. If any are still missing, the run is marked red, 
 The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter Hof, 1 night, 2 adults) from Google Hotels and Booking.com for every check-in day, into `data/daily_hotel.csv` (change `HOTEL` in `collect_daily.py` for another hotel). The flight results go to `data/daily.csv`, and the app loads that file when it starts, so these routes are ready without
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
+
+## Ask the expert (Overview page)
+
+An AI model reads the saved fares, award miles and hotel prices and answers questions in plain words. Add one key under
+**Settings → Secrets** of the app on Streamlit Cloud:
+
+- `GEMINI_API_KEY = "..."`: free. Create it at aistudio.google.com; no card needed. Uses `gemini-3.8-flash`, falling back to
+  `gemini-3.5-flash-lite` when the first is busy or out of free quota.
+- `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
+
+Without either key, the expert is hidden. Either way the app answers at most 40 questions a day (`MAX_PER_DAY` in `expert.py`).

@@ -51,12 +51,12 @@ except Exception:
     key = expert.available()
 if not key:
     with st.expander("A virtual expert can answer questions about these prices"):
-        st.markdown("Claude Haiku reads every saved fare, award and hotel price and answers questions such as *Which week is cheapest for a "
+        st.markdown("An AI model reads every saved fare, award and hotel price and answers questions such as *Which week is cheapest for a "
                     "4-night Frankfurt trip?* or *Is it worth using miles for business to Zurich?*\n\n"
-                    "It is the only paid part of the app: about €0.001 per question, paid from an Anthropic API key. To turn it on, add "
-                    "`ANTHROPIC_API_KEY = \"...\"` under **Settings → Secrets** of this app on Streamlit Cloud. Set a monthly spend limit in "
-                    "the Anthropic Console as well; the app also stops after "
-                    f"{expert.MAX_PER_DAY} questions a day.")
+                    "**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
+                    "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
+                    "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are "
+                    f"set, the free Gemini key is used. Either way the app stops after {expert.MAX_PER_DAY} questions a day.")
 else:
     examples = ["Which dates give the cheapest 3-night Frankfurt trip, flights and hotel?",
                 "Is business to Zurich worth it this month compared with economy?",
@@ -71,5 +71,5 @@ else:
             st.write_stream(expert.ask(q.strip(), facts(summary, fares, trips, hotel_night, awards, today), key))
         except Exception as err:  # never crash the page for an API problem; say what happened
             st.error(str(err) if isinstance(err, RuntimeError) else f"The expert is unavailable right now ({type(err).__name__}).")
-        st.caption(f"Answers come from the saved prices only and can be wrong: check the fare on aegeanair.com before booking. "
-                   f"{expert.left_today()} questions left today.")
+        st.caption(f"Answered by {expert.label(key)} from the saved prices only, and it can be wrong: check the fare on aegeanair.com "
+                   f"before booking. {expert.left_today()} questions left today.")
