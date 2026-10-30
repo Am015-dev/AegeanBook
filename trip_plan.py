@@ -13,7 +13,7 @@ from award_view import load_award
 from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 HOME = "ATH"
 PAY = {"cash": "Cash", "miles": "Miles", "both": "Cash or miles"}
 LEGS = ["out_cash", "out_miles", "out_taxes", "back_cash", "back_miles", "back_taxes"]  # each direction of a return, for mixed trips
@@ -23,16 +23,30 @@ def _plain(s):
     return unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
 
 
+# ponytail: OurAirports names the town an airport is in, which for a few big ones is a suburb nobody books by; add more here as they turn up
+CITY = {"ATH": "Athens", "MXP": "Milan", "BGY": "Milan", "CIA": "Rome", "BVA": "Paris", "ORY": "Paris", "EWR": "New York"}
+
+
 def city(iata):
-    """The airport's city as OurAirports names it (FRA -> Frankfurt am Main), or the code itself."""
+    """The airport's city (FRA -> Frankfurt am Main, ATH -> Athens, CDG -> Paris), or the code itself."""
+    if iata in CITY:
+        return CITY[iata]
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "airports.csv"), encoding="utf-8") as f:
-        return next((r["city"] for r in csv.DictReader(f) if r["iata"] == iata and r["city"]), iata)
+        name = next((r["city"] for r in csv.DictReader(f) if r["iata"] == iata and r["city"]), iata)
+    return name.split(" (")[0].split(",")[0]  # "Paris (Roissy-en-France, Val-d'Oise)" -> Paris, "London, Essex" -> London
 
 
-def destinations(db):
-    """Airports with fares saved from Athens, the best covered first."""
+def origins(db):
+    """Airports with fares saved from them, the best covered first: any route searched on Flights or tracked by the daily run."""
+    rows = db.execute("SELECT orig, COUNT(DISTINCT day) n FROM prices WHERE nonstop=1 AND price IS NOT NULL GROUP BY orig "
+                      "ORDER BY n DESC, orig").fetchall()
+    return [o for o, _ in rows]
+
+
+def destinations(db, orig=HOME):
+    """Airports with fares saved from `orig`, the best covered first."""
     rows = db.execute("SELECT dest, COUNT(DISTINCT day) n FROM prices WHERE orig=? AND nonstop=1 AND price IS NOT NULL GROUP BY dest "
-                      "ORDER BY n DESC", (HOME,)).fetchall()
+                      "ORDER BY n DESC, dest", (orig,)).fetchall()
     return [d for d, _ in rows]
 
 
@@ -72,18 +86,18 @@ def _leg(db, o, d, cabin, start, end):
     return df.sort_index().astype(float)
 
 
-def candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay="both"):
+def candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay="both", orig=HOME):
     """The trips to choose from, cheapest first, as a DataFrame. One way: one row per departure day. Return: one row per departure day
     with the flight back `nights` later, plus the hotel for every night when a hotel is chosen. Columns: depart, back, cash (flights),
     miles, taxes, hotel, total_cash (flights + hotel), value_per_1000 (euros of cash fare saved per 1,000 miles, after award taxes).
     Paying with miles sorts by miles, otherwise by total cash. Returns also keep each direction's cash, miles and taxes, so a trip can
     use miles one way and cash the other (award seats rarely line up both ways)."""
-    out = _leg(db, HOME, dest, cabin, start, end)
+    out = _leg(db, orig, dest, cabin, start, end)
     out = out[[DAYS[pd.Timestamp(d).weekday()] in weekdays for d in out.index]] if weekdays else out
     if not nights:
         t = out.assign(depart=out.index, back=None, hotel=float("nan"))
     else:
-        back = _leg(db, dest, HOME, cabin, start + timedelta(nights), end + timedelta(nights))
+        back = _leg(db, dest, orig, cabin, start + timedelta(nights), end + timedelta(nights))
         night = night_prices(db, hotel["query"], hotel["filt"], hotel["adults"], start, end + timedelta(nights)) if hotel else pd.Series(dtype=float)
         rows = []
         for d, r in out.iterrows():
@@ -104,23 +118,23 @@ def candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay="both")
     return t.sort_values(["miles", "depart"] if pay == "miles" else ["total_cash", "depart"]).reset_index(drop=True)
 
 
-def question(dest, label, cabin, pay, nights, weekdays, hotel):
+def question(dest, label, cabin, pay, nights, weekdays, hotel, orig=HOME):
     """The traveller's choices as the question they would ask."""
     trip = f"a {nights}-night return trip" if nights else "a one-way flight"
     days = f", leaving on a {'/'.join(weekdays)}" if weekdays and len(weekdays) < 7 else ""
     stay = f", staying at {hotel['name']} ({hotel['adults']} adults)" if hotel else ""
     how = {"cash": "paying cash", "miles": "paying with miles", "both": "with cash or miles, whichever is better"}[pay]
-    return (f"{label}: I want {trip} from Athens to {city(dest)} ({dest}) in {cabin}{days}{stay}, {how}. "
+    return (f"{label}: I want {trip} from {city(orig)} ({orig}) to {city(dest)} ({dest}) in {cabin}{days}{stay}, {how}. "
             "When is the best time to fly, and why?")
 
 
-def facts(t, dest, label, start, end, cabin, pay, nights, hotel, today):
+def facts(t, dest, label, start, end, cabin, pay, nights, hotel, today, orig=HOME):
     """Only the data that answers the question, as text: the rules of the comparison, then every candidate trip as CSV."""
     if t.empty:
         return ""
     lines = [f"Today: {today:%a %d %b %Y}. Prices in EUR for one adult, AEGEAN nonstop, from Google Flights (cash) and AEGEAN Miles+Bonus "
              f"(award miles plus award taxes). Period: {label}, departures {_day(start)} to {_day(end)}. Cabin: {cabin}. "
-             f"Trip: {f'return, {nights} nights' if nights else 'one way'}, Athens (ATH) to {city(dest)} ({dest})."]
+             f"Trip: {f'return, {nights} nights' if nights else 'one way'}, {city(orig)} ({orig}) to {city(dest)} ({dest})."]
     if hotel:
         lines.append(f"Hotel: {hotel['name']}, one-night prices from Google Hotels for {hotel['adults']} adults, added up night by night.")
     lines.append(f"Payment the traveller asked about: {PAY[pay]}. value_per_1000 = euros of cash fare saved per 1,000 miles after award "
