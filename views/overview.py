@@ -1,12 +1,12 @@
 """Overview, the first page: the best fares on every route the daily run tracks, the cheapest whole Frankfurt trip, a short briefing in
-plain sentences, and (when an API key is set) a virtual expert to ask about the data."""
+plain sentences, and (when an AI key is set) the expert's take on today's prices with a link to ask it more."""
 import html
 from datetime import date
 
 import pandas as pd
 import streamlit as st
 
-import ai_expert as expert
+import expert_chat as ex
 from db import connect
 from overview import collect, briefing, facts
 from ui import BUSINESS, ECONOMY, kpis, route
@@ -20,6 +20,34 @@ route("Overview", None, "The best AEGEAN fares on your tracked routes for the ne
 if not summary:
     st.info("No fares are saved yet. The daily run fills this page every morning; or open Flights and press Update prices.")
     st.stop()
+
+try:
+    cfg = ex.available(st.secrets)
+except Exception:
+    cfg = ex.available()
+
+
+def expert_link(label):
+    try:
+        st.page_link("views/expert.py", label=label, icon=":material/forum:")
+    except Exception:  # the page runs on its own (tests), outside the app's navigation
+        st.markdown(f"[{label}](expert)")
+
+
+st.markdown(ex.CARD, unsafe_allow_html=True)
+with st.container(border=True, key="brief"):
+    st.markdown('<p class="group">The expert’s take on today’s prices</p>', unsafe_allow_html=True)
+    if cfg:
+        with st.spinner("Reading today’s prices…"):
+            take = ex.briefing(facts(summary, fares, trips, hotel_night, awards, today), cfg, today.isoformat())
+        if isinstance(take, tuple):
+            st.caption(take[1])
+        else:
+            st.markdown(take)
+        expert_link("Ask the expert a question")
+    else:
+        st.caption("An AI expert can read these prices every day and answer your questions about them. It needs a free key: see how.")
+        expert_link("Set up the expert")
 
 day = lambda d: f"{pd.Timestamp(d):%a %d %b}"
 st.markdown('<p class="group">Cheapest one-way fare on each route</p>', unsafe_allow_html=True)
@@ -43,33 +71,3 @@ if trips:
 if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)
     st.markdown("\n".join(f"- {html.escape(s)}" for s in say))
-
-st.markdown('<p class="group">Ask the expert</p>', unsafe_allow_html=True)
-try:
-    key = expert.available(st.secrets)
-except Exception:
-    key = expert.available()
-if not key:
-    with st.expander("A virtual expert can answer questions about these prices"):
-        st.markdown("An AI model reads every saved fare, award and hotel price and answers questions such as *Which week is cheapest for a "
-                    "4-night Frankfurt trip?* or *Is it worth using miles for business to Zurich?*\n\n"
-                    "**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
-                    "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
-                    "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are "
-                    f"set, the free Gemini key is used. Either way the app stops after {expert.MAX_PER_DAY} questions a day.")
-else:
-    examples = ["Which dates give the cheapest 3-night Frankfurt trip, flights and hotel?",
-                "Is business to Zurich worth it this month compared with economy?",
-                "Where do my miles save the most cash?"]
-    pick = st.pills("Try", examples, key="ex-pick")
-    with st.form("ask", border=False):
-        q = st.text_area("Your question", value=pick or "", placeholder="For example: when should I fly to Frankfurt for a long weekend?",
-                         max_chars=500, height=80)
-        go = st.form_submit_button("Ask", type="primary")
-    if go and q.strip():
-        try:
-            st.write_stream(expert.ask(q.strip(), facts(summary, fares, trips, hotel_night, awards, today), key))
-        except Exception as err:  # never crash the page for an API problem; say what happened
-            st.error(str(err) if isinstance(err, RuntimeError) else f"The expert is unavailable right now ({type(err).__name__}).")
-        st.caption(f"Answered by {expert.label(key)} from the saved prices only, and it can be wrong: check the fare on aegeanair.com "
-                   f"before booking. {expert.left_today()} questions left today.")

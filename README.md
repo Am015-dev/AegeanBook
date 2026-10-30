@@ -83,13 +83,13 @@ The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter 
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
 
-## Ask the expert (Overview page)
+## The expert (Expert page, and its daily take on the Overview)
 
-An AI model reads the saved fares, award miles and hotel prices and answers questions in plain words. Add one key under
+An AI model reads the saved fares, award miles and hotel prices, writes a three-line briefing once a day (shown on the Overview) and answers questions in a chat that remembers the conversation. Add one key under
 **Settings → Secrets** of the app on Streamlit Cloud:
 
 - `GEMINI_API_KEY = "..."`: free. Create it at aistudio.google.com; no card needed. Uses `gemini-3.8-flash`, falling back to
   `gemini-3.5-flash-lite` when the first is busy or out of free quota.
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
-Without either key, the expert is hidden. Either way the app answers at most 40 questions a day (`MAX_PER_DAY` in `ai_expert.py`).
+Without either key, the expert is hidden. Either way the app answers at most 60 questions a day (`MAX_PER_DAY` in `expert_chat.py`).
