@@ -122,10 +122,11 @@ def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypat
         list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=busy))
 
 
-def test_briefing_is_asked_once_per_day_and_data(monkeypatch):
+def test_briefing_is_asked_once_per_day_and_data_and_a_failure_is_retried_later(monkeypatch):
     asked = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (asked.append(history), iter(["- **Book** now"]))[1])
-    ex.briefing.clear()
+    monkeypatch.setattr(ex, "_failed", {})
+    ex._briefing.clear()
     assert ex.briefing("data v1", ("gemini", "g"), "2026-10-30") == "- **Book** now"
     ex.briefing("data v1", ("gemini", "g"), "2026-10-30")
     assert len(asked) == 1 and asked[0][0]["content"] == ex.BRIEFING  # the second visitor gets the cached briefing
@@ -134,11 +135,44 @@ def test_briefing_is_asked_once_per_day_and_data(monkeypatch):
 
     def broken(history, facts, cfg):
         asked.append(history)
-        raise RuntimeError("Gemini's free quota is used up for now.")
+        raise TimeoutError("timed out")
     monkeypatch.setattr(ex, "chat", broken)
-    assert ex.briefing("data v3", ("gemini", "g"), "2026-10-30") == ("error", "Gemini's free quota is used up for now.")
+    assert ex.briefing("data v3", ("gemini", "g"), "2026-10-30") == ("error", "The briefing is unavailable right now (TimeoutError).")
     ex.briefing("data v3", ("gemini", "g"), "2026-10-30")
-    assert len(asked) == 3  # a failure is remembered too: the next visitor does not spend another question on it
+    assert len(asked) == 3  # remembered: the next visitor neither waits nor spends a question
+    now = ex.time.time()
+    monkeypatch.setattr(ex.time, "time", lambda: now + 901)
+    ex.briefing("data v3", ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 4  # but tried again after 15 minutes, and a success is not blocked by the old failure
+
+
+def test_gemini_reasons_briefly_and_copes_with_a_slow_or_picky_model(monkeypatch):
+    import io
+    import json
+    import urllib.error
+    monkeypatch.setattr(ex, "_used", {})
+    seen = []
+    ok = lambda: io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": "Fine."}]}}]}).encode())
+
+    def picky(req, timeout):  # rejects thinkingConfig, then answers without it
+        body = json.loads(req.data)
+        seen.append(body["generationConfig"])
+        if "thinkingConfig" in body["generationConfig"]:
+            raise urllib.error.HTTPError(req.full_url, 400, "bad field", {}, None)
+        return ok()
+    assert "".join(ex.chat([user("x")], "", ("gemini", "g"), urlopen=picky)) == "Fine."
+    assert seen[0]["thinkingConfig"] == {"thinkingLevel": "low"} and "thinkingConfig" not in seen[1]
+
+    def slow(req, timeout):
+        if "3.8-flash" in req.full_url:
+            raise TimeoutError("timed out")
+        return ok()
+    assert "".join(ex.chat([user("x")], "", ("gemini", "g"), urlopen=slow)) == "Fine."  # the lighter model answers instead
+
+    def dead(req, timeout):
+        raise TimeoutError("timed out")
+    with pytest.raises(RuntimeError, match="did not answer in time"):
+        list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=dead))
 
 
 def pages(tmp_path, monkeypatch, key):
@@ -182,3 +216,10 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     assert not at.exception and seen[-1] == ["When is it cheapest?", "Answer 1", "And for 4 nights?"]  # the follow-up carries the conversation
     assert [m.markdown[0].value for m in at.chat_message] == ["When is it cheapest?", "Answer 1", "And for 4 nights?", "Answer 2"]
     assert "Google Gemini (free tier)" in at.caption[-1].value
+
+    def busy(history, facts, cfg):
+        raise RuntimeError("Gemini did not answer in time. Try again in a minute.")
+    monkeypatch.setattr(ex, "chat", busy)
+    at.chat_input[0].set_value("And for 7 nights?").run()
+    assert "did not answer in time" in at.error[0].value
+    assert len(at.session_state["expert-chat"]) == 4  # the unanswered question is not kept, so it does not confuse the next answer

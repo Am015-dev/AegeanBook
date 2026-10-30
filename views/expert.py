@@ -1,4 +1,5 @@
 """Expert: today's briefing and a chat about the saved fares, miles and hotel prices (expert_chat)."""
+import importlib
 from datetime import date
 
 import streamlit as st
@@ -8,6 +9,8 @@ from db import connect
 from overview import collect, facts
 from ui import route
 
+if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
+    ex = importlib.reload(ex)
 db = connect()
 today = date.today()
 route("Expert", None, "Ask anything about the saved fares, award miles and hotel prices. It remembers the conversation, so you can ask "
@@ -55,15 +58,16 @@ if not chat:
 
 q = st.chat_input("Ask about fares, dates, miles or hotels", max_chars=500) or st.session_state.pop("expert-pending", None)
 if q:
-    chat.append({"role": "user", "content": q})
     with st.chat_message("user", avatar=":material/person:"):
         st.markdown(q)
     with st.chat_message("assistant", avatar=":material/auto_awesome:"):
         try:
-            answer = st.write_stream(ex.chat(chat, data, cfg))
-            chat.append({"role": "assistant", "content": answer if isinstance(answer, str) else "".join(map(str, answer))})
+            with st.spinner("Thinking…"):
+                answer = st.write_stream(ex.chat(chat + [{"role": "user", "content": q}], data, cfg))
+            # saved only once answered, so a question cut off by a new one (or an error) does not linger without its answer
+            chat += [{"role": "user", "content": q},
+                     {"role": "assistant", "content": answer if isinstance(answer, str) else "".join(map(str, answer))}]
         except Exception as err:  # never crash the page for an API problem; say what happened
-            chat.pop()  # the question was not answered: let it be asked again
             st.error(str(err) if isinstance(err, RuntimeError) else f"The expert is unavailable right now ({type(err).__name__}).")
 if chat:
     if st.button("New conversation", icon=":material/refresh:"):
