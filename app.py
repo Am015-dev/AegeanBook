@@ -9,7 +9,8 @@ st.navigation({"": [st.Page("views/overview.py", title="Overview", icon=":materi
                     st.Page("views/expert.py", title="Expert", icon=":material/auto_awesome:", url_path="expert"),
                     st.Page("views/flights.py", title="Flights", icon=":material/flight_takeoff:", url_path="flights"),
                     st.Page("views/hotel.py", title="Hotels", icon=":material/hotel:"),
-                    st.Page("views/when_to_fly.py", title="Insights", icon=":material/insights:", url_path="insights")],
+                    st.Page("views/when_to_fly.py", title="Insights", icon=":material/insights:", url_path="insights"),
+                    st.Page("views/alerts.py", title="Alerts", icon=":material/notifications:", url_path="alerts")],
                "More": [st.Page("views/database.py", title="Database", icon=":material/database:"),
                         st.Page("views/stats.py", title="Statistics", icon=":material/bar_chart:"),
                         st.Page("views/health.py", title="Health", icon=":material/monitor_heart:")]}, position="top").run()

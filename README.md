@@ -94,10 +94,26 @@ An AI model reads the saved fares, award miles and hotel prices, writes a three-
 
 Without either key, the expert is hidden. Either way the app answers at most 60 questions a day (`MAX_PER_DAY` in `expert_chat.py`).
 
-## Price alerts (free, by email)
+## Price alerts (free, by email or phone)
 
-At the bottom of the Overview, choose a route, cabin, cash or miles, a limit and optionally a month, then press **Create the alert on
-GitHub**: GitHub's new-issue page opens filled in; press **Submit**. Every morning, after the daily run, `alerts.py` checks each open
-issue labelled `price-alert` and comments when a fare (or award) meets it: the first time, and again only when it gets cheaper. GitHub
-sends you each comment by email and in its app (Settings → Notifications on GitHub). Close the issue to stop the alert. An alert can also
-be written by hand: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or `miles below: 16000`), optional `from:` and `to:` dates.
+Anyone using the app can open **Alerts**, choose a route, cabin, cash or miles, a limit and optionally a month, and get:
+- **a phone notification** through the free ntfy app (iPhone/Android, no account): the page shows a private topic to subscribe to and
+  sends a first notification at once, so the visitor sees it works;
+- **an email**: the first email asks to confirm the address (so nobody can sign a stranger up); nothing else is sent until its link is
+  opened. Every email and notification has a link that stops the alert.
+
+Every morning, after the daily run, `alerts.py` checks each alert and tells its owner when a fare (or award) meets it: the first time,
+and again only when it gets cheaper. Alerts are stored as issues labelled `price-alert` in this private repository (visitors' email
+addresses stay private), at most 5 per address and 300 in all.
+
+**One-time setup by the owner** (free):
+1. **Saving alerts:** on GitHub, Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: only this
+   repository; Permissions → Issues: Read and write. Add it to the app's Streamlit secrets as `GITHUB_TOKEN = "..."`.
+   Without it, the Alerts page offers the owner a filled-in GitHub issue instead.
+2. **Sending email:** turn on 2-step verification for a Gmail account, create an app password (Google Account → Security → App
+   passwords), and add two repository secrets on GitHub (Settings → Secrets and variables → Actions): `SMTP_USER` (the Gmail address)
+   and `SMTP_PASSWORD` (the app password). Add the same two lines to the Streamlit secrets as well, and confirmation emails go out the
+   moment an alert is created instead of the next morning. Gmail sends up to about 500 emails a day. Phone alerts need no setup.
+
+An alert can also be written by hand as an issue labelled `price-alert`: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or
+`miles below: 16000`), optional `from:` and `to:` dates. Those are answered with a comment on the issue, which GitHub notifies.
