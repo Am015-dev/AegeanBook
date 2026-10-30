@@ -7,12 +7,10 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-import alerts
 import deals
 import expert_chat as ex
 from db import connect
 import overview as ov
-import trip_plan as tp
 from ui import BUSINESS, ECONOMY, kpis, route
 
 if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of the module across redeploys
@@ -61,10 +59,6 @@ with st.container(border=True, key="brief"):
 day = lambda d: f"{pd.Timestamp(d):%a %d %b}"
 
 
-def tp_months(today):
-    """Calendar months with saved fares, for the alert's date range."""
-    last = date.fromisoformat(max(s.index.max() for leg in fares.values() for s in leg.values() if len(s)))
-    return [m for m in tp.months(today, last) if m[0] != "Next 30 days"]
 st.markdown('<p class="group">Cheapest one-way fare on each route</p>', unsafe_allow_html=True)
 cols = st.columns(2)
 for i, ((o, d), s) in enumerate(summary.items()):
@@ -99,22 +93,8 @@ if say := briefing(summary, trips, weekday):
     st.markdown('<p class="group">In short</p>', unsafe_allow_html=True)
     st.markdown("\n".join(f"- {html.escape(s)}" for s in say))
 
-st.markdown('<p class="group">Price alert</p>', unsafe_allow_html=True)
-with st.container(border=True, key="search"):
-    st.caption("Get an email when a fare drops below your limit. The daily run checks every morning and GitHub notifies you; you "
-               "only press Submit on the page that opens. Close the alert's issue to stop it.")
-    c = st.columns([2, 1, 1])
-    leg = c[0].selectbox("Route", list(fares), format_func=lambda k: f"{k[0]} → {k[1]}", key="al-leg")
-    cabin = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="al-cabin")
-    unit = c[2].pills("In", ["eur", "miles"], default="eur", format_func={"eur": "Cash €", "miles": "Miles"}.get, required=True, key="al-unit")
-    now = summary.get(leg, {}).get(cabin)
-    c = st.columns([1, 2])
-    limit = c[0].number_input("Alert me below", min_value=1, step=10 if unit == "eur" else 500,
-                              value=int(now["min"] // 10 * 10) if unit == "eur" and now else 15000, key=f"al-limit-{leg[0]}{leg[1]}-{cabin}-{unit}",
-                              help=f"Cheapest now: €{now['min']:,.0f} on {day(now['day'])}." if now else None)
-    periods = [("Any date in the next 90 days", "", "")] + [(l, a.isoformat(), b.isoformat()) for l, a, b in tp_months(today)]
-    when = c[1].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="al-when")
-    _, start, end = periods[when]
-    st.link_button("Create the alert on GitHub", alerts.new_issue_link(leg[0], leg[1], cabin, unit, limit, start, end),
-                   type="primary", icon=":material/notifications:")
-    st.markdown(f"[Your alerts](https://github.com/{alerts.REPO}/issues?q=is%3Aopen+label%3A{alerts.LABEL})")
+st.markdown('<p class="group">Price alerts</p>', unsafe_allow_html=True)
+try:
+    st.page_link("views/alerts.py", label="Get an email or phone notification when a fare drops below your limit", icon=":material/notifications:")
+except Exception:  # the page runs on its own (tests), outside the app's navigation
+    st.markdown("[Get an email or phone notification when a fare drops below your limit](alerts)")
