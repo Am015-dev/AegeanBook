@@ -19,12 +19,21 @@ if getattr(ov, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a mo
 db = connect()
 today = date.today()
 route("Price alerts", None, "Get an email or a phone notification when a fare drops below your limit. Checked every morning, free.")
-try:
-    token = st.secrets.get("GITHUB_TOKEN") or st.secrets.get("GITHUB")  # either name works
-    if hasattr(token, "values"):  # saved as a [GITHUB] section with the token inside
-        token = next((v for v in token.values() if isinstance(v, str) and v.strip()), None)
-except Exception:  # no secrets file at all
-    token = None
+def find_token():
+    """The GitHub token, under any name with "github" in it (any case), at the top level or inside a [section]."""
+    try:
+        items = list(st.secrets.items())
+    except Exception:  # no secrets file at all
+        return None
+    for name, value in sorted(items, key=lambda kv: "token" not in kv[0].lower()):
+        if "github" in name.lower():
+            values = value.values() if hasattr(value, "values") else [value]
+            token = next((v.strip() for v in values if isinstance(v, str) and v.strip()), None)
+            if token:
+                return token
+
+
+token = find_token()
 
 q = st.query_params
 for action, done in (("confirm", "is on: you will get an email when it is met"), ("stop", "is stopped: no more messages")):
@@ -78,6 +87,11 @@ with st.container(border=True, key="search"):
 if not token:
     st.info("Alerts for visitors are not switched on yet. The app's owner adds a GitHub token once (see the README, “Price alerts”). "
             "Until then the owner can still create an alert as a GitHub issue:")
+    try:  # names only, never values: tells the owner whether the app sees the secret at all
+        names = ", ".join(sorted(st.secrets.keys())) or "none"
+    except Exception:
+        names = "none (no secrets saved)"
+    st.caption(f"Secrets this app can see: {names}. The token goes in the app's Streamlit secrets (not GitHub's), as GITHUB = \"github_pat_...\".")
     _, start, end = periods[when]
     st.link_button("Create the alert on GitHub", alerts.new_issue_link(leg[0], leg[1], cabin, unit, limit, start, end))
 elif go:
