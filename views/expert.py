@@ -12,7 +12,7 @@ from db import connect
 from insights import DAYS
 from ui import route
 
-if getattr(ex, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ex, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 3:
     ov = importlib.reload(ov)
@@ -38,6 +38,12 @@ froms = tp.origins(db)
 if not summary or not froms:
     st.info("No fares are saved yet, so there is nothing to analyse. The daily run fills them in every morning.")
     st.stop()
+q = st.query_params
+if q.get("from") in froms:  # from the Overview's "Ask the expert about it": start the planner on that route
+    st.session_state["plan-orig"] = q["from"]
+    if q.get("to") in tp.destinations(db, q["from"]):
+        st.session_state[f"plan-dest-{q['from']}"] = q["to"]
+    q.clear()
 general = ov.facts(summary, fares, trips, hotel_night, awards, today)
 chat = st.session_state.setdefault("expert-chat", [])
 data = st.session_state.get("expert-data") or general  # a planned trip's data while its conversation lasts

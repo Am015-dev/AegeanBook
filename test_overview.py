@@ -123,7 +123,7 @@ def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypat
         list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=busy))
 
 
-def test_briefing_is_asked_once_per_day_and_data_and_a_failure_is_retried_later(monkeypatch):
+def test_briefing_is_asked_once_per_day_and_a_failure_is_retried_later(monkeypatch):
     asked = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (asked.append(history), iter(["- **Book** now"]))[1])
     monkeypatch.setattr(ex, "_failed", {})
@@ -132,18 +132,20 @@ def test_briefing_is_asked_once_per_day_and_data_and_a_failure_is_retried_later(
     ex.briefing("data v1", ("gemini", "g"), "2026-10-30")
     assert len(asked) == 1 and asked[0][0]["content"] == ex.BRIEFING  # the second visitor gets the cached briefing
     ex.briefing("data v2", ("gemini", "g"), "2026-10-30")
-    assert len(asked) == 2  # new prices, new briefing
+    assert len(asked) == 1  # a visitor's search changes the data, not today's briefing
+    ex.briefing("data v2", ("gemini", "g"), "2026-10-31")
+    assert len(asked) == 2  # a new day, a new briefing
 
     def broken(history, facts, cfg):
         asked.append(history)
         raise TimeoutError("timed out")
     monkeypatch.setattr(ex, "chat", broken)
-    assert ex.briefing("data v3", ("gemini", "g"), "2026-10-30") == ("error", "The briefing is unavailable right now (TimeoutError).")
-    ex.briefing("data v3", ("gemini", "g"), "2026-10-30")
+    assert ex.briefing("data v3", ("gemini", "g"), "2026-11-01") == ("error", "The briefing is unavailable right now (TimeoutError).")
+    ex.briefing("data v3", ("gemini", "g"), "2026-11-01")
     assert len(asked) == 3  # remembered: the next visitor neither waits nor spends a question
     now = ex.time.time()
     monkeypatch.setattr(ex.time, "time", lambda: now + 901)
-    ex.briefing("data v3", ("gemini", "g"), "2026-10-30")
+    ex.briefing("data v3", ("gemini", "g"), "2026-11-01")
     assert len(asked) == 4  # but tried again after 15 minutes, and a success is not blocked by the old failure
 
 
@@ -186,21 +188,22 @@ def pages(tmp_path, monkeypatch, key):
     return lambda name: AppTest.from_file(os.path.join(HERE, "views", name), default_timeout=60)
 
 
-def test_overview_page_empty_filled_and_with_the_experts_take(tmp_path, monkeypatch):
+def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, monkeypatch):
     open_page = pages(tmp_path, monkeypatch, None)
     at = open_page("overview.py").run()
     assert not at.exception and "No fares are saved yet" in at.info[0].value
     seed(tmp_path / "tracker.db")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setattr(ex, "briefing", lambda *a: pytest.fail("the Overview must not call the AI (it made the page change all the time)"))
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
-    assert "€60" in text and "Cheapest whole trip to Frankfurt" in text and "needs a free key" in text
-    assert "Cheapest month to fly" in text and len(at.dataframe) == 2  # the month table and the return-trip date grid
-    assert "Return trip by date" in text and "nights" in " ".join(map(str, at.dataframe[1].value.columns))
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
-    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** ATH → FRA at €60")
-    at = open_page("overview.py").run()
-    assert not at.exception and "ATH → FRA at €60" in " ".join(m.value for m in at.markdown)
+    # the boarding pass: ATH -> FRA economy, €60 out on day 10, back on the cheapest FRA -> ATH day 2 to 7 nights later (€150, day 14)
+    assert "Cheapest return" in text and "€210" in text and "4 nights" in text
+    assert "Steigenberger" in text  # the hotel searched in Frankfurt, for the pass's nights
+    grid, routes = at.dataframe[0].value, at.dataframe[1].value
+    assert "4 nights" in grid.columns and list(routes.Route) == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
+    assert routes.Economy[0].startswith("€60 · ")
 
 
 def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monkeypatch):
@@ -335,10 +338,10 @@ def test_overview_grid_in_miles(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception
-    grid = at.dataframe[1].value
+    grid = at.dataframe[0].value
     assert grid.loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
-    text = " ".join(c.value for c in at.caption)
-    assert "Cheapest: **19,000 miles**" in text and "taxes and fees come on top" in text
+    text = " ".join(m.value for m in at.markdown)
+    assert "19,000<small> miles</small>" in text and "plus taxes and fees" in text and "3 nights" in text
 
 
 def test_pages_reload_guards_match_the_module_versions():
@@ -373,13 +376,15 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
 
     monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- ok")
     at = open_page("overview.py").run()
-    assert not at.exception and any("BIO → ATH" in str(m.value) for m in at.markdown)
+    assert not at.exception and "BIO → ATH" in list(at.dataframe[-1].value.Route)
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
     assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
 
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
-    at = open_page("expert.py").run()
-    at.selectbox(key="plan-orig").set_value("BIO").run()
+    at = open_page("expert.py")
+    at.query_params["from"], at.query_params["to"] = "BIO", "ATH"  # the Overview's "Ask the expert about it" link
+    at.run()
+    assert at.selectbox(key="plan-orig").value == "BIO"
     at.button[0].click().run()
     assert not at.exception and "from Bilbao (BIO) to Athens (ATH)" in seen[-1][0][-1]["content"] and "Bilbao (BIO) to Athens" in seen[-1][1]

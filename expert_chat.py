@@ -14,7 +14,7 @@ from datetime import date
 
 import streamlit as st
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -141,19 +141,20 @@ def chat(history, facts, cfg, client=None, urlopen=urllib.request.urlopen):
         yield from _claude(history, facts, key, client)
 
 
-@st.cache_data(ttl=12 * 3600, show_spinner=False, max_entries=4)
-def _briefing(facts, cfg, day):
-    return "".join(chat([{"role": "user", "content": BRIEFING}], facts, cfg))  # an exception is not cached
+@st.cache_data(ttl=24 * 3600, show_spinner=False, max_entries=4)
+def _briefing(_facts, _cfg, day):  # keyed on the day only (underscored arguments are not hashed)
+    return "".join(chat([{"role": "user", "content": BRIEFING}], _facts, _cfg))  # an exception is not cached
 
 
 _failed = {}
 
 
 def briefing(facts, cfg, day):
-    """Today's three-bullet briefing, or ('error', message). Cached per day and per data version (`facts` changes when the daily run
-    brings new prices), so every visitor sees the same one and it costs one request a day. A failure is remembered for 15 minutes, so a
+    """Today's three-bullet briefing, or ('error', message). One per day: a visitor's Flights search or hotel search changes `facts` but
+    must not rewrite the briefing (it used to, so it kept changing). ponytail: kept in memory, so a restart of the app writes a new one.
+    A failure is remembered for 15 minutes, so a
     broken key or a used-up quota does not spend a question (and a long wait) on every page view, but is retried soon after."""
-    k = (hash(facts), day)
+    k = day
     if k in _failed and time.time() - _failed[k][0] < 900:
         return "error", _failed[k][1]
     try:

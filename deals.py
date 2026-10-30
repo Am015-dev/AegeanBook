@@ -2,7 +2,7 @@
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
 import pandas as pd
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 
 def by_month(fares, min_days=7):
@@ -61,3 +61,22 @@ def styled(t, fmt, colours):
     NaN as "None" whatever the Styler's na_rep says, so the cells are turned into text first."""
     text = t.apply(lambda c: c.map(lambda v: fmt(v) if pd.notna(v) else "—"))
     return text.style.apply(lambda _: colours(t), axis=None)
+
+
+def best_trip(out, back, start, end, nights=range(2, 8)):
+    """The cheapest trip leaving between `start` and `end`: dict(depart, back, nights, price) for a return when there are fares both
+    ways, else the cheapest one-way (back and nights None); None without any fare. depart/back are dates."""
+    if back is not None and len(back.dropna()):
+        g = trip_grid(out, back, start, end, nights)
+        if len(g) and g.notna().any().any():
+            s = g.stack()
+            day, n = s.idxmin()
+            d = pd.Timestamp(f"{day} {start.year}")
+            d = d if d.date() >= start else d + pd.DateOffset(years=1)  # rows are labelled without the year
+            n = int(n.split()[0])
+            return dict(depart=d.date(), back=(d + pd.Timedelta(days=n)).date(), nights=n, price=float(s.min()))
+    o = pd.to_numeric(out, errors="coerce").dropna()
+    o = o[(pd.to_datetime(o.index) >= pd.Timestamp(start)) & (pd.to_datetime(o.index) <= pd.Timestamp(end))]
+    if not len(o):
+        return None
+    return dict(depart=pd.Timestamp(o.idxmin()).date(), back=None, nights=None, price=float(o.min()))
