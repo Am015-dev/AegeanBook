@@ -1,4 +1,5 @@
-"""Virtual expert: an AI model reads the saved fares (overview.facts) and answers a question about them in plain words.
+"""Virtual expert (named ai_expert, not expert: Streamlit Cloud keeps an already loaded module across redeploys, so a renamed module is
+how a page gets the new code): an AI model reads the saved fares (overview.facts) and answers a question about them in plain words.
 Two providers, picked by which key is in the Streamlit secrets (or the environment):
 - GEMINI_API_KEY: Google Gemini on its free tier (no card; create a key at aistudio.google.com). Used first, because it costs nothing.
 - ANTHROPIC_API_KEY: Claude Haiku 5.5, about a tenth of a cent a question.
@@ -54,7 +55,7 @@ def _gemini(question, facts, key, urlopen=urllib.request.urlopen):
     """The whole answer from the first Gemini model that answers. Raises RuntimeError with a plain message otherwise."""
     body = json.dumps({"systemInstruction": {"parts": [{"text": SYSTEM}]},
                        "contents": [{"role": "user", "parts": [{"text": _prompt(question, facts)}]}],
-                       "generationConfig": {"maxOutputTokens": 4000}}).encode()
+                       "generationConfig": {"maxOutputTokens": 16000}}).encode()
     last = None
     for model in GEMINI:
         req = urllib.request.Request(GEMINI_URL.format(model), data=body, method="POST",
@@ -79,7 +80,7 @@ def _claude(question, facts, key, client=None):
     if client is None:
         import anthropic  # only needed when Claude is the provider
         client = anthropic.Anthropic(api_key=key)
-    with client.messages.stream(model=MODEL, max_tokens=4000, system=SYSTEM, output_config={"effort": "low"},
+    with client.messages.stream(model=MODEL, max_tokens=16000, system=SYSTEM, output_config={"effort": "low"},
                                 messages=[{"role": "user", "content": _prompt(question, facts)}]) as stream:
         yield from stream.text_stream
         final = stream.get_final_message()
