@@ -154,9 +154,10 @@ def test_alerts_page_without_and_with_a_token(tmp_path, monkeypatch):
                         (_ for _ in ()).throw(store.AlertError("This link is not valid any more.")))
     at = AppTest.from_file(page, default_timeout=60)
     at.secrets["GITHUB_TOKEN"] = "t"
-    at.query_params["route"], at.query_params["cabin"] = "ZRH-ATH", "business"  # from an "Alert me" link
+    at.query_params["route"], at.query_params["cabin"], at.query_params["unit"] = "ZRH-ATH", "business", "miles"  # from an "Alert me" link
     at.run()
     assert at.selectbox(key="al-leg").value == ("ZRH", "ATH") and at.button_group(key="al-cabin").value == "business"
+    assert at.button_group(key="al-unit").value == "miles"
     at.query_params["confirm"], at.query_params["code"] = "12", "ok"
     at.run()
     assert "is on" in at.success[0].value

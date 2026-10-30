@@ -58,6 +58,8 @@ if "route" in q:  # from an "Alert me" link elsewhere in the app: start the form
         st.session_state["al-leg"] = leg_
     if q.get("cabin") in ("economy", "business"):
         st.session_state["al-cabin"] = q["cabin"]
+    if q.get("unit") in ("eur", "miles"):
+        st.session_state["al-unit"] = q["unit"]
     q.clear()
 day = lambda d: f"{date.fromisoformat(d):%a %d %b}"
 
