@@ -7,8 +7,11 @@ import pandas as pd
 
 from award_view import load_award
 from insights import FULL, cash_by_day, weekday_stats
-from trip_cost import hotel_options, night_prices, trip_costs
+from trip_cost import night_prices, trip_costs
+from trip_plan import hotels as searched_hotels
 from ui import round_trips
+
+VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 
 LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]
 CABINS = ("economy", "business")
@@ -85,7 +88,8 @@ def facts(summary, fares, trips, hotel_night, awards, today):
     """Everything the expert may use, as compact text: per-leg summaries, then every day's fares and miles as CSV-like lines. Small enough
     (~10k tokens for 90 days) that nothing has to be left out."""
     lines = [f"Today: {today:%a %d %b %Y}. All prices in EUR, one adult, AEGEAN nonstop, one way, from Google Flights. "
-             "Award miles are AEGEAN Miles+Bonus, one way. Hotel: Steigenberger Frankfurter Hof, one night, 2 adults (Google Hotels)."]
+             "Award miles are AEGEAN Miles+Bonus, one way."
+             + (f" Hotel in Frankfurt: {hotel_night.name}, one night (Google Hotels)." if hotel_night is not None and len(hotel_night) else "")]
     for (o, d), s in summary.items():
         for c, v in s.items():
             lines.append(f"{o}-{d} {c}: cheapest €{v['min']:.0f} on {v['day']}, typical (median) €{v['typical']:.0f}, {v['days']} days priced")
@@ -109,9 +113,12 @@ def collect(db, today):
     fares = legs(db, today)
     summary = {k: leg_summary(v) for k, v in fares.items()}
     weekday = {k: weekday_stats(v["economy"]) for k, v in fares.items() if len(v["economy"])}
-    hotels = [h for h in hotel_options(db) if "frankfurt" in (h["query"] + h["filt"]).lower()]
-    hotel_night = night_prices(db, hotels[0]["query"], hotels[0]["filt"], hotels[0]["adults"], today, today + timedelta(DAYS + 14)) \
-        if hotels else None
+    hotels = searched_hotels(db, "FRA")  # the Frankfurt hotel searched most recently on the Hotels page, not a fixed default
+    hotel_night = None
+    if hotels:
+        h = hotels[0]
+        hotel_night = night_prices(db, h["query"], h["filt"], h["adults"], today, today + timedelta(DAYS + 14))
+        hotel_night.name = f"{h['name']} ({h['adults']} adults)"  # carried with the prices, so pages can say which hotel
     trips = best_trips(fares[("ATH", "FRA")], fares[("FRA", "ATH")], hotel_night) if ("ATH", "FRA") in fares and ("FRA", "ATH") in fares else {}
     awards = {}
     for o, d in fares:
