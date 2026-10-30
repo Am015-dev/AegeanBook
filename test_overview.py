@@ -195,7 +195,8 @@ def test_overview_page_empty_filled_and_with_the_experts_take(tmp_path, monkeypa
     assert not at.exception
     text = " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
     assert "€60" in text and "Cheapest whole trip to Frankfurt" in text and "needs a free key" in text
-    assert "Cheapest month to fly" in text and len(at.dataframe) == 1
+    assert "Cheapest month to fly" in text and len(at.dataframe) == 2  # the month table and the return-trip date grid
+    assert "Return trip by date" in text and "nights" in " ".join(map(str, at.dataframe[1].value.columns))
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** ATH → FRA at €60")
     at = open_page("overview.py").run()
@@ -304,3 +305,15 @@ def test_mixed_trips_use_miles_one_way(tmp_path):
     assert f"Miles out, cash back: depart {out_day}" in text and "15,000 miles replace" in text
     assert "Cash out, miles back: no trip" in text and "out_miles" in text
     assert "Miles out" not in tp.facts(c, "ZRH", "Next 30 days", start, end, "business", "cash", 3, None, today)  # not asked for miles
+
+
+def test_trip_grid_adds_both_ways_and_marks_the_cheapest():
+    import deals
+    out = pd.Series({"2026-11-02": 100.0, "2026-11-03": 80.0})
+    back = pd.Series({"2026-11-05": 50.0, "2026-11-06": 60.0})
+    t = deals.trip_grid(out, back, date(2026, 11, 1), date(2026, 11, 4), nights=range(2, 5))
+    assert list(t.index) == ["Mon 02 Nov", "Tue 03 Nov"]  # days with no trip at all are left out
+    assert t.loc["Tue 03 Nov", "2 nights"] == 130 and t.loc["Mon 02 Nov", "3 nights"] == 150 and pd.isna(t.loc["Mon 02 Nov", "2 nights"])
+    css = deals.grid_colours(t)
+    assert "#0E7A53;color:#fff" in css.loc["Tue 03 Nov", "2 nights"] and "#E3F4EA" in css.loc["Tue 03 Nov", "3 nights"]  # 140 <= 143
+    assert css.loc["Mon 02 Nov", "4 nights"] == ""  # 160 is more than 10% dearer

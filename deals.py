@@ -2,6 +2,8 @@
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
 import pandas as pd
 
+VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded
+
 
 def by_month(fares, min_days=7):
     """Cheapest fare per calendar month: Series indexed 'Nov 2026', ..., in date order; empty without fares. A month with fewer than
@@ -31,3 +33,21 @@ def month_colours(t, dear=0.15):
         return ["background-color:#E3F4EA;color:#0E7A53;font-weight:650" if v == low else
                 "background-color:#FDECE3;color:#C2410C" if pd.notna(v) and v >= low * (1 + dear) else "" for v in r]
     return t.apply(row, axis=1, result_type="expand").set_axis(t.columns, axis=1)
+
+
+def trip_grid(out, back, start, end, nights=range(2, 8)):
+    """Google Flights' date grid for a return trip: outbound days from `start` to `end` (dates) as rows, nights away as columns, the two
+    one-way fares added up in each cell (NaN when either day has no fare). out, back: Series of fares by iso day."""
+    days = pd.date_range(start, end)
+    out = out.copy(); out.index = pd.to_datetime(out.index)
+    back = back.copy(); back.index = pd.to_datetime(back.index)
+    t = pd.DataFrame({f"{n} nights": [out.get(d, float("nan")) + back.get(d + pd.Timedelta(days=n), float("nan")) for d in days]
+                      for n in nights}, index=[f"{d:%a %d %b}" for d in days])
+    return t.dropna(how="all")
+
+
+def grid_colours(t, near=0.10):
+    """CSS per cell of trip_grid: the cheapest trip green, trips within `near` (10%) of it light green."""
+    low = t.min().min()
+    return t.apply(lambda c: ["background-color:#0E7A53;color:#fff;font-weight:650" if v == low else
+                              "background-color:#E3F4EA;color:#0E7A53" if pd.notna(v) and v <= low * (1 + near) else "" for v in c])

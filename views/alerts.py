@@ -52,6 +52,13 @@ fares, summary, *_ = ov.collect(db, today)
 if not summary:
     st.info("No fares are saved yet. The daily run fills them in every morning.")
     st.stop()
+if "route" in q:  # from an "Alert me" link elsewhere in the app: start the form on that route and cabin
+    leg_ = tuple(q["route"].split("-"))
+    if leg_ in fares:
+        st.session_state["al-leg"] = leg_
+    if q.get("cabin") in ("economy", "business"):
+        st.session_state["al-cabin"] = q["cabin"]
+    q.clear()
 day = lambda d: f"{date.fromisoformat(d):%a %d %b}"
 
 with st.container(border=True, key="search"):
