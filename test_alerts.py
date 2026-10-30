@@ -144,7 +144,7 @@ def test_alerts_page_without_and_with_a_token(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "create", lambda token, *a, **k: (made.append((a, k)), (12, "c0de"))[1])
     monkeypatch.setattr(alerts, "mail", lambda *a: (_ for _ in ()).throw(RuntimeError("no SMTP in tests")))
     at = AppTest.from_file(page, default_timeout=60)
-    at.secrets["GITHUB_TOKEN"] = "t"
+    at.secrets["GITHUB"] = "t"  # the owner's name for it works too
     at.run()
     at.text_input(key="al-email").input("me@example.com")
     at.button[0].click().run()
