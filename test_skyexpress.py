@@ -70,13 +70,13 @@ def test_compare_and_its_table_and_sentence():
     a3_out, a3_back = pd.Series({"2026-11-02": 100.0, "2026-11-03": 400.0}), pd.Series({"2026-11-05": 200.0})
     gq_out, gq_back = pd.Series({"2026-11-02": 120.0, "2026-11-03": 70.0}), pd.Series({"2026-11-05": 80.0})
     h = sx.head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back)
-    assert list(h.columns) == ["AEGEAN", "Sky Express"] and list(h.index) == ["Cheapest trip", "On AEGEAN's dates (Mon 02 Nov → Thu 05 Nov, 3 nights)",
-                                                                           "On Sky Express's dates (Tue 03 Nov → Thu 05 Nov, 2 nights)"]
-    assert list(h.iloc[0]) == ["€300 · Mon 02 Nov → Thu 05 Nov, 3 nights", "€150 · Tue 03 Nov → Thu 05 Nov, 2 nights"]
-    assert list(h.iloc[1]) == ["€300", "€200"] and list(h.iloc[2]) == ["€600", "€150"]
-    assert sx.verdict(a3, gq, a3_out, a3_back, gq_out, gq_back) == "Cheapest overall: Sky Express, €150, 03 Nov to 05 Nov. On the same dates AEGEAN costs €600, €450 more."
+    assert list(h.columns) == ["AEGEAN", "Sky Express"] and list(h.index) == ["Cheapest trip", "Dates", "Both on 2–5 Nov", "Both on 3–5 Nov"]
+    assert list(h.loc["Cheapest trip"]) == ["€300", "€150"] and list(h.loc["Dates"]) == ["Mon 2 Nov → Thu 5 Nov, 3 nights", "Tue 3 Nov → Thu 5 Nov, 2 nights"]
+    assert list(h.loc["Both on 2–5 Nov"]) == ["€300", "€200"] and list(h.loc["Both on 3–5 Nov"]) == ["€600", "€150"]
+    assert sx.html_table(h).startswith('<table class="h2h"><tr><th></th><th>AEGEAN</th><th>Sky Express</th></tr><tr><th>Cheapest trip</th><td>€300</td>')
+    assert sx.verdict(a3, gq, a3_out, a3_back, gq_out, gq_back) == "Cheapest overall: Sky Express, €150, 3–5 Nov. On the same dates AEGEAN costs €600, €450 more."
     assert sx.verdict(a3, None, a3_out, a3_back, gq_out, gq_back) == "Only AEGEAN has fares saved for these days: €300."
-    assert sx.head_to_head(None, gq, a3_out, a3_back, pd.Series(dtype=float), None).iloc[0, 0] == "no fare saved"
+    assert list(sx.head_to_head(None, gq, a3_out, a3_back, pd.Series(dtype=float), None)["AEGEAN"]) == ["no fare saved", "no fare saved", "€600"]
     assert sx.trip_price(a3_out, a3_back, date(2026, 11, 2), None) == 100.0 and sx.trip_price(a3_out, a3_back, date(2026, 11, 9), None) is None
     assert sx.compare(pd.Series(dtype=float), pd.Series(dtype=float)).empty
     best = dict(depart=date(2026, 11, 2), back=date(2026, 11, 5), nights=3, price=210.0)
@@ -223,14 +223,12 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     text = " ".join(m.value for m in at.markdown)
     # the pass: AEGEAN €60 out on day 10 + €150 back = €210; Sky Express €45 out on day 10 + €120 back = €165, the same filters
     assert "€210" in text and "AEGEAN Cheapest return" in text  # the pass is AEGEAN's; the comparison follows
-    head = at.dataframe[0].value  # the head-to-head, right under the pass: both airlines' cheapest, then each priced on the other's dates
-    assert list(head.columns) == ["AEGEAN", "Sky Express"] and head.iloc[0, 0].startswith("€210 · ") and head.iloc[0, 1].startswith("€165 · ")
-    assert len(head) == 3 and head.index[1].startswith("On AEGEAN's dates (") and head.iloc[1, 0] == "€210"  # each airline priced on the other's dates
-    assert head.iloc[2, 1] == "€165" and head.iloc[2, 0].startswith("€")
+    head = next(m.value for m in at.markdown if 'class="h2h"' in m.value)  # the head-to-head table, right under the pass
+    assert head.count("<tr>") == 5 and "<th>Cheapest trip</th><td>€210</td><td>€165</td>" in head and "<th>Both on " in head
     assert "Cheapest overall: Sky Express, €165" in text and "On the same dates AEGEAN costs €" in text
-    shown = at.dataframe[1].value  # the day-by-day table, under the head-to-head
-    assert list(shown.columns) == ["AEGEAN", "Sky Express", "Cheaper"] and (shown["Sky Express"] == "€45").sum() == 1
-    assert (shown["Cheaper"] == "Sky Express, €15 less").sum() == 1  # day 10: €60 against €45
+    days = [m.value for m in at.markdown if 'class="h2h"' in m.value][1]  # the day-by-day table, under the head-to-head
+    assert "<th>AEGEAN</th><th>Sky Express</th><th>Cheaper</th>" in days and days.count("<td>€45</td>") == 1
+    assert days.count("<td>Sky Express, €15 less</td>") == 1  # day 10: €60 against €45
     assert not at.button  # nothing to fetch: the fares are there
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert not at.exception and "Sky Express" not in " ".join(m.value for m in at.markdown)  # economy only for now

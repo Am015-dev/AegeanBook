@@ -71,6 +71,11 @@ st.markdown(f"""<style>
 .pass-stub .ctx {{ font-size:.82rem; color:{INK}; margin-top:8px; line-height:1.4; }}
 .pass-stub .good {{ display:inline-block; font-size:.8rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
   padding:1px 7px; margin-right:6px; }}
+.h2h {{ width:100%; border-collapse:collapse; background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; overflow:hidden; margin:2px 0 10px; font-size:.95rem; }}
+.h2h th, .h2h td {{ padding:10px 14px; text-align:left; vertical-align:top; border-top:1px solid {GRID}; }}
+.h2h tr:first-child th {{ border-top:0; color:{MUTED}; font-weight:600; font-size:.85rem; }}
+.h2h tbody th, .h2h tr th:first-child {{ color:{MUTED}; font-weight:500; width:34%; }}
+.h2h td {{ font-weight:600; color:{INK}; font-variant-numeric:tabular-nums; }}
 .months {{ display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 18px; }}
 .months > div {{ background:{SURFACE}; border-radius:12px; padding:10px 14px; min-width:92px; box-shadow:{SHADOW}; }}
 .months .m {{ display:block; font-size:.82rem; color:{MUTED}; }} .months .v {{ display:block; font-weight:650; font-size:1.05rem; color:{INK}; }}
@@ -277,12 +282,11 @@ if gq:
     span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
     a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
     args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
-    st.dataframe(sx.head_to_head(*args), width="stretch")
+    st.markdown(sx.html_table(sx.head_to_head(*args)), unsafe_allow_html=True)
     st.markdown(f"**{e(sx.verdict(*args))}**")
     st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
     st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
-    t = sx.compare(out_s[span], gq_out)
-    st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
+    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
 
 # --- by month -----------------------------------------------------------------------------------------------------------------------------
 m = deals.by_month(out_s)

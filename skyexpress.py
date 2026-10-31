@@ -3,6 +3,7 @@ refreshed by data/build_skyexpress_airports.py), its saved fares (the gq_prices 
 fetch_route.py writes with AIRLINE=GQ) and the day-by-day comparison the Overview and Flights pages draw. Economy, nonstop, for now.
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
 import csv
+import html
 import os
 from functools import lru_cache
 
@@ -69,28 +70,41 @@ def trip_price(out, back, depart, ret):
     return None if b is None or pd.isna(b) else float(o + b)
 
 
+def span(b):
+    """A trip's dates in a few characters: "19–21 Nov", "28 Nov–2 Dec", "19 Nov" for a one-way."""
+    if b["back"] is None:
+        return f"{b['depart']:%-d %b}"
+    if b["depart"].month == b["back"].month:
+        return f"{b['depart']:%-d}–{b['back']:%-d %b}"
+    return f"{b['depart']:%-d %b}–{b['back']:%-d %b}"
+
+
 def head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
-    """The comparison a traveller can read in one look: a DataFrame with the airlines as columns and three rows: each airline's cheapest
-    trip, then both airlines priced on AEGEAN's dates, then both on Sky Express's dates. a3/gq are deals.best_trip answers (None when an
-    airline has no trip); the series are cash_by_day's. Cells are text: "€159 · Thu 19 Nov → Sat 21 Nov, 2 nights", "€131", "no flight"."""
+    """The comparison a traveller can read in one look: a DataFrame with the airlines as columns and short rows: each airline's cheapest
+    price, its dates, then both airlines priced on AEGEAN's dates and both on Sky Express's dates. a3/gq are deals.best_trip answers
+    (None when an airline has no trip); the series are cash_by_day's. Cells are short text: "€159", "Thu 19 → Sat 21 Nov, 2 nights"."""
+    money = lambda v: "no flight" if v is None else f"€{v * pax:,.0f}"
     def dates(b):
         if b is None:
             return "no fare saved"
-        when = f"{b['depart']:%a %d %b}"
-        return when + (f" → {b['back']:%a %d %b}, {b['nights']} night{'s' if b['nights'] != 1 else ''}" if b["back"] is not None else ", one way")
-    def cell(price, b=None):
-        if price is None:
-            return "no flight" if b is None else "no fare saved"
-        return f"€{price * pax:,.0f}" + (f" · {dates(b)}" if b else "")
-    rows, index = [], []
-    first = lambda b: "no fare saved" if b is None else cell(b["price"], b)
-    rows.append([first(a3), first(gq)]); index.append("Cheapest trip")
+        if b["back"] is None:
+            return f"{b['depart']:%a %-d %b}, one way"
+        return f"{b['depart']:%a %-d %b} → {b['back']:%a %-d %b}, {b['nights']} night{'s' if b['nights'] != 1 else ''}"
+    rows = {"Cheapest trip": [money(a3["price"]) if a3 else "no fare saved", money(gq["price"]) if gq else "no fare saved"],
+            "Dates": [dates(a3), dates(gq)]}
     for name, b, series in (("AEGEAN", a3, (gq_out, gq_back)), (NAME, gq, (a3_out, a3_back))):
         if b is not None:
-            other = trip_price(*series, b["depart"], b["back"])
-            mine, theirs = cell(b["price"]), cell(other)
-            rows.append([mine, theirs] if name == "AEGEAN" else [theirs, mine]); index.append(f"On {name}'s dates ({dates(b)})")
-    return pd.DataFrame(rows, columns=["AEGEAN", NAME], index=index)
+            other = money(trip_price(*series, b["depart"], b["back"]))
+            rows[f"Both on {span(b)}"] = [money(b["price"]), other] if name == "AEGEAN" else [other, money(b["price"])]
+    return pd.DataFrame.from_dict(rows, orient="index", columns=["AEGEAN", NAME])
+
+
+def html_table(df):
+    """A DataFrame as a plain HTML table that wraps on a phone (st.dataframe clips long cells), class h2h; every cell escaped."""
+    esc = lambda v: html.escape(str(v))
+    head = "<tr><th></th>" + "".join(f"<th>{esc(c)}</th>" for c in df.columns) + "</tr>"
+    body = "".join(f"<tr><th>{esc(i)}</th>" + "".join(f"<td>{esc(v)}</td>" for v in r) + "</tr>" for i, r in zip(df.index, df.values.tolist()))
+    return f'<table class="h2h">{head}{body}</table>'
 
 
 def verdict(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
@@ -104,7 +118,7 @@ def verdict(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
     cheap, dear = (("AEGEAN", a3), (NAME, gq)) if a3["price"] <= gq["price"] else ((NAME, gq), ("AEGEAN", a3))
     out, back = (gq_out, gq_back) if cheap[0] == "AEGEAN" else (a3_out, a3_back)
     same = trip_price(out, back, cheap[1]["depart"], cheap[1]["back"])
-    when = f"{cheap[1]['depart']:%d %b}" + (f" to {cheap[1]['back']:%d %b}" if cheap[1]["back"] is not None else "")
+    when = span(cheap[1])
     text = f"Cheapest overall: {cheap[0]}, €{cheap[1]['price'] * pax:,.0f}, {when}"
     if a3["price"] == gq["price"]:
         text = f"Both airlines' cheapest trips cost €{a3['price'] * pax:,.0f}"
