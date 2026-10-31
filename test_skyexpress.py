@@ -93,9 +93,16 @@ def test_fetch_route_with_airline_gq_writes_skyexpress_csv_economy_only(tmp_path
     assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,HER,1,{date.today()},A3", f"ATH,HER,1,{date.today()},GQ"]
     fetch_route.save(fetch_route.read(tmp_path / "skyexpress.csv"), track=True, airline="GQ")  # the --merge step for a GQ job
     assert len(fetch_route.read(tmp_path / "skyexpress.csv")) == 1 and fetch_route.outfile("GQ") == tmp_path / "skyexpress.csv"
+    # the merge step also logs every Sky Express fare it saves in the permanent history, so an on-request fetch is never lost
+    assert fetch_route.log_history(fetch_route.read(tmp_path / "skyexpress.csv"), "GQ") == 1
+    assert fetch_route.log_history(fetch_route.read(tmp_path / "skyexpress.csv"), "GQ") == 0  # the same fare again: one row, not two
+    assert fetch_route.read(tmp_path / "history_skyexpress.csv")[0]["price"] == "70.0" and not (tmp_path / "history_prices.csv").exists()
+    main = open(os.path.join(HERE, "fetch_route.py")).read()
+    assert "log_history(rows, airline)" in main[main.index('if sys.argv[1] == "--merge"'):]
     wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
-    assert "AIRLINE: ${{ inputs.airline }}" in wf and 'default: "A3"' in wf and "data/skyexpress.csv" in wf and "inputs.airline }}\"" not in wf
-    assert "data/skyexpress.csv" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
+    assert "AIRLINE: ${{ inputs.airline }}" in wf and 'default: "A3"' in wf and "data/skyexpress.csv data/history_skyexpress.csv" in wf
+    assert "inputs.airline }}\"" not in wf
+    assert "data/skyexpress.csv data/history_skyexpress.csv" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
 
 
 def test_refresh_keeps_sky_express_routes_fresh_economy_only(tmp_path, monkeypatch):
@@ -118,6 +125,9 @@ def test_refresh_keeps_sky_express_routes_fresh_economy_only(tmp_path, monkeypat
     assert {(r["orig"], r["dest"], r["cabin"]) for r in fetch_route.read(tmp_path / "skyexpress.csv")} == {("ATH", "FRA", "economy"),
                                                                                                            ("ATH", "HER", "economy")}
     assert "GQ" not in (tmp_path / "history_prices.csv").read_text()  # the AEGEAN history stays AEGEAN's
+    hist = fetch_route.read(tmp_path / "history_skyexpress.csv")  # Sky Express has its own permanent history, written the same way
+    assert {(r["orig"], r["dest"], r["cabin"], r["price"]) for r in hist} == {("ATH", "FRA", "economy", "88.0"), ("ATH", "HER", "economy", "88.0")}
+    assert fetch_route.refresh() == 0 and len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2  # unchanged prices: no new rows
 
 
 def test_github_dispatch_carries_the_airline(monkeypatch):

@@ -7,7 +7,8 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
     python fetch_route.py --refresh              # the daily run: fetch again every route searched in the last 60 days
 
 AIRLINE=GQ (environment, or a fourth argument) fetches Sky Express instead, economy only, into data/skyexpress.csv (same columns; the
-file is the airline). --merge and --refresh read AIRLINE too; --refresh keeps every tracked airline fresh.
+file is the airline). --merge and --refresh read AIRLINE too; --refresh keeps every tracked airline fresh. Each airline has its own
+permanent history beside its file (data/history_prices.csv, data/history_skyexpress.csv): never trimmed, one row per fare change.
 Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested,airline) so the daily run can refresh them.
 """
 import csv
@@ -23,6 +24,7 @@ from collector import Airline, fetch_range
 OUT = Path(__file__).parent / "data" / "routes.csv"
 AIRLINES = {"A3": "routes.csv", "GQ": "skyexpress.csv"}  # IATA code -> the file its fares live in, next to OUT
 CABINS = {"A3": ("economy", "business"), "GQ": ("economy",)}  # Sky Express: economy only for now
+HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA code -> its permanent history, next to OUT
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
 TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead
@@ -62,6 +64,16 @@ def save(rows, path=None, track=False, airline="A3"):
         w = csv.DictWriter(f, FIELDS)
         w.writeheader()
         w.writerows(sorted(newest.values(), key=lambda r: (r["orig"], r["dest"], r["day"], r["cabin"])))
+
+
+def log_history(rows, airline="A3"):
+    """Add the rows to the airline's permanent history (never trimmed, one row per change, see history.py). The history is a bonus:
+    a failure is printed, never raised, so it cannot break a fetch."""
+    try:
+        return history.append_changes(OUT.with_name(HISTORY[airline]), rows, ("day", "orig", "dest", "cabin", "nonstop"), ("price",))
+    except Exception as e:
+        print(f"  history: {type(e).__name__}: {e}")
+        return 0
 
 
 def track_routes(rows, path, airline="A3"):
@@ -143,12 +155,10 @@ def refresh(passes=3, pause=90):
         if code != "A3":
             other[code] = other.get(code, []) + got
     save(rows)
+    log_history(rows)  # the permanent history next to each file: never trimmed, one row per change
     for code, got in other.items():
         save(got, airline=code)
-    try:  # the permanent history next to the file: never trimmed, one row per change
-        history.append_changes(OUT.with_name("history_prices.csv"), rows, ("day", "orig", "dest", "cabin", "nonstop"), ("price",))
-    except Exception as e:  # the history is a bonus: never let it break the run
-        print(f"  history: {type(e).__name__}: {e}")
+        log_history(got, code)
     rows += [r for got in other.values() for r in got]
     print(f"refreshed {len(routes)} routes: {len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
@@ -159,7 +169,10 @@ if __name__ == "__main__":
     if airline not in AIRLINES:
         sys.exit(f"unknown airline {airline}: one of {', '.join(AIRLINES)}")
     if sys.argv[1] == "--merge":
-        save(read(sys.argv[2]), track=True, airline=airline)
+        rows = read(sys.argv[2])
+        save(rows, track=True, airline=airline)
+        if airline != "A3":  # Sky Express: every fetch goes into its permanent history at once, so no fare it collected is ever lost
+            log_history(rows, airline)
     elif sys.argv[1] == "--refresh":
         sys.exit(refresh())
     else:

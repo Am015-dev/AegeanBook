@@ -99,7 +99,9 @@ without a token). With no Sky Express fares saved yet, the Overview offers **Fet
 fetches). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
 `data/skyexpress.csv`, which the app loads into its own table (`gq_prices`) beside AEGEAN's, so nothing about the AEGEAN data changes; a
 Sky Express route searched from the app is tracked in `data/tracked_routes.csv` (column `airline`) and refreshed by the daily run like the
-others. Only itineraries whose every leg is Sky Express count, as only all-AEGEAN ones do for AEGEAN. The airport list is
+others. Every Sky Express fare collected is also kept for good in `data/history_skyexpress.csv`, its own permanent history beside
+`data/history_prices.csv` (one row per fare change, never trimmed), written by every fetch from the app and by the daily refresh, and shown
+and downloadable on the Database page under **Sky Express fares**. Only itineraries whose every leg is Sky Express count, as only all-AEGEAN ones do for AEGEAN. The airport list is
 `data/skyexpress_airports.csv` (62 airports: 33 in Greece, 29 abroad, seasonal ones marked), refreshed by hand with
 `python data/build_skyexpress_airports.py`, which reads the destination cards on skyexpress.gr (and Wikipedia's Sky Express destinations
 table for the airport of each city and the seasonal marks; Wikipedia alone when the site cannot be parsed) and prints any city it could

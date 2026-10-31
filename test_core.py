@@ -535,7 +535,7 @@ def test_database_page_renders_and_keeps_only_changes():
     from streamlit.testing.v1 import AppTest
     page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "database.py")
     at = AppTest.from_file(page, default_timeout=90).run()
-    assert not at.exception and [t.label for t in at.tabs] == ["Cash fares", "Award miles", "Hotels"]
+    assert not at.exception and [t.label for t in at.tabs] == ["Cash fares", "Sky Express fares", "Award miles", "Hotels"]
     src = open(page, encoding="utf-8").read()
     ns = {}
     exec(src[src.index("def changes_only"):src.index("def overview")], {"pd": pd}, ns)  # the pure helper, without running the page
