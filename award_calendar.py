@@ -14,9 +14,9 @@ STYLE = """<style>
 .cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cal-w{color:#6E6E73;font-size:.75rem;font-weight:600;text-align:center;padding-bottom:2px}
 .cal-c{background:#fff;border:1px solid #E5E5EA;border-radius:10px;padding:5px 2px 6px;min-height:58px;text-align:center;color:#6E6E73}
-.cal-c small{display:block;font-size:.7rem;line-height:1.1}
+.cal-c small{display:block;font-size:.75rem;line-height:1.1}
 .cal-c b{display:block;font-size:.92rem;font-weight:600;color:#1D1D1F;margin-top:2px}
-.cal-c i{display:block;font-style:normal;font-size:.62rem;font-weight:650;letter-spacing:.02em;margin-top:1px}
+.cal-c i{display:block;font-style:normal;font-size:.75rem;font-weight:650;margin-top:1px}
 .cal-c.cal-seat{background:#E3F1EA;border-color:#9ED2B8}.cal-c.cal-seat i{color:#0E7A53}
 .cal-c.cal-best{background:#BFE3D0;border-color:#0E7A53}.cal-c.cal-best b{color:#0A5C3D}.cal-c.cal-best i{color:#0A5C3D}
 .cal-c.cal-unk{background:#F5F5F7;border-style:dashed}.cal-c.cal-unk b{color:#6E6E73}

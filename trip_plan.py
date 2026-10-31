@@ -15,7 +15,7 @@ from award_view import load_award
 from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 
-VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 HOME = "ATH"
 HORIZON = 330  # days ahead a month can be planned and fetched: Google's calendar reaches about 11 months (views/flights.py uses the same)
 PAY = {"cash": "Cash", "miles": "Miles", "both": "Cash or miles"}

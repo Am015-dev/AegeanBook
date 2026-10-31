@@ -16,7 +16,7 @@ from ui import route
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 4:
+if getattr(tp, "VERSION", 0) < 5:
     tp = importlib.reload(tp)
 db = connect()
 today = date.today()
