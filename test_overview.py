@@ -453,6 +453,7 @@ def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, mon
     # the boarding pass: ATH -> FRA economy, €60 out on day 10, back on the cheapest FRA -> ATH day 2 to 7 nights later (€150, day 14)
     assert "Cheapest return" in text and "€210" in text and "4 nights" in text
     assert "Steigenberger" in text  # the hotel searched in Frankfurt, for the pass's nights
+    at.button(key="ov-grid-more-ATHFRA").click().run()  # the grid shows a week first; the button opens the whole month
     g, table = grid(at), routes(at)
     assert "4 nights" in g.columns and [r[0] for r in table] == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
     assert table[0][1].startswith("€60 on ") and g.loc[f"{date.today() + timedelta(10):%a %d %b}", "4 nights"] == "€210"

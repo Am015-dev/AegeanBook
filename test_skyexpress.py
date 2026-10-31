@@ -244,7 +244,7 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     days = [m.value for m in at.markdown if 'class="h2h"' in m.value][1]  # the day-by-day table, under the head-to-head
     assert "<th>AEGEAN</th><th>Sky Express</th><th>Cheaper</th>" in days and days.count("<td>€45</td>") == 1
     assert days.count("<td>Sky Express, €15 less</td>") == 1  # day 10: €60 against €45
-    assert not at.button  # nothing to fetch: the fares are there
+    assert not [b for b in at.button if "fetch" in b.key]  # nothing to fetch: the fares are there
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert not at.exception and "Sky Express" not in " ".join(m.value for m in at.markdown)  # economy only for now
 
