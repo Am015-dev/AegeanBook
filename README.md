@@ -92,8 +92,9 @@ airline may price a group differently.
 
 Sky Express (GQ) is AEGEAN's competitor on Greek domestic routes and a growing set of European ones. Where both airports are in its
 network, the Overview's route bar and the Flights page's search card show a **Compare with Sky Express** toggle (its state is kept per
-route). On the Overview it adds one line to the boarding pass stub, "Sky Express: €X on <day> (economy)", the cheapest Sky Express trip for
-the same days and nights picked, plus a day-by-day table of both fares and the difference under the grid; on the Flights page Sky Express's
+route). On the Overview it adds **Cheapest by airline** under the boarding pass: one card per airline with its cheapest trip for
+the same days and nights picked, the cheaper one marked, a line saying how much cheaper, plus a day-by-day table of both fares and the
+difference under the grid; on the Flights page Sky Express's
 economy fare is a dashed line on the price charts, and **Update prices** fetches it for the same days (its own run on GitHub, or in the app
 without a token). With no Sky Express fares saved yet, the Overview offers **Fetch Sky Express fares** (GitHub token needed, as for AEGEAN's
 fetches). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
