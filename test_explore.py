@@ -64,7 +64,7 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     at.button_group(key="ov-grid-cabin").set_value("economy").run()
     at.button_group(key="xp-see").set_value("SKG").run()  # See dates for Thessaloniki: the same page, Thessaloniki in To
     assert not at.exception and at.selectbox(key="ov-grid-dest-ATH").value == "SKG"
-    assert "Athens → Thessaloniki → Athens" in " ".join(c.value for c in at.caption)
+    assert 'pass-codes">ATH<span class="line"></span>SKG' in " ".join(m.value for m in at.markdown)  # the pass is Athens → Thessaloniki
     at.selectbox(key="ov-grid-orig").set_value("SKG").run()
     at.selectbox(key="ov-grid-dest-SKG").set_value("ANY").run()
     assert not at.exception and "Athens" in rows()[0]
@@ -78,7 +78,7 @@ def test_overview_opens_the_route_from_the_query_params(tmp_path, monkeypatch):
     at.run()
     assert not at.exception
     assert at.selectbox(key="ov-grid-orig").value == "SKG" and at.selectbox(key="ov-grid-dest-SKG").value == "ATH"
-    assert "Thessaloniki → Athens → Thessaloniki" in " ".join(c.value for c in at.caption)
+    assert 'pass-codes">SKG<span class="line"></span>ATH' in " ".join(m.value for m in at.markdown)  # the pass is Thessaloniki → Athens
     at = open_page("overview.py")
     at.query_params["from"] = "XXX"  # an airport without fares is ignored
     at.run()
