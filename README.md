@@ -83,6 +83,14 @@ The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter 
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
 
+## Price insights (Overview)
+
+Like Google Flights, the Overview says whether the boarding pass's fare is **Low**, **Typical** or **High** for that route, from our own
+history: `data/history_prices.csv` keeps every fare change the daily run and the Flights page have seen since 29 Oct 2026. Low and high
+are the 25th and 75th percentiles of every one-way fare seen on the route, on any departure day, in any snapshot of the last 60 days (the
+two legs are added up for a return). Until a route has seven days of prices the pass only says since when it is tracked, and **How this
+fare moved** under the date grid charts the pass's own days across the snapshots (`price_insights.py`, tests in `test_price_insights.py`).
+
 ## The expert (Expert page, and its daily take on the Overview)
 
 An AI model reads the saved fares, award miles and hotel prices, writes a three-line briefing once a day (shown on the Overview) and answers questions in a chat that remembers the conversation. **Plan a trip** on the Expert page asks it from your own choices (destination, month, cabin, cash or miles, one way or return with nights, hotel, the days you can leave): the app works out every candidate trip first, and the expert explains the best time to fly and why. The hotel is one you searched on the Hotels page (1 night) in that city, the most recent first; the Overview's Frankfurt trips use the most recent Frankfurt search too. Add one key under
