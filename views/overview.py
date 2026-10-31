@@ -267,11 +267,13 @@ else:
             st.caption(f"The price is for {pax} adults, from fares collected for one adult; the airline may price a group differently.")
         links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
         st.link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="content", icon=":material/airplane_ticket:")
-        # the pass as the Alerts page and the Expert read it: every field, so each opens on exactly the trip shown
+        # the pass as the Alerts page reads it (views/alerts.py, every name optional there): the trip shown, its per-adult fare as the limit
+        # to start from, and the bar's nights and window as the Expert link carries them
         alert = {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles", "price": f"{best['price']:.0f}",
-                 "depart": best["depart"].isoformat(), "trip": "return" if ret else "oneway"}
+                 "depart": best["depart"].isoformat(), "trip": "return" if ret else "oneway", "nights": f"{nights[0]}-{nights[1]}",
+                 "when": f"{p.start},{p.end}"}
         if ret:
-            alert.update(back=best["back"].isoformat(), nights=str(best["nights"]))
+            alert["back"] = best["back"].isoformat()
         c = st.columns(3)
         c[0].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), type="tertiary", icon=":material/open_in_new:")
         for col, page, label, icon, params in (
