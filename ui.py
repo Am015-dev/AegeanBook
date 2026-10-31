@@ -257,3 +257,25 @@ def best_trips(t, colour, label, tolerance, limit=6):
     more = f'<span class="more">+{len(t) - limit} more</span>' if len(t) > limit else ""
     st.markdown(f'<div class="best"><span class="dot" style="background:{colour}"></span><span class="bl">{e(label)}</span>'
                 f'{chips}{more}</div>', unsafe_allow_html=True)
+
+
+def schedule_note(seen, orig, dest):
+    """One sentence on when AEGEAN flies a route, from the days checked: the weekdays it flies when not every day, and the last flight when
+    the days checked after it are more than twice the route's usual gap (seasonal routes such as ATH-BIO, Tuesdays and Fridays, none 21 Nov to 29 Mar). None when the
+    checked days show no such pattern. seen: one row per day and cabin, price NaN where the day was checked and has no flight."""
+    if not len(seen):
+        return None
+    flies = seen.groupby("day").price.max()  # a day flies if either cabin has a fare
+    if flies.notna().sum() == 0 or len(flies) < 14:
+        return None
+    when = pd.to_datetime(flies.index)
+    flown, last = when[flies.notna().values], when[flies.notna().values].max()
+    parts = []
+    quiet = {d for d in range(7) if d not in set(flown.weekday) and (when[(when <= last)].weekday == d).sum() >= 2}
+    if quiet and len(quiet) < 7:
+        names = [["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"][d] for d in sorted(set(flown.weekday))]
+        parts.append(f"only on {', '.join(names[:-1]) + ' and ' + names[-1] if len(names) > 1 else names[0]}")
+    gaps = pd.Series(flown.sort_values()).diff().dt.days.dropna()
+    if (when.max() - last).days >= max(7, 2 * (gaps.max() if len(gaps) else 0)):  # twice the route's usual gap: it has stopped
+        parts.append(f"not after {last:%a %d %b} in the days checked (search later dates to see when it flies again)")
+    return f"AEGEAN flies {orig} → {dest} " + ", and ".join(parts) + "." if parts else None
