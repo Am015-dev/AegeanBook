@@ -22,7 +22,7 @@ from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker, github_progress, github_note)
 
-if getattr(sx, "VERSION", 0) < 1:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(sx, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
     import importlib
     sx = importlib.reload(sx)
 db = connect()
