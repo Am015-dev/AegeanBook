@@ -815,3 +815,18 @@ def test_advice_names_a_shortlist_of_days_not_one_arbitrary_day():
     cash_of = {(r.depart, r.back): float(r.total) for r in trips.itertuples()}
     assert bd.best_miles_pairs(out_m, back_m, [7], cash_of).startswith("best trips to use them: Mon 09 Nov \u2192 Mon 16 Nov (cash \u20ac450), Sat 07 Nov \u2192 Sat 14 Nov (cash \u20ac110)")
 
+
+
+def test_schedule_note_names_the_weekdays_and_the_last_flight_of_a_seasonal_route():
+    import pandas as pd
+    from datetime import date, timedelta
+    from ui import schedule_note
+    def seen(flies):
+        days = [date(2026, 11, 1) + timedelta(i) for i in range(30)]
+        return pd.DataFrame([dict(day=d.isoformat(), cabin=c, price=100.0 if flies(d) else float("nan"))
+                             for d in days for c in ("economy", "business")])
+    bio = seen(lambda d: d.weekday() in (1, 4) and d <= date(2026, 11, 20))  # ATH-BIO: Tuesdays and Fridays, last flight Fri 20 Nov
+    assert schedule_note(bio, "ATH", "BIO") == ("AEGEAN flies ATH → BIO only on Tuesdays and Fridays, and not after Fri 20 Nov in the days "
+                                               "checked (search later dates to see when it flies again).")
+    assert schedule_note(seen(lambda d: True), "ATH", "FRA") is None  # every day: nothing to say
+    assert schedule_note(seen(lambda d: d.weekday() == 0), "ATH", "XXX") == "AEGEAN flies ATH → XXX only on Mondays."  # weekly, not stopped

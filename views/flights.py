@@ -16,7 +16,7 @@ from jobs import record, start_job, track
 from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass
 from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
-                price_chart, round_trips, route, scraped, smart_filters, window_picker)
+                price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker)
 
 db = connect()
 today = date.today()
@@ -203,6 +203,8 @@ if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
                f"{int(seen.price.isna().sum())} with no flight, {2 * len(days) - len(seen)} not checked or failed. "
                "Press Update prices to check the rest.")
+if note := schedule_note(seen, orig, dest):
+    st.info(note, icon=":material/event_busy:")
 st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
            "automatically every morning.")
 t1, t2, t3, t4 = st.tabs(["Prices", "Award miles", "Table", "Trip cost"])
