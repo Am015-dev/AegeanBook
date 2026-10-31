@@ -210,15 +210,25 @@ Either way the model answers at most 60 typed questions a day (`MAX_PER_DAY` in 
 
 ## Price alerts (free, by email or phone)
 
-Anyone using the app can open **Alerts**, choose a route, cabin, cash or miles, a limit and optionally a month, and get:
-- **a phone notification** through the free ntfy app (iPhone/Android, no account): the page shows a private topic to subscribe to and
-  sends a first notification at once, so the visitor sees it works;
-- **an email**: the first email asks to confirm the address (so nobody can sign a stranger up); nothing else is sent until its link is
-  opened. Every email and notification has a link that stops the alert.
+Anyone using the app can open **Alerts**, or press **Alert me if it gets cheaper** under the Overview's boarding pass, and say in one
+form what to watch: "Tell me when Athens → Frankfurt economy drops below €150 return (2–7 nights), leaving in December 2026". From the
+pass the form is already filled in (route, cabin, cash or miles, return or one way, nights, month, and the pass's price as the limit),
+so an alert is two clicks. The link carries query params `route=ATH-FRA`, `cabin`, `unit` (`eur` or `miles`), `trip` (`return` or
+`oneway`), `nights=2-7`, `depart` and `back` (iso dates), `when=2026-12-01,2026-12-31` (the days to leave on) and `price`; any of them may
+be missing and the form falls back to sensible defaults. The alert then comes:
+- **as a phone notification** through the free ntfy app (iPhone/Android, no account): the page shows a private topic to subscribe to
+  and sends a first notification at once, so the visitor sees it works;
+- **as an email**: the first email asks to confirm the address (so nobody can sign a stranger up); nothing else is sent until its link
+  is opened. Every email and notification has a link that stops the alert.
 
-Every morning, after the daily run, `alerts.py` checks each alert and tells its owner when a fare (or award) meets it: the first time,
-and again only when it gets cheaper. Alerts are stored as issues labelled `price-alert` in this private repository (visitors' email
-addresses stay private), at most 5 per address and 300 in all.
+A return alert means what the traveller asked: it watches the cheapest return trip (the two one-way fares added up, for the nights and
+the departure days chosen) exactly as the boarding pass prices one; a one-way alert watches the one-way fare. Every morning, after the
+daily run, `alerts.py` reads the same database as the app (the daily legs, every route fetched from the app, the award miles) and tells
+the owner of each alert when it is met, in one sentence with the dates and a booking link ("Athens → Frankfurt is now €139 return in
+economy, below your €150: leave Thu 19 Nov, back Sat 21 Nov (2 nights). Book: …"): the first time, and again only when it gets
+cheaper. Alerts are stored as issues labelled `price-alert` in this private repository (visitors' email addresses stay private), at
+most 5 per address and 300 in all. The page lists a visitor's own alerts, each with a Stop button, once the visitor has shown the
+address or phone is theirs: by making an alert for it in that browser, or by opening the confirm or stop link from any of its messages.
 
 **One-time setup by the owner** (free):
 1. **Saving alerts:** on GitHub, Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: only this
@@ -231,7 +241,8 @@ addresses stay private), at most 5 per address and 300 in all.
    moment an alert is created instead of the next morning. Gmail sends up to about 500 emails a day. Phone alerts need no setup.
 
 An alert can also be written by hand as an issue labelled `price-alert`: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or
-`miles below: 16000`), optional `from:` and `to:` dates. Those are answered with a comment on the issue, which GitHub notifies.
+`miles below: 16000`), optional `trip: return` with `nights: 2-7`, and optional `from:` and `to:` departure dates. Those are answered
+with a comment on the issue, which GitHub notifies.
 
 
 ## Searching from the app
