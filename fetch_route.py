@@ -8,7 +8,8 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
     python fetch_route.py --plan                 # the daily run: those routes as matrix jobs (JSON), a few routes each, see daily.yml
     python fetch_route.py --refresh "ATH,BIO,2026-11-01,2027-01-29;..." 1 new_rows.csv   # one of those jobs: fetch, write the rows
     python fetch_route.py --merge-refresh new_rows.csv   # its save step: into the airline's file and history, not a new request
-    AIRLINE=GQ python fetch_route.py --daily     # the daily run: Sky Express on the daily legs it serves, so both airlines are compared
+    AIRLINE=GQ python fetch_route.py --daily [gq_rows.csv]   # the daily run: Sky Express on the daily legs it serves; with a file, only writes the rows
+    python fetch_route.py --merge-history daily_rows.csv   # the daily legs' rows into data/history_prices.csv (the daily run's save loop)
 
 AIRLINE=GQ (environment, or a fourth argument) fetches Sky Express instead, economy only, into data/skyexpress.csv (same columns; the
 file is the airline). --merge, --merge-refresh and --refresh with legs read AIRLINE too; --plan covers every tracked airline. Each airline has its own
@@ -212,17 +213,21 @@ def refresh(legs=None, nonstop=True, new=None, airline="A3", passes=3, pause=90)
     return 0 if rows or not failed else 1
 
 
-def daily(airline="GQ", passes=3, pause=90):
+def daily(airline="GQ", passes=3, pause=90, new=None):
     """The daily run's legs (collect_daily.LEGS) for Sky Express too, the next DAYS, where both airports are in its network: the
-    Overview's and Flights page's comparison needs both airlines' fares for the same days. Not tracked: --refresh would fetch them twice."""
+    Overview's and Flights page's comparison needs both airlines' fares for the same days. Not tracked: --refresh would fetch them twice.
+    With `new`, the rows are only written there for the save step (--merge-refresh into the newest main), nothing is saved here."""
     from collect_daily import DAYS, LEGS
     with open(OUT.with_name("skyexpress_airports.csv"), encoding="utf-8") as f:  # not skyexpress.py: that needs pandas, the runner has none
         net = {r["iata"] for r in csv.DictReader(f)}
     today = date.today()
     legs = ";".join(f"{o},{d},{today + timedelta(1)},{today + timedelta(DAYS)}" for o, d in LEGS if o in net and d in net)
     rows, failed = fetch(legs, True, passes, pause, airline) if legs else ([], 0)
-    save(rows, airline=airline)
-    log_history(rows, airline)
+    if new:
+        write_new(rows, new)
+    else:
+        save(rows, airline=airline)
+        log_history(rows, airline)
     print(f"daily {airline}: {len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
 
@@ -245,6 +250,8 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--refresh":
         sys.exit(refresh(args[1], args[2] not in ("0", "false", "False"), args[3], airline) if len(args) > 1 else refresh())
     elif sys.argv[1] == "--daily":
-        sys.exit(daily(airline))
+        sys.exit(daily(airline, new=args[1] if len(args) > 1 else None))
+    elif sys.argv[1] == "--merge-history":  # the daily legs' rows into the permanent history, on whatever main is newest (the save loop)
+        log_history(read(sys.argv[2]), airline)
     else:
         sys.exit(main(sys.argv[1], sys.argv[2] not in ("0", "false", "False"), new=sys.argv[3] if len(sys.argv) > 3 else None, airline=airline))
