@@ -327,6 +327,49 @@ def test_trip_grid_adds_both_ways_and_marks_the_cheapest():
     assert deals.grid_colours(flat).loc["Mon 02 Nov", "3 nights"] == "background-color:#E3F4EA;color:#0E7A53"  # possible, not "cheapest"
 
 
+def test_trip_context_and_filters_on_best_trip_and_grid():
+    import deals
+    out = pd.Series({"2026-11-02": 100.0, "2026-11-03": 80.0, "2026-11-04": 90.0})  # Mon, Tue, Wed
+    back = pd.Series({"2026-11-05": 50.0, "2026-11-06": 60.0, "2026-11-07": 70.0})
+    ctx = deals.trip_context(out, back, date(2026, 11, 1), date(2026, 11, 4), nights=range(2, 4))
+    assert ctx == dict(low=130.0, typical=150.0, days=4)  # trips 150, 130, 140, 150, 160
+    assert deals.trip_context(out, None, date(2026, 11, 1), date(2026, 11, 4)) == dict(low=80.0, typical=90.0, days=4)  # one-way
+    assert deals.trip_context(pd.Series(dtype=float), None, date(2026, 11, 1), date(2026, 11, 4)) is None
+    best = deals.best_trip(out, back, date(2026, 11, 1), date(2026, 11, 4))
+    assert best["depart"] == date(2026, 11, 3) and best["nights"] == 2 and best["price"] == 130
+    best = deals.best_trip(out, back, date(2026, 11, 1), date(2026, 11, 4), weekdays=["Mon", "Wed"])  # cannot leave on the cheap Tuesday
+    assert best["depart"] == date(2026, 11, 2) and best["nights"] == 3 and best["price"] == 150  # Mon 100 + Thu 50 (Wed 90 + Fri 60 ties)
+    best = deals.best_trip(out, back, date(2026, 11, 1), date(2026, 11, 4), nights=[2], weekdays=["Mon", "Wed"])
+    assert best["depart"] == date(2026, 11, 4) and best["nights"] == 2 and best["price"] == 150
+    assert deals.best_trip(out, back, date(2026, 11, 1), date(2026, 11, 4), weekdays=["Sun"]) is None
+    g = deals.trip_grid(out, back, date(2026, 11, 1), date(2026, 11, 4), nights=[2, 3], weekdays=["Tue", "Wed"])
+    assert list(g.index) == ["Tue 03 Nov", "Wed 04 Nov"] and list(g.columns) == ["2 nights", "3 nights"]
+    one = deals.best_trip(out, None, date(2026, 11, 1), date(2026, 11, 4), weekdays=["Mon", "Wed"])
+    assert one["depart"] == date(2026, 11, 4) and one["back"] is None and one["price"] == 90
+
+
+def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tmp_path, monkeypatch):
+    import re
+    from insights import DAYS
+    open_page = pages(tmp_path, monkeypatch, None)
+    seed(tmp_path / "tracker.db")
+    at = open_page("overview.py").run()
+    assert not at.exception
+    text = " ".join(m.value for m in at.markdown)
+    assert "Good price" in text and re.search(r"a typical trip costs €3\d\d · lowest of \d+ days", text)  # €210 against ~€360 return trips
+    cheap_day = f"{date.today() + timedelta(10):%a}"  # the €60 outbound
+    other = [d for d in DAYS if d != cheap_day][:2]
+    at.button_group(key="ov-grid-days-ATHFRAeconomycash").set_value(other).run()
+    assert not at.exception
+    text = " ".join(m.value for m in at.markdown)
+    leave = re.search(r"<dt>Leave</dt><dd>(\w{3})", text).group(1)
+    assert leave in other and "lowest is €210" in text  # the pass fits the days asked for, and still knows the real low
+    assert all(i[:3] in other for i in at.dataframe[0].value.index)
+    at.button_group(key="ov-grid-nights-ATHFRAeconomycash").set_value([2, 3]).run()
+    assert not at.exception and list(at.dataframe[0].value.columns) == ["2 nights", "3 nights"]
+    assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
+
+
 def test_overview_grid_in_miles(tmp_path, monkeypatch):
     open_page = pages(tmp_path, monkeypatch, None)
     t = seed(tmp_path / "tracker.db")
