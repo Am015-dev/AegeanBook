@@ -44,7 +44,7 @@ db = connect()
 today = date.today()
 fares, summary, trips, weekday, hotel_night, awards = ov.collect(db, today)
 last = db.execute("SELECT MAX(fetched) FROM prices WHERE fetched IS NOT NULL").fetchone()[0]
-route("Overview", None, "Where to, when, and for how much" + (f" · fares checked {pd.Timestamp(last):%a %d %b, %H:%M}" if last else ""))
+# no page title: the search bar is the page, as on Google Flights; when the fares were last checked is said under the bar
 if not summary:
     st.info("No fares are saved yet. The daily check fills this page every morning; or open Flights and press Update prices.")
     st.stop()
@@ -196,6 +196,8 @@ best = deals.best_trip(out_s, back_s, p.start, p.end, stays, wdays)
 ctx = deals.trip_context(out_s, back_s, p.start, p.end)
 # ponytail: the history CSV is read on every rerun (a few hundred rows a day, so years before it takes a visible fraction of a second)
 hist = pi.history() if pay == "cash" else None  # every fare change ever seen, for the verdict and the "how it moved" chart; miles have none
+if last:
+    st.caption(f"AEGEAN nonstop fares from Google Flights, last checked {pd.Timestamp(last):%a %d %b, %H:%M}.")
 gq, gq_out, gq_back, gq_best = False, pd.Series(dtype=float), None, None
 gqkey = f"ov-gq|{orig}|{dest}"
 if best is not None and gcab == "economy" and pay == "cash" and sx.serves(orig, dest):  # Sky Express beside AEGEAN's answer: economy cash, both airports in its network
@@ -264,7 +266,9 @@ else:
         if pax > 1:
             st.caption(f"The price is for {pax} adults, from fares collected for one adult; the airline may price a group differently.")
         links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
-        st.link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="content", icon=":material/airplane_ticket:")
+        c = st.columns(2)
+        c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch", icon=":material/airplane_ticket:")
+        c[1].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), width="stretch", icon=":material/open_in_new:")
         # the pass as the Alerts page reads it (views/alerts.py, every name optional there): the trip shown, its per-adult fare as the limit
         # to start from, and the bar's nights and window as the Expert link carries them
         alert = {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles", "price": f"{best['price']:.0f}",
@@ -272,11 +276,10 @@ else:
                  "when": f"{p.start},{p.end}"}
         if ret:
             alert["back"] = best["back"].isoformat()
-        c = st.columns(3)
-        c[0].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), type="tertiary", icon=":material/open_in_new:")
+        c = st.columns(2)
         for col, page, label, icon, params in (
-                (c[1], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:", alert),
-                (c[2], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
+                (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:", alert),
+                (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
                  {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": f"{p.start},{p.end}"})):
             try:
                 col.page_link(page, label=label, icon=icon, query_params=params)
@@ -305,14 +308,6 @@ if gq:
     st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
     st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
 
-# --- by month -----------------------------------------------------------------------------------------------------------------------------
-m = deals.by_month(out_s)
-if len(m) > 1:
-    st.markdown(f'<p class="group">Cheapest {"AEGEAN " if gq else ""}one-way {e(orig)} → {e(dest)} by month</p>', unsafe_allow_html=True)
-    st.markdown('<div class="months">' + "".join(
-        f'<div class="{"low" if v == m.min() else ""}"><div class="m">{e(k)}</div><div class="v">{e(money(v))}</div></div>'
-        for k, v in m.items()) + "</div>", unsafe_allow_html=True)
-
 # --- the dates behind it ------------------------------------------------------------------------------------------------------------------
 if best is not None and back_s is not None and len(back_s.dropna()):
     st.markdown('<p class="group">Pick your dates</p>', unsafe_allow_html=True)
@@ -321,11 +316,10 @@ if best is not None and back_s is not None and len(back_s.dropna()):
     if len(grid):
         grid_frame(deals.grid_html(grid, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format), len(grid))
         same = grid.min().min() == grid.max().max()
-        st.caption(f"Return {tp.city(orig)} → {tp.city(dest)} → {tp.city(orig)}{' in miles' if pay == 'miles' else ''}, {who}, by the day you "
-                   "leave and the nights you stay. "
+        st.caption(f"Return fares{' in miles' if pay == 'miles' else ''} for {who}. "
                    + ("Every trip shown costs the same; green marks the dates with seats both ways." if same else
-                      "Darkest green is the cheapest; light green is within 10% of it.")
-                   + (" Scroll the table sideways for longer stays." if len(grid.columns) > 4 else ""))
+                      "Darkest green is cheapest; light green is within 10% of it.")
+                   + (" Scroll sideways for longer stays." if len(grid.columns) > 4 else ""))
     else:
         st.caption("No return trips saved for those days" + (" and nights" if len(wdays) < 7 or len(stays) < 6 else "") + ". "
                    "Try more nights, or other days to leave on.")
@@ -343,8 +337,7 @@ elif best is not None and trip == "oneway":
     if len(days):
         one = pd.DataFrame({"One way": days.values * pax}, index=[f"{pd.Timestamp(d):%a %d %b}" for d in days.index])
         grid_frame(deals.grid_html(one, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format), len(one))
-        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}{' in miles' if pay == 'miles' else ''}, {who}, by the day you leave. "
-                   "Darkest green is the cheapest; light green is within 10% of it.")
+        st.caption(f"One-way fares{' in miles' if pay == 'miles' else ''} for {who}. Darkest green is cheapest; light green is within 10% of it.")
     else:
         st.caption("No one-way fares saved for those days.")
 elif best is not None:

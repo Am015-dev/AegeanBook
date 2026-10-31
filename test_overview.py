@@ -869,7 +869,7 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     at = open_page("overview.py").run()
     assert not at.exception and "BIO → ATH" in [r[0] for r in routes(at)]
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
-    assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
+    assert not at.exception and 'pass-codes">BIO<span class="line"></span>ATH' in " ".join(m.value for m in at.markdown)
     assert at.selectbox(key="ov-grid-dest-BIO").value == "ATH"  # the first saved destination from there, not Anywhere
 
     seen = []
