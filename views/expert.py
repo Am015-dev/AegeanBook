@@ -24,7 +24,7 @@ if getattr(fa, "VERSION", 0) < 1:
     fa = importlib.reload(fa)
 db = connect()
 today = date.today()
-route("Expert", None, "The Overview's answer for your trip, explained in three sentences. Then ask follow-ups.")
+route("Expert", None, "Why this is the trip to book, and what else would work.")
 try:
     cfg = ex.available(st.secrets)
 except Exception:

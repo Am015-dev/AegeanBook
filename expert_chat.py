@@ -198,12 +198,12 @@ def text(f):
         return "\n".join(lines)
     lines.append(f"Recommended trip (the one the Overview's boarding pass shows): {_dates(f, best)}, {_money(f, best['price'])}.")
     if f["ctx"]:
-        lines.append(f"Trips in this period with these filters: typical (median) {_money(f, f['ctx']['typical'])}, lowest {_money(f, f['ctx']['low'])}, "
-                     f"over {f['ctx']['days']} departure days.")
+        lines.append(f"Trips in this period with these filters: typical {_money(f, f['ctx']['typical'])} (half the trips cost less), lowest "
+                     f"{_money(f, f['ctx']['low'])}, over {f['ctx']['days']} departure days.")
     ins = f["insight"]
     if ins and ins.get("level"):
         lines.append(f"Fare verdict: {ins['level']}; this route usually costs €{ins['low']:,.0f}–€{ins['high']:,.0f} for such a trip "
-                     f"(25th–75th percentile of {ins['snapshots']} days of price history since {ins['since']:%d %b}).")
+                     f"(from {ins['snapshots']} days of price history since {ins['since']:%d %b}).")
     elif ins and ins.get("since"):
         lines.append(f"Fare verdict: none yet, the route is tracked since {ins['since']:%d %b} ({ins['snapshots']} days of prices).")
     if f["hotel"]:
