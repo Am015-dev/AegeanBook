@@ -44,13 +44,15 @@ if q.get("from") in froms:  # from the Overview's "Ask the expert about it": ope
         st.session_state["plan-cabin"] = q["cabin"]
     if q.get("pay") in ex.PAY:
         st.session_state["plan-pay"] = q["pay"]
-    stays = [int(n) for v in q.get_all("nights") for n in v.split(",") if n.strip().isdigit()]  # ?nights=2,3 or ?nights=2&nights=3
-    if stays and all(n in ex.NIGHTS for n in stays):
-        st.session_state["plan-nights"] = sorted(set(stays))
+    stays = [int(n) for v in q.get_all("nights") for n in v.replace("-", ",").split(",") if n.strip().isdigit()]  # ?nights=2-7, or 2,3
+    if stays and all(1 <= n <= 60 for n in stays):
+        st.session_state["plan-nights"] = (min(stays), max(stays))
+    if q.get("trip") in ("return", "oneway"):
+        st.session_state["plan-trip"] = q["trip"]
 asked_when = q.get("when")  # the period is matched once the list exists, below
 if q.get("from") in froms:
     q.clear()
-for key, value in (("plan-cabin", "economy"), ("plan-pay", "cash"), ("plan-nights", ex.NIGHTS), ("plan-days", DAYS)):
+for key, value in (("plan-cabin", "economy"), ("plan-pay", "cash"), ("plan-nights", (2, 7)), ("plan-trip", "return"), ("plan-days", DAYS)):
     st.session_state.setdefault(key, value)  # the Overview's defaults; set here, not as widget defaults, so a link can preset them
 
 with st.container(border=True, key="search"):
@@ -65,10 +67,13 @@ with st.container(border=True, key="search"):
     if asked_when in [x.name for x in periods]:  # ?when=January 2027 from the Overview's link
         st.session_state["plan-when"] = [x.name for x in periods].index(asked_when)
     when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="plan-when")
-    c = st.columns([1, 1, 2])
+    c = st.columns([1, 1, 1, 1.6])
     cabin = c[0].pills("Cabin", ["economy", "business"], format_func=str.capitalize, required=True, key="plan-cabin")
     pay = c[1].pills("Pay with", list(ex.PAY), format_func=ex.PAY.get, required=True, key="plan-pay")
-    nights = c[2].pills("Nights", ex.NIGHTS, selection_mode="multi", key="plan-nights")
+    trip = c[2].pills("Trip", ["return", "oneway"], format_func={"return": "Return", "oneway": "One way"}.get, required=True, key="plan-trip")
+    nights = (2, 7)
+    if trip == "return":
+        nights = c[3].slider("Nights", 1, 60, key="plan-nights", help="How long to stay, shortest to longest you would accept.")
     wdays = st.pills("Days I can leave", DAYS, selection_mode="multi", key="plan-days")
     saved = tp.hotels(db, dest)
     hotel = st.selectbox("Hotel", [None] + saved, key=f"plan-hotel-{dest}", index=1 if saved else 0,
@@ -77,18 +82,18 @@ with st.container(border=True, key="search"):
     if not saved:
         st.caption(f"No hotel in {tp.city(dest)} searched yet: search one on the Hotels page with 1 night, and it appears here.")
     p = periods[when]
-    stays = sorted(nights) or ex.NIGHTS
+    stays = list(range(nights[0], nights[1] + 1))
     # no fares saved for this route in the period (either way): one button fetches them on GitHub, the way back `stays` later
     todo, blank = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
     if blank and pay == "cash":  # award miles cannot be fetched from here: they are collected on the owner's computer, 90 days ahead
         fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Fetch {p.label} fares" if when else f"Fetch the {p.label.lower()}", todo,
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 
-f = ex.facts(db, orig, dest, cabin, pay, nights, wdays, (p.start, p.end), today, hotel)
+f = ex.facts(db, orig, dest, cabin, pay, stays, wdays, (p.start, p.end), today, hotel, oneway=trip == "oneway")
 # the chat reads the same facts, then every tracked route for follow-ups (without the Overview's Frankfurt trip totals, which include a hotel)
 data = ex.text(f) + "\n\nAll tracked routes, for follow-ups (one-way fares):\n" + ov.facts(summary, fares, {}, hotel_night, awards, today)
 chat = st.session_state.setdefault("expert-chat", [])
-search = (orig, dest, cabin, pay, tuple(stays), tuple(wdays or DAYS), when, hotel and hotel["name"])
+search = (orig, dest, cabin, pay, trip, tuple(stays), tuple(wdays or DAYS), when, hotel and hotel["name"])
 if st.session_state.get("expert-search") not in (None, search):  # a new search: the old answers were about other numbers
     chat.clear()
 st.session_state["expert-search"] = search

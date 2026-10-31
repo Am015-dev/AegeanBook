@@ -87,7 +87,6 @@ st.markdown(f"""<style>
 
 # --- the search bar: everything below follows it ----------------------------------------------------------------------------------------
 ANY = "ANY"  # the To entry that turns the page into "where can I fly cheaply?"
-NIGHTS = [2, 3, 4, 5, 6, 7]
 far = ov.legs(db, today, tp.HORIZON)  # cash fares as far ahead as a month can be fetched (ov.collect stops at 90 days, enough for the table)
 froms = xp.origins(far)
 # ponytail: the To list names saved airports by trip_plan.city (one CSV read each, a handful) and the other ~130 by the AEGEAN list's city
@@ -127,19 +126,23 @@ farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.
 periods = tp.months(today, farday)  # the next 30 days, then every month up to the horizon: a month with no fares yet can be fetched below
 when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="ov-when", on_change=touched)
 p = periods[when]
-c = st.columns([2, 1.2, 1.1, 0.7])
-nights = c[0].pills("Nights", NIGHTS, selection_mode="multi", default=NIGHTS, key="ov-nights", on_change=touched,
-                    help="How long to stay. Pick none to allow any of 2 to 7 nights.")
-gcab = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin",
+c = st.columns([1.2, 1.35, 1.3, 1.05, 0.7])
+trip = c[0].pills("Trip", ["return", "oneway"], default="return", format_func={"return": "Return", "oneway": "One way"}.get, required=True,
+                  key="ov-trip", on_change=touched)
+nights = (2, 7)
+if trip == "return":
+    nights = c[1].slider("Nights", 1, 60, (2, 7), key="ov-nights", on_change=touched,
+                         help="How long to stay, from the shortest to the longest you would accept: 2 to 7 for a city break, 14 to 21 for a holiday.")
+gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin",
                   on_change=touched)
-pay = c[2].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
+pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                  key="ov-grid-pay", on_change=touched)
-pax = c[3].number_input("Passengers", 1, 9, 1, key="ov-pax", on_change=touched, help="Adults. Fares are collected for one adult; the pass and "
+pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", on_change=touched, help="Adults. Fares are collected for one adult; the pass and "
                         "the booking links use this number.")
 if not st.session_state.get("ov-touched"):
     st.caption(f"Pick a route, or Anywhere, to start. This is the first saved route, {tp.city(orig)} to {tp.city(dest)}.")
 
-stays = sorted(nights or NIGHTS)
+stays = list(range(nights[0], nights[1] + 1))
 src = far if pay == "cash" else awards
 money = (lambda v: f"€{v:,.0f}") if pay == "cash" else (lambda v: f"{v:,.0f} miles")
 # ponytail: the weekday pills render beside the grid below, but the pass must honour them, so their value is read from session state here
@@ -180,6 +183,8 @@ out_s = src.get((orig, dest), {})
 back_s = src.get((dest, orig), {})
 out_s = out_s[gcab] if gcab in out_s else pd.Series(dtype=float)
 back_s = back_s[gcab] if gcab in back_s else None
+if trip == "oneway":
+    back_s = None  # one way: the way back is not priced, whatever is saved
 best = deals.best_trip(out_s, back_s, p.start, p.end, stays, wdays)
 ctx = deals.trip_context(out_s, back_s, p.start, p.end)
 # ponytail: the history CSV is read on every rerun (a few hundred rows a day, so years before it takes a visible fraction of a second)
@@ -260,7 +265,7 @@ else:
             (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
              {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"}),
             (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
-             {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": ",".join(map(str, nights or NIGHTS)), "when": p.name})):
+             {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": p.name})):
         try:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation
@@ -309,12 +314,27 @@ if best is not None and back_s is not None and len(back_s.dropna()):
                    + ("Every trip shown costs the same; green marks the dates with seats both ways." if same else
                       "Darkest green is the cheapest; light green is within 10% of it."))
     else:
-        st.caption("No return trips saved for those days" + (" and nights" if len(wdays) < 7 or len(stays) < 6 else "") + ".")
+        st.caption("No return trips saved for those days" + (" and nights" if len(wdays) < 7 or len(stays) < 6 else "") + ". "
+                   "Try more nights, or other days to leave on.")
     # the way back not saved for this period (the pass fell back to a one-way): one button fetches what is missing, both directions
     todo, blank = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
     if blank and pay == "cash":
         fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Search the way back for {p.name} on GitHub", todo,
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
+elif best is not None and trip == "oneway":
+    st.markdown('<p class="group">Pick your day</p>', unsafe_allow_html=True)
+    st.pills("Leave on", DAYS, selection_mode="multi", default=DAYS, key="ov-days")
+    days = pd.to_numeric(out_s, errors="coerce").dropna()
+    days = days[(days.index >= p.start.isoformat()) & (days.index <= p.end.isoformat())]
+    days = days[[f"{pd.Timestamp(d):%a}" in wdays for d in days.index]]
+    if len(days):
+        one = pd.DataFrame({"One way": days.values * pax}, index=[f"{pd.Timestamp(d):%a %d %b}" for d in days.index])
+        st.dataframe(deals.styled(one, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format, deals.grid_colours), width="stretch",
+                     height=min(36 * len(one) + 38, 560))
+        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}{' in miles' if pay == 'miles' else ''}, {who}, by the day you leave. "
+                   "Darkest green is the cheapest; light green is within 10% of it.")
+    else:
+        st.caption("No one-way fares saved for those days.")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
 

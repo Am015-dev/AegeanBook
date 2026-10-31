@@ -13,7 +13,7 @@ destination, and **Anywhere** at the top), When (the next 30 days, or any month 
 Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one answer:
 
 - a **route** gives a boarding pass with the cheapest trip leaving in that period and two plain sentences on what the price means
-  ("Usually €180–€240 return. €140 is cheap."), the booking links, the cheapest month, the date grid (day you leave × nights you stay, with
+  ("Usually €180–€240 return. €140 is cheap."), the booking links, the cheapest month, the date grid (day you leave × nights you stay, any stay from 1 to 60 nights, or a list of days for a one-way trip, with
   **Leave on** weekday pills), **How this fare moved**, and two expanders, **Best weekday to fly** and **How far ahead to book**, with the
   chart and a one-line takeaway for that route and cabin;
 - **Anywhere** lists every destination with fares saved from there, cheapest first, as cards (the dates of the trip, how many days have a

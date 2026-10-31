@@ -376,7 +376,8 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     at = open_page("expert.py").run()
     assert not at.exception
     # the defaults are the Overview's: economy, cash, 2 to 7 nights, any day, the pass's own window, the hotel searched in the city
-    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-nights", "plan-days")] == ["economy", "cash", ex.NIGHTS, DAYS]
+    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-trip", "plan-days")] == ["economy", "cash", "return", DAYS]
+    assert at.slider(key="plan-nights").value == (2, 7)  # the Overview's default stay
     assert at.selectbox(key="plan-when").value == 0 and at.selectbox(key="plan-when").options[0] == "Next 30 days"
     f = briefed[-1]
     assert f["best"]["price"] == 210 and f["best"]["nights"] == 4 and f["hotel"]["name"] == "Steigenberger"  # the Overview's pass
@@ -384,15 +385,15 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     history, facts = seen[-1]
     assert history[-1]["content"] == "Why those dates?" and facts.startswith(ex.text(f)) and "All tracked routes" in facts
     assert "Best ATH-FRA-ATH economy trip" not in facts  # the Overview module's Frankfurt totals (with a hotel) would contradict the pass
-    at.button_group(key="plan-nights").set_value([2, 3]).run()  # a new search: new facts, and the old answers go
+    at.slider(key="plan-nights").set_value((2, 3)).run()  # a new search: new facts, and the old answers go
     assert not at.exception and briefed[-1]["nights"] == [2, 3] and briefed[-1]["best"]["price"] > 210 and not at.chat_message
     # the Overview's "Ask the expert about it" link names the pass the traveller saw
     at = open_page("expert.py")
     month = f"{(date.today() + timedelta(45)).replace(day=1):%B %Y}"  # a period the Overview offers, by its name
-    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3,4", "when": month})
+    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3-4", "trip": "return", "when": month})
     at.run()
     assert not at.exception and at.selectbox(key="plan-dest-ATH").value == "ZRH"
-    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-nights")] == ["business", "miles", [3, 4]]
+    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay")] == ["business", "miles"] and at.slider(key="plan-nights").value == (3, 4)
     assert at.selectbox(key="plan-when").format_func(at.selectbox(key="plan-when").value).startswith(month)  # the same period as the pass
     assert at.selectbox(key="plan-when").format_func(0) == "Next 30 days"  # the same list as the Overview, same first entry
     assert briefed[-1]["dest"] == "ZRH" and briefed[-1]["pay"] == "miles" and briefed[-1]["best"] is None  # no award seats seeded
@@ -487,10 +488,19 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     leave = re.search(r"<dt>Leave</dt><dd>(\w{3})", text).group(1)
     assert leave in other and "Good price" not in text  # the pass fits the days asked for; without the €60 day it is no bargain
     assert all(i[:3] in other for i in at.dataframe[0].value.index)
-    at.button_group(key="ov-nights").set_value([2, 3]).run()
+    at.slider(key="ov-nights").set_value((2, 3)).run()
     assert not at.exception and list(at.dataframe[0].value.columns) == ["2 nights", "3 nights"]
     assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
     assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # something was picked
+    at.slider(key="ov-nights").set_value((14, 16)).run()  # a holiday, not a city break: any stay up to 60 nights
+    assert not at.exception and list(at.dataframe[0].value.columns) == ["14 nights", "15 nights", "16 nights"]
+    assert re.search(r"<dt>Stay</dt><dd>1[456] nights", " ".join(m.value for m in at.markdown))
+    at.button_group(key="ov-trip").set_value("oneway").run()  # one way: no way back priced, the dates are a list of days
+    assert not at.exception and not at.slider  # the nights control goes
+    text = " ".join(m.value for m in at.markdown)
+    assert "Cheapest one way · Athens → Frankfurt" in text and "<dt>Trip</dt><dd>One way</dd>" in text and "<dt>Stay</dt>" not in text
+    assert "Pick your day" in text and list(at.dataframe[0].value.columns) == ["One way"]
+    assert all(i[:3] in other for i in at.dataframe[0].value.index)  # the weekday filter still applies
 
 
 def test_overview_bar_drives_the_pass_by_period_and_passengers(tmp_path, monkeypatch):
