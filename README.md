@@ -94,6 +94,14 @@ The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter 
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
 
+## Price insights (Overview)
+
+Like Google Flights, the Overview says whether the boarding pass's fare is **Low**, **Typical** or **High** for that route, from our own
+history: `data/history_prices.csv` keeps every fare change the daily run and the Flights page have seen since 29 Oct 2026. Low and high
+are the 25th and 75th percentiles of every one-way fare seen on the route, on any departure day, in any snapshot of the last 60 days (the
+two legs are added up for a return). Until a route has seven days of prices the pass only says since when it is tracked, and **How this
+fare moved** under the date grid charts the pass's own days across the snapshots (`price_insights.py`, tests in `test_price_insights.py`).
+
 ## The expert (Expert page, and its daily take on the Overview)
 
 An AI model reads the saved fares, award miles and hotel prices, writes a three-line briefing once a day (shown on the Overview) and answers questions in a chat that remembers the conversation. **Plan a trip** on the Expert page asks it from your own choices (destination, month, cabin, cash or miles, one way or return with nights, hotel, the days you can leave): the app works out every candidate trip first, and the expert explains the best time to fly and why. The hotel is one you searched on the Hotels page (1 night) in that city, the most recent first; the Overview's Frankfurt trips use the most recent Frankfurt search too. Add one key under
@@ -141,7 +149,13 @@ usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitH
 fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
 your own computer, say), the search runs in the app as before.
 
+A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
+the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
+`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks.
+
 Hotels work the same way: **Update prices** on the Hotels page starts `.github/workflows/fetch-hotel.yml` (`fetch_hotel.py`: Google
 Hotels for every check-in not saved yet, plus the TripAdvisor cheap-day calendar and Booking.com on the cheap days when a key is given),
-which saves to `data/hotel_searches.csv`. Every fetch merges its rows into the newest file before pushing, so fetches running at the
+which saves to `data/hotel_searches.csv`. **Show flight times** under the Overview's boarding pass starts `.github/workflows/fetch-details.yml`
+(`fetch_details.py`), which saves the flight numbers, times and Google's lowest fare of the leave and return days to
+`data/flight_details.csv`. Those prices are Google's lowest fare for the flight, whatever it includes; the app does not know the fare family. Every fetch merges its rows into the newest file before pushing, so fetches running at the
 same time (and the daily run) never overwrite each other.

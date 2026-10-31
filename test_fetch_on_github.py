@@ -42,6 +42,53 @@ def test_fetch_route_parses_fetches_and_keeps_only_fresh_future_rows(tmp_path, m
     rows = out.read_text().splitlines()
     assert len(rows) == 1 + 3 and any(",ATH,BIO,economy,97.0," in r for r in rows) and any(",BIO,ATH,economy,," in r for r in rows)
     assert not any("business" in r and "BIO" in r for r in rows) and not any("2020-01-01" in r for r in rows)
+    today = date.today().isoformat()  # the searched routes are recorded, so the daily run can refresh them
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines() == ["orig,dest,nonstop,last_requested",
+                                                                           f"ATH,BIO,1,{today}", f"BIO,ATH,1,{today}"]
+
+
+def test_tracked_routes_are_upserted_by_the_merge_step_with_the_newest_request_date(tmp_path, monkeypatch):
+    out, d1 = tmp_path / "routes.csv", (date.today() + timedelta(5)).isoformat()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "tracked_routes.csv").write_text("orig,dest,nonstop,last_requested\nATH,BIO,1,2026-01-01\nSKG,LCA,1,2026-02-02\n")
+    row = dict(day=d1, orig="ATH", dest="BIO", cabin="economy", price=97.0, source="calendar", fetched=datetime.now().isoformat(), nonstop=1)
+    fetch_route.write_new([row], tmp_path / "a.csv")
+    fetch_route.save(fetch_route.read(tmp_path / "a.csv"), track=True)  # the --merge path
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,BIO,1,{date.today()}", "SKG,LCA,1,2026-02-02"]
+    fetch_route.save([dict(row, price=98.0)])  # a --refresh save does not count as a request
+    assert f"ATH,BIO,1,{date.today()}" in (tmp_path / "tracked_routes.csv").read_text()
+    wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
+    assert "git add data/routes.csv data/tracked_routes.csv" in wf
+
+
+def test_refresh_fetches_recent_tracked_routes_not_the_daily_legs_capped_and_writes_history(tmp_path, monkeypatch):
+    import collect_daily
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    monkeypatch.setattr(fetch_route, "TRACK_MAX", 3)
+    lines = ["orig,dest,nonstop,last_requested", f"ATH,FRA,1,{today}",  # a daily leg: collect_daily fetches it already
+             f"OLD,ONE,1,{today - timedelta(61)}",  # not searched for over 60 days: dropped
+             f"ATH,BIO,1,{today - timedelta(60)}", f"BIO,ATH,0,{today - timedelta(10)}", f"SKG,LCA,1,{today - timedelta(1)}",
+             f"LCA,SKG,1,{today}"]  # four recent routes, cap 3: the oldest (ATH-BIO) is skipped
+    (tmp_path / "tracked_routes.csv").write_text("\n".join(lines) + "\n")
+    assert ("ATH", "FRA") in collect_daily.LEGS
+    asked = []
+
+    def fake(a, b, o, d, skip=(), nonstop=True):
+        asked.append((o, d, nonstop, a, b))
+        yield a, "economy", 120.0, "calendar", "ok", None
+    monkeypatch.setattr(fetch_route, "fetch_range", fake)
+    monkeypatch.setattr(fetch_route.time, "sleep", lambda s: pytest.fail("nothing failed: no pause"))
+    assert fetch_route.refresh() == 0
+    assert sorted((o, d, n) for o, d, n, _, _ in asked) == [("BIO", "ATH", False), ("LCA", "SKG", True), ("SKG", "LCA", True)]
+    assert all((a, b) == (today + timedelta(1), today + timedelta(90)) for *_, a, b in asked)
+    rows = fetch_route.read(out)
+    assert {(r["orig"], r["dest"], r["nonstop"]) for r in rows} == {("BIO", "ATH", "0"), ("LCA", "SKG", "1"), ("SKG", "LCA", "1")}
+    hist = (tmp_path / "history_prices.csv").read_text().splitlines()
+    assert len(hist) == 4 and hist[0].startswith("day,orig,dest,cabin,price")
+    assert fetch_route.refresh() == 0 and len((tmp_path / "history_prices.csv").read_text().splitlines()) == 4  # unchanged prices: no new rows
+    wf = open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
+    assert "python fetch_route.py --refresh" in wf and "data/routes.csv data/tracked_routes.csv" in wf
 
 
 class Answer(io.BytesIO):
