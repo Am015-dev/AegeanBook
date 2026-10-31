@@ -69,6 +69,13 @@ st.markdown(f"""<style>
 .pass-stub .ctx {{ font-size:.78rem; color:{MUTED}; margin-top:8px; line-height:1.35; }}
 .pass-stub .good {{ display:inline-block; font-size:.68rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
   padding:1px 6px; margin-right:6px; vertical-align:1px; }}
+.airlines {{ display:flex; gap:12px; flex-wrap:wrap; margin:4px 0 6px; }}
+.airlines > div {{ flex:1; min-width:220px; background:{SURFACE}; border-radius:14px; padding:14px 18px; box-shadow:{SHADOW}; }}
+.airlines .a {{ font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }}
+.airlines .p {{ display:block; font:700 1.9rem/1.1 {FONT}; letter-spacing:-.03em; color:{INK}; margin:4px 0 2px; }}
+.airlines .d {{ display:block; font-size:.82rem; color:{MUTED}; }}
+.airlines .win {{ outline:2px solid var(--c); }} .airlines .win .p {{ color:var(--c); }}
+.airlines .tag {{ float:right; font-size:.68rem; font-weight:650; color:var(--c); border:1px solid var(--c); border-radius:6px; padding:1px 6px; }}
 .months {{ display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 18px; }}
 .months > div {{ background:{SURFACE}; border-radius:12px; padding:10px 14px; min-width:92px; box-shadow:{SHADOW}; }}
 .months .m {{ display:block; font-size:.75rem; color:{MUTED}; }} .months .v {{ display:block; font-weight:650; font-size:1.05rem; color:{INK}; }}
@@ -154,13 +161,11 @@ else:
         say += f" · lowest of {ctx['days']} days" if best["price"] <= ctx["low"] else f" · lowest is {money(ctx['low'])}"
         good = '<span class="good">Good price</span>' if best["price"] <= ctx["typical"] * 0.75 else ""
         context = f'<span class="ctx">{good}{e(say)}</span>'
-    if gq_best is not None:  # Sky Express's answer to the same question, one line under the price
-        insight += f'<span class="verdict" style="color:{sx.COLOUR}">{e(sx.sentence(gq_best, ret))}</span>'
     st.markdown(
         f'<div class="pass"><div class="pass-main"><div class="pass-codes">{e(orig)}<span class="line"></span>{e(dest)}</div>'
         f'<div class="pass-cities"><span>{e(tp.city(orig))}</span><span>{e(tp.city(dest))}</span></div><dl class="pass-fields">'
         + "".join(f"<div><dt>{k}</dt><dd>{e(v)}</dd></div>" for k, v in fields)
-        + f'</dl></div><div class="pass-stub"><span class="k">Cheapest {"return" if ret else "one way"}</span>'
+        + f'</dl></div><div class="pass-stub"><span class="k">{"AEGEAN " if gq else ""}Cheapest {"return" if ret else "one way"}</span>'
         f'<span class="price">{price}</span>{insight}<span class="note">'
         f'{"plus taxes and fees, " if pay == "miles" else who}best of the next {(lastday - today).days} days</span>{context}</div></div>',
         unsafe_allow_html=True)
@@ -190,10 +195,56 @@ else:
             st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
                        f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
 
+# --- Sky Express beside it (the toggle in the route bar), economy only: the cheapest trip of each airline, side by side ---------------
+if gq:
+    gqkey = f"ov-gq|{orig}|{dest}"
+    if len(gq_out):
+        ret = best is not None and best["back"] is not None
+        st.markdown('<p class="group">Cheapest by airline, same days and nights</p>', unsafe_allow_html=True)
+        cards = ""
+        for name, colour, b in (("AEGEAN", ECONOMY, best), (sx.NAME, sx.COLOUR, gq_best)):
+            other = gq_best if b is best else best
+            win = b is not None and (other is None or b["price"] <= other["price"])
+            if b is None:
+                body = f'<span class="p">—</span><span class="d">no {"return" if ret else "one-way"} fare saved for these days</span>'
+            else:
+                when = f"Leave {b['depart']:%a %d %b}" + (f" · back {b['back']:%a %d %b} · {b['nights']} nights" if b["back"] is not None
+                                                          else " · one way")
+                body = f'<span class="p">{e(money(b["price"] * pax))}</span><span class="d">{e(when)}</span>'
+            cards += (f'<div class="{"win" if win else ""}" style="--c:{colour}"><span class="a" style="color:{colour}">{e(name)}</span>'
+                      f'{"<span class=tag>Cheapest</span>" if win and other is not None else ""}{body}</div>')
+        st.markdown(f'<div class="airlines">{cards}</div>', unsafe_allow_html=True)
+        if best is not None and gq_best is not None and best["price"] != gq_best["price"]:
+            cheap, dear = sorted((("AEGEAN", best), (sx.NAME, gq_best)), key=lambda x: x[1]["price"])
+            st.caption(f"{cheap[0]} is €{(dear[1]['price'] - cheap[1]['price']) * pax:,.0f} cheaper for these dates. Economy, nonstop, "
+                       f"{who}fares as last checked. {len(gq_out)} days with a Sky Express fare {orig} → {dest}"
+                       + (f", {len(gq_back.dropna())} back" if gq_back is not None else "") + ".")
+        with st.expander("Sky Express against AEGEAN, day by day"):
+            t = sx.compare(out_s, gq_out)
+            st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
+            st.caption(f"Economy one-way {orig} → {dest}, nonstop, one adult. A negative difference is a Sky Express saving.")
+    else:
+        tok = gh.token()
+        if tok and not st.session_state.get(f"gh-{gqkey}"):
+            if st.button("Fetch Sky Express fares", icon=":material/cloud_download:", key=f"gq-fetch-{orig}{dest}",
+                         help=f"Economy, both ways, the next {(lastday - today).days} days, on GitHub's servers like AEGEAN's fares."):
+                try:
+                    legs = [(orig, dest, today + timedelta(1), lastday), (dest, orig, today + timedelta(1), lastday)]
+                    st.session_state[f"gh-{gqkey}"] = (gh.fetch(tok, legs, True, airline="GQ"), time.time())
+                    st.rerun()  # the button gives way to the progress note at once
+                except gh.GitHubError as err:
+                    st.warning(str(err), icon=":material/warning:")
+        elif not tok:
+            st.caption("No Sky Express fares saved for this route yet. They are fetched on GitHub's servers, which needs the GitHub token in "
+                       "the app's secrets (see the README); on your own computer, the Flights page fetches them with Update prices.")
+        github_progress(gqkey, "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
+        github_note(gqkey)
+
+
 # --- by month -------------------------------------------------------------------------------------------------------------------------
 m = deals.by_month(out_s)
 if len(m) > 1:
-    st.markdown(f'<p class="group">Cheapest one-way {e(orig)} → {e(dest)} by month</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="group">Cheapest {"AEGEAN " if gq else ""}one-way {e(orig)} → {e(dest)} by month</p>', unsafe_allow_html=True)
     st.markdown('<div class="months">' + "".join(
         f'<div class="{"low" if v == m.min() else ""}"><div class="m">{e(k)}</div><div class="v">{e(money(v))}</div></div>'
         for k, v in m.items()) + "</div>", unsafe_allow_html=True)
@@ -226,34 +277,6 @@ if back_s is not None and len(back_s.dropna()):
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
-
-# --- Sky Express beside it (the toggle in the route bar), economy only ----------------------------------------------------------------
-if gq:
-    gqkey = f"ov-gq|{orig}|{dest}"
-    if len(gq_out):
-        ret = best is not None and best["back"] is not None
-        st.caption(sx.sentence(gq_best, ret) + (" for the days and nights picked above" if ret else "") + f". {len(gq_out)} days with a "
-                   f"Sky Express fare {orig} → {dest}" + (f", {len(gq_back.dropna())} back" if gq_back is not None else "") + ".")
-        with st.expander("Sky Express against AEGEAN, day by day"):
-            t = sx.compare(out_s, gq_out)
-            st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
-            st.caption(f"Economy one-way {orig} → {dest}, nonstop, one adult. A negative difference is a Sky Express saving.")
-    else:
-        tok = gh.token()
-        if tok and not st.session_state.get(f"gh-{gqkey}"):
-            if st.button("Fetch Sky Express fares", icon=":material/cloud_download:", key=f"gq-fetch-{orig}{dest}",
-                         help=f"Economy, both ways, the next {(lastday - today).days} days, on GitHub's servers like AEGEAN's fares."):
-                try:
-                    legs = [(orig, dest, today + timedelta(1), lastday), (dest, orig, today + timedelta(1), lastday)]
-                    st.session_state[f"gh-{gqkey}"] = (gh.fetch(tok, legs, True, airline="GQ"), time.time())
-                    st.rerun()  # the button gives way to the progress note at once
-                except gh.GitHubError as err:
-                    st.warning(str(err), icon=":material/warning:")
-        elif not tok:
-            st.caption("No Sky Express fares saved for this route yet. They are fetched on GitHub's servers, which needs the GitHub token in "
-                       "the app's secrets (see the README); on your own computer, the Flights page fetches them with Update prices.")
-        github_progress(gqkey, "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
-        github_note(gqkey)
 
 # --- how the pass's fares moved over our snapshots, only once there is something to draw ----------------------------------------------
 if best is not None and hist is not None:

@@ -203,10 +203,13 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     # the pass: AEGEAN €60 out on day 10 + €150 back = €210; Sky Express €45 out on day 10 + €120 back = €165, the same filters
-    assert "€210" in text and "Sky Express: €165 on" in text and "(economy)" in text
+    assert "€210" in text and "AEGEAN Cheapest return" in text  # the pass is AEGEAN's; Sky Express's answer is the card below
+    cards = next(m.value for m in at.markdown if 'class="airlines"' in m.value)  # the cheapest trip of each airline, side by side
+    assert "AEGEAN" in cards and "Sky Express" in cards and "€210" in cards and "€165" in cards
+    assert cards.count("Cheapest") == 1 and cards.index("Sky Express") < cards.index("Cheapest")  # the badge is on Sky Express's card
     captions = " ".join(c.value for c in at.caption)
-    assert "Sky Express: €165" in captions and "30 days with a Sky Express fare ATH → FRA, 30 back" in captions
-    shown = at.dataframe[1].value  # the grid first, then the day-by-day table in the expander
+    assert "Sky Express is €45 cheaper for these dates" in captions and "30 days with a Sky Express fare ATH → FRA, 30 back" in captions
+    shown = at.dataframe[0].value  # the day-by-day table sits under the cards, before the grid
     assert list(shown.columns) == ["AEGEAN", "Sky Express", "Sky Express − AEGEAN"] and (shown["Sky Express"] == "€45").sum() == 1
     assert not at.button  # nothing to fetch: the fares are there
     at.button_group(key="ov-grid-cabin").set_value("business").run()
