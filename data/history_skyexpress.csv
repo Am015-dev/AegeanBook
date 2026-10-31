@@ -179,3 +179,9 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-27,ATH,FRA,economy,115.0,calendar,2026-10-31T16:32:12,1
 2027-01-28,ATH,FRA,economy,70.0,calendar,2026-10-31T16:32:12,1
 2027-01-29,ATH,FRA,economy,70.0,calendar,2026-10-31T16:32:12,1
+2027-01-30,FRA,ATH,economy,153.0,calendar,2026-10-31T17:33:29,1
+2027-01-31,FRA,ATH,economy,92.0,calendar,2026-10-31T17:33:29,1
+2027-02-01,FRA,ATH,economy,105.0,calendar,2026-10-31T17:33:29,1
+2027-02-02,FRA,ATH,economy,73.0,calendar,2026-10-31T17:33:29,1
+2027-02-03,FRA,ATH,economy,73.0,calendar,2026-10-31T17:33:29,1
+2027-02-04,FRA,ATH,economy,80.0,calendar,2026-10-31T17:33:29,1
