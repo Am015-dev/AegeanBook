@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 import collector
+import explore  # noqa: F401  the root module: a page run on its own would otherwise import views/explore.py under that name
 import db
 import fetch_route
 import gh
@@ -42,9 +43,9 @@ def test_fetch_route_parses_fetches_and_keeps_only_fresh_future_rows(tmp_path, m
     rows = out.read_text().splitlines()
     assert len(rows) == 1 + 3 and any(",ATH,BIO,economy,97.0," in r for r in rows) and any(",BIO,ATH,economy,," in r for r in rows)
     assert not any("business" in r and "BIO" in r for r in rows) and not any("2020-01-01" in r for r in rows)
-    today = date.today().isoformat()  # the searched routes are recorded, so the daily run can refresh them
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines() == ["orig,dest,nonstop,last_requested,airline",
-                                                                           f"ATH,BIO,1,{today},A3", f"BIO,ATH,1,{today},A3"]
+    today = date.today().isoformat()  # the searched routes are recorded, with the days asked for, so the daily run can refresh them
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines() == ["orig,dest,nonstop,last_requested,from,to,airline",
+                                                                           f"ATH,BIO,1,{today},{d1},{d1},A3", f"BIO,ATH,1,{today},{d1},{d1},A3"]
 
 
 def test_tracked_routes_are_upserted_by_the_merge_step_with_the_newest_request_date(tmp_path, monkeypatch):
@@ -54,9 +55,14 @@ def test_tracked_routes_are_upserted_by_the_merge_step_with_the_newest_request_d
     row = dict(day=d1, orig="ATH", dest="BIO", cabin="economy", price=97.0, source="calendar", fetched=datetime.now().isoformat(), nonstop=1)
     fetch_route.write_new([row], tmp_path / "a.csv")
     fetch_route.save(fetch_route.read(tmp_path / "a.csv"), track=True)  # the --merge path
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,BIO,1,{date.today()},A3", "SKG,LCA,1,2026-02-02,A3"]
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,BIO,1,{date.today()},{d1},{d1},A3", "SKG,LCA,1,2026-02-02,,,A3"]
     fetch_route.save([dict(row, price=98.0)])  # a --refresh save does not count as a request
-    assert f"ATH,BIO,1,{date.today()},A3" in (tmp_path / "tracked_routes.csv").read_text()
+    assert f"ATH,BIO,1,{date.today()},{d1},{d1},A3" in (tmp_path / "tracked_routes.csv").read_text()
+    may, far = (date.today() + timedelta(200)).isoformat(), (date.today() + timedelta(400)).isoformat()  # a summer month planned later
+    fetch_route.save([dict(row, day=may), dict(row, day=far)], track=True)
+    assert f"ATH,BIO,1,{date.today()},{d1},{date.today() + timedelta(330)},A3" in (tmp_path / "tracked_routes.csv").read_text()  # the union, capped
+    fetch_route.save([dict(row, day=(date.today() + timedelta(2)).isoformat())], track=True)  # a nearer search widens the start, keeps the end
+    assert f"ATH,BIO,1,{date.today()},{date.today() + timedelta(2)},{date.today() + timedelta(330)},A3" in (tmp_path / "tracked_routes.csv").read_text()
     wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
     assert "git add data/routes.csv data/tracked_routes.csv" in wf
 
@@ -89,6 +95,28 @@ def test_refresh_fetches_recent_tracked_routes_not_the_daily_legs_capped_and_wri
     assert fetch_route.refresh() == 0 and len((tmp_path / "history_prices.csv").read_text().splitlines()) == 4  # unchanged prices: no new rows
     wf = open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
     assert "python fetch_route.py --refresh" in wf and "data/routes.csv data/tracked_routes.csv" in wf
+
+
+def test_refresh_reaches_the_requested_end_and_only_beyond_the_daily_run_for_its_legs(tmp_path, monkeypatch):
+    import collect_daily
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "tracked_routes.csv").write_text("orig,dest,nonstop,last_requested,from,to\n"
+                                                 f"ATH,FRA,1,{today},{today + timedelta(200)},{today + timedelta(230)}\n"  # a daily leg, summer
+                                                 f"FRA,ATH,1,{today},{today + timedelta(5)},{today + timedelta(60)}\n"  # a daily leg, inside its 90 days
+                                                 f"ATH,BIO,1,{today},{today + timedelta(200)},{today + timedelta(400)}\n"  # planned past the horizon
+                                                 f"BIO,ATH,1,{today},{today + timedelta(1)},{today + timedelta(20)}\n")  # a short search: 90 days anyway
+    assert ("ATH", "FRA") in collect_daily.LEGS and collect_daily.DAYS == 90
+    asked = []
+
+    def fake(a, b, o, d, skip=(), nonstop=True):
+        asked.append((o, d, a, b))
+        yield a, "economy", 120.0, "calendar", "ok", None
+    monkeypatch.setattr(fetch_route, "fetch_range", fake)
+    assert fetch_route.refresh() == 0
+    assert asked == [("ATH", "FRA", today + timedelta(91), today + timedelta(230)),  # only the part the daily run does not cover
+                     ("ATH", "BIO", today + timedelta(1), today + timedelta(330)),  # to the requested end, at most the horizon
+                     ("BIO", "ATH", today + timedelta(1), today + timedelta(90))]  # FRA-ATH: the daily run has it all
 
 
 class Answer(io.BytesIO):
@@ -255,3 +283,108 @@ def test_hotels_page_fetches_only_missing_check_ins_on_github(tmp_path, monkeypa
     assert ranges == [(d(6), d(30))]  # only the check-ins not saved yet
     info = " ".join(i.value for i in at.info)
     assert "Searching on GitHub" in info and "already saved" not in info
+
+
+def far_month(today):
+    """(Period, its index in trip_plan.months) of a month about seven months ahead: nothing is saved there in the seeded databases."""
+    import trip_plan as tp
+    periods = tp.months(today, today + timedelta(30))
+    i = next(i for i, p in enumerate(periods) if p.start > today + timedelta(200))
+    return periods[i], i
+
+
+def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch):
+    from test_overview import pages, seed
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")  # the daily legs, 30 days
+    today = date.today()
+    p, i = far_month(today)
+    started, state = [], {"run": None}
+    monkeypatch.setattr(gh, "token", lambda: "tok")
+    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append((legs, nonstop)) or "abcd1234")
+    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
+    monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
+    at = open_page("overview.py").run()
+    assert not at.exception
+    when = at.selectbox(key="ov-grid-when-ATHFRAeconomycash")
+    assert when.options[1] == f"{today + timedelta(1):%B %Y}" and when.options[i] == f"{p.label} · not fetched yet"  # every month, marked
+    assert not [b for b in at.button if b.label.startswith("Fetch")]  # the pass's month is saved: nothing to fetch
+    when.set_value(i).run()
+    assert not at.exception and "No return trips saved for those days" in " ".join(c.value for c in at.caption)
+    key = f"ahead|ATH|FRA|{p.start}"
+    assert at.button(key=f"fetch-{key}").label == f"Fetch {p.label} fares"
+    at.button(key=f"fetch-{key}").click().run()
+    assert not at.exception and started == [([("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(2), p.end + timedelta(7))], True)]
+    assert "Searching on GitHub" in " ".join(x.value for x in at.info) and not [b for b in at.button if b.label.startswith("Fetch")]
+    # GitHub finished: the fares are in the database, the grid shows them and the button is gone
+    now = datetime.now().isoformat()
+    for o, d in (("ATH", "FRA"), ("FRA", "ATH")):
+        for j in range((p.end - p.start).days + 8):
+            t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((p.start + timedelta(j)).isoformat(), o, d, "economy", 99.0, "calendar", now, 1))
+    t.commit()
+    state["run"] = dict(status="completed", conclusion="success", url="u")
+    at.run()
+    assert not at.exception and "Searching on GitHub" not in " ".join(x.value for x in at.info)
+    assert len(at.dataframe[0].value) >= 28 and not [b for b in at.button if b.label.startswith("Fetch")]
+    assert at.selectbox(key="ov-grid-when-ATHFRAeconomycash").options[i] == p.label  # fetched now
+    # without a token nothing can be fetched from here: say so, and where to search
+    monkeypatch.setattr(gh, "token", lambda: None)
+    at = open_page("overview.py").run()
+    at.selectbox(key="ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich has nothing that far either
+    at.selectbox(key="ov-grid-when-ATHZRHeconomycash").set_value(i).run()
+    assert not at.exception and not [b for b in at.button if b.label.startswith("Fetch")]
+    assert f"{p.label} from Athens to Zurich is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
+
+
+def test_expert_and_explore_fetch_a_month_with_no_fares_on_github(tmp_path, monkeypatch):
+    import expert_chat as ex
+    from test_overview import pages, seed
+    open_page = pages(tmp_path, monkeypatch, "test")
+    t = seed(tmp_path / "tracker.db")
+    today = date.today()
+    p, i = far_month(today)
+    started = []
+    monkeypatch.setattr(gh, "token", lambda: "tok")
+    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
+    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
+    monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
+    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- ok")
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: pytest.fail("nothing to plan with"))
+    at = open_page("expert.py").run()
+    assert not at.exception and at.selectbox(key="plan-when").options[i] == f"{p.label} · not fetched yet"
+    assert at.button[0].label == "Ask the expert" and len(at.button) == 1  # the month on screen is saved: nothing to fetch
+    at.selectbox(key="plan-when").set_value(i).run()
+    assert not at.exception and at.button[0].label == "Ask the expert"  # the planner's own button stays first
+    at.button(key=f"fetch-ahead|ATH|FRA|{p.start}").click().run()  # a 3-night return by default: the way back three days later
+    assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(3), p.end + timedelta(3))]]
+    assert "Searching on GitHub" in " ".join(x.value for x in at.info)
+    started.clear()
+    at = open_page("explore.py").run()
+    assert not at.exception and at.selectbox(key="xp-when").options[i] == f"{p.label} · not fetched yet"
+    at.selectbox(key="xp-when").set_value(i).run()
+    assert not at.exception and f"No economy fares saved from Athens for {p.label}" in at.info[0].value
+    assert at.button(key=f"fetch-ahead|ATH|all|{p.start}").label == f"Fetch {p.label} for all routes from Athens"
+    at.button(key=f"fetch-ahead|ATH|all|{p.start}").click().run()  # one request: every route from Athens, both ways
+    assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("ATH", "ZRH", p.start, p.end),
+                                             ("FRA", "ATH", p.start, p.end), ("ZRH", "ATH", p.start, p.end)]]
+    assert "Searching on GitHub" in " ".join(x.value for x in at.info)
+    # the fetch is in: Explore lists Frankfurt for that month, and the expert plans from it (the Overview grid is covered above)
+    now = datetime.now().isoformat()
+    for o, d in (("ATH", "FRA"), ("FRA", "ATH")):
+        for j in range((p.end - p.start).days + 4):
+            t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((p.start + timedelta(j)).isoformat(), o, d, "economy", 88.0, "calendar", now, 1))
+    t.commit()
+    at = open_page("explore.py")
+    at.session_state["xp-when"] = i
+    at.run()
+    assert not at.exception and at.selectbox(key="xp-when").options[i] == p.label
+    cards = [m.value for m in at.markdown if 'class="xp"' in m.value]
+    assert len(cards) == 1 and "Frankfurt" in cards[0] and "€88" in cards[0] and not [b for b in at.button if b.label.startswith("Fetch")]
+    seen = []
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
+    at = open_page("expert.py")
+    at.session_state["plan-when"] = i
+    at.run()
+    assert not [b for b in at.button if b.label.startswith("Fetch")]
+    at.button[0].click().run()
+    assert not at.exception and f"{p.label}: I want a 3-night return trip" in seen[-1][0][-1]["content"] and ",88," in seen[-1][1]

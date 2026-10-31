@@ -87,10 +87,11 @@ def test_fetch_route_with_airline_gq_writes_skyexpress_csv_economy_only(tmp_path
     rows = fetch_route.read(tmp_path / "skyexpress.csv")
     assert [(r["orig"], r["dest"], r["cabin"], r["price"]) for r in rows] == [("ATH", "HER", "economy", "70.0")]
     assert not out.exists()  # AEGEAN's file is untouched
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,HER,1,{date.today()},GQ"]
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,HER,1,{date.today()},{d1},{d1},GQ"]
     fetch_route.main(f"ATH,HER,{d1},{d1}", True)  # AEGEAN after it: both cabins, the default kwargs, its own file and tracked row
     assert asked[1] == {} and len(fetch_route.read(out)) == 2
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,HER,1,{date.today()},A3", f"ATH,HER,1,{date.today()},GQ"]
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,HER,1,{date.today()},{d1},{d1},A3",
+                                                                              f"ATH,HER,1,{date.today()},{d1},{d1},GQ"]
     fetch_route.save(fetch_route.read(tmp_path / "skyexpress.csv"), track=True, airline="GQ")  # the --merge step for a GQ job
     assert len(fetch_route.read(tmp_path / "skyexpress.csv")) == 1 and fetch_route.outfile("GQ") == tmp_path / "skyexpress.csv"
     # the merge step also logs every Sky Express fare it saves in the permanent history, so an on-request fetch is never lost

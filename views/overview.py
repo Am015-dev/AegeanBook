@@ -11,6 +11,7 @@ import streamlit as st
 
 import booking
 import deals
+import fetch_ahead as fa
 import flight_times
 import gh
 import overview as ov
@@ -22,9 +23,9 @@ from insights import DAYS, FULL, weekday_stats
 from trip_cost import night_prices
 from ui import ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, github_note, github_progress, price_chart, route
 
-if getattr(ov, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 3:
+if getattr(tp, "VERSION", 0) < 4:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 5:
     deals = importlib.reload(deals)
@@ -32,6 +33,8 @@ if getattr(pi, "VERSION", 0) < 1:
     pi = importlib.reload(pi)
 if getattr(sx, "VERSION", 0) < 1:
     sx = importlib.reload(sx)
+if getattr(fa, "VERSION", 0) < 1:
+    fa = importlib.reload(fa)
 db = connect()
 today = date.today()
 fares, summary, trips, weekday, hotel_night, awards = ov.collect(db, today)
@@ -99,7 +102,9 @@ if gcab == "economy" and pay == "cash" and sx.serves(orig, dest):
     gq = st.toggle("Compare with Sky Express", key=f"ov-gq-{orig}{dest}",
                    help="Sky Express's economy fares for the same days, nonstop, one adult, fetched on request like AEGEAN's.")
 
-src = fares if pay == "cash" else awards
+# cash fares as far ahead as a month can be fetched (ov.collect stops at 90 days, enough for the tables below); miles are collected 90 days ahead
+far = ov.legs(db, today, tp.HORIZON)
+src = far if pay == "cash" else awards
 out_s = src.get((orig, dest), {})
 back_s = src.get((dest, orig), {})
 out_s = out_s[gcab] if gcab in out_s else pd.Series(dtype=float)
@@ -196,14 +201,15 @@ if len(m) > 1:
 # --- the dates behind it --------------------------------------------------------------------------------------------------------------
 if back_s is not None and len(back_s.dropna()):
     st.markdown('<p class="group">Pick your dates</p>', unsafe_allow_html=True)
-    periods = tp.months(today, lastday)
-    at = next((i for i, (_, a, b) in enumerate(periods) if i and best and a <= best["depart"] <= b), 0)  # open on the pass's month
+    farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.values() if len(s))  # the last day with fares, any route
+    periods = tp.months(today, farday)  # every month up to the horizon: a month with no fares yet can be fetched below
+    at = next((i for i, p in enumerate(periods) if i and best and p.start <= best["depart"] <= p.end), 0)  # open on the pass's month
     c = st.columns([1.1, 2.6, 2.3])
-    when = c[0].selectbox("Leaving", range(len(periods)), index=at, format_func=lambda i: periods[i][0], key=f"ov-grid-when-{fkey}")
+    when = c[0].selectbox("Leaving", range(len(periods)), index=at, format_func=lambda i: periods[i].title, key=f"ov-grid-when-{fkey}")
     c[1].pills("Leave on", DAYS, selection_mode="multi", default=DAYS, key=f"ov-grid-days-{fkey}")
     c[2].pills("Nights", NIGHTS, selection_mode="multi", default=NIGHTS, key=f"ov-grid-nights-{fkey}")
-    _, a, b = periods[when]
-    grid = deals.trip_grid(out_s, back_s, a, b, stays, wdays)
+    p = periods[when]
+    grid = deals.trip_grid(out_s, back_s, p.start, p.end, stays, wdays)
     if len(grid):
         st.dataframe(deals.styled(grid, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format, deals.grid_colours), width="stretch", height=min(36 * len(grid) + 38, 560))
         same = grid.min().min() == grid.max().max()
@@ -213,6 +219,11 @@ if back_s is not None and len(back_s.dropna()):
                       "Darkest green is the cheapest; light green is within 10% of it."))
     else:
         st.caption("No return trips saved for those days" + (" and nights" if len(wdays) < 7 or len(stays) < 6 else "") + ".")
+    # a period with no fares saved on this route (either way): one button fetches both directions on GitHub, the way back `stays` later
+    todo, blank = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
+    if blank and pay == "cash":  # award miles cannot be fetched from here: they are collected on the owner's computer, 90 days ahead
+        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Fetch {p.label} fares" if when else "Fetch the next 30 days", todo,
+                  f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
 

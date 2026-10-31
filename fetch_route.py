@@ -9,7 +9,8 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
 AIRLINE=GQ (environment, or a fourth argument) fetches Sky Express instead, economy only, into data/skyexpress.csv (same columns; the
 file is the airline). --merge and --refresh read AIRLINE too; --refresh keeps every tracked airline fresh. Each airline has its own
 permanent history beside its file (data/history_prices.csv, data/history_skyexpress.csv): never trimmed, one row per fare change.
-Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested,airline) so the daily run can refresh them.
+Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested,from,to,airline) so the daily run can refresh
+them: from and to are the union of the days ever requested, so a summer month planned on the Overview stays fresh until it is booked.
 """
 import csv
 import os
@@ -27,7 +28,8 @@ CABINS = {"A3": ("economy", "business"), "GQ": ("economy",)}  # Sky Express: eco
 HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA code -> its permanent history, next to OUT
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
-TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead
+TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
 
 def parse(legs):
@@ -77,15 +79,20 @@ def log_history(rows, airline="A3"):
 
 
 def track_routes(rows, path, airline="A3"):
-    """Upsert the rows' distinct (orig, dest, nonstop) into the tracked-routes file with last_requested = today, for `airline`
-    (rows written before the airline column existed are AEGEAN's)."""
-    routes = {(r["orig"], r["dest"], r["nonstop"], r.get("airline") or "A3"): r["last_requested"] for r in read(path)} if path.exists() else {}
+    """Upsert the rows' distinct (orig, dest, nonstop, airline) into the tracked-routes file with last_requested = today and from,to
+    widened to the rows' days (the union of every range requested, to at most today + HORIZON), so --refresh keeps a month planned far
+    ahead fresh. Rows written before the airline column existed are AEGEAN's."""
+    routes = {(r["orig"], r["dest"], r["nonstop"], r.get("airline") or "A3"): [r["last_requested"], r.get("from") or "", r.get("to") or ""]
+              for r in read(path)} if path.exists() else {}
+    far = (date.today() + timedelta(HORIZON)).isoformat()
     for r in rows:
-        routes[(r["orig"], r["dest"], str(r["nonstop"]), airline)] = date.today().isoformat()
+        v = routes.setdefault((r["orig"], r["dest"], str(r["nonstop"]), airline), ["", "", ""])
+        v[0] = date.today().isoformat()
+        v[1], v[2] = min(filter(None, (v[1], r["day"]))), min(max(v[2], r["day"]), far)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["orig", "dest", "nonstop", "last_requested", "airline"])
-        w.writerows((o, d, n, v, a) for (o, d, n, a), v in sorted(routes.items()))
+        w.writerow(["orig", "dest", "nonstop", "last_requested", "from", "to", "airline"])
+        w.writerows((o, d, n, *v, a) for (o, d, n, a), v in sorted(routes.items()))
 
 
 def read(path):
@@ -136,31 +143,36 @@ def main(legs, nonstop, passes=3, pause=90, new=None, airline="A3"):
 
 
 def refresh(passes=3, pause=90):
-    """The daily run: fetch the next REFRESH_DAYS again for every tracked route searched in the last TRACK_DAYS (the newest TRACK_MAX
-    of them; the daily run's own legs are skipped), and add the rows to the permanent history so recent weeks can be compared."""
-    from collect_daily import LEGS  # here: that module needs the hotel packages, which the fetch-route job does not install
+    """The daily run: fetch again the next REFRESH_DAYS, or up to the last day ever requested (`to`) when that is further, for every tracked
+    route searched in the last TRACK_DAYS (the newest TRACK_MAX of them). The daily run's own legs get only the part beyond its DAYS, so a
+    summer planned on ATH-FRA stays fresh too. The rows go to the permanent history as well, so recent weeks can be compared."""
+    from collect_daily import DAYS, LEGS  # here: that module needs the hotel packages, which the fetch-route job does not install
     tracked = OUT.with_name("tracked_routes.csv")
-    since = (date.today() - timedelta(TRACK_DAYS)).isoformat()
-    routes = [r for r in read(tracked) if r["last_requested"] >= since and ((r["orig"], r["dest"]) not in LEGS or (r.get("airline") or "A3") != "A3")] if tracked.exists() else []
-    routes.sort(key=lambda r: r["last_requested"], reverse=True)
-    for r in routes[TRACK_MAX:]:  # ponytail: a fixed cap keeps the run under ~30 min; split into matrix jobs if more routes are wanted
-        print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)")
-    routes = routes[:TRACK_MAX]
-    a, b = date.today() + timedelta(1), date.today() + timedelta(REFRESH_DAYS)
-    rows, failed, other = [], 0, {}  # other: the rows of every other airline, by code, saved in their own files
-    for r in routes:
+    today = date.today()
+    since = (today - timedelta(TRACK_DAYS)).isoformat()
+    jobs = []  # (route, airline, first day, last day) for every route with something to fetch
+    for r in read(tracked) if tracked.exists() else []:
         code = r.get("airline") or "A3"
+        daily = code == "A3" and (r["orig"], r["dest"]) in LEGS  # collect_daily fetches these legs' first DAYS already
+        a = today + timedelta(1 + (DAYS if daily else 0))
+        b = today + timedelta(REFRESH_DAYS)
+        if r.get("to"):
+            b = max(b, min(date.fromisoformat(r["to"]), today + timedelta(HORIZON)))
+        if r["last_requested"] >= since and a <= b:
+            jobs.append((r, code, a, b))
+    jobs.sort(key=lambda j: j[0]["last_requested"], reverse=True)
+    for r, *_ in jobs[TRACK_MAX:]:  # ponytail: a fixed cap keeps the run under ~30 min; split into matrix jobs if more routes are wanted
+        print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)")
+    got_by, failed = {"A3": []}, 0  # rows by airline: each airline is saved in its own file, with its own permanent history
+    for r, code, a, b in jobs[:TRACK_MAX]:
         got, f = fetch(f"{r['orig']},{r['dest']},{a},{b}", r["nonstop"] not in ("0", "false", "False"), passes, pause, code)
-        rows, failed = rows + (got if code == "A3" else []), failed + f
-        if code != "A3":
-            other[code] = other.get(code, []) + got
-    save(rows)
-    log_history(rows)  # the permanent history next to each file: never trimmed, one row per change
-    for code, got in other.items():
+        got_by[code], failed = got_by.get(code, []) + got, failed + f
+    rows = []
+    for code, got in got_by.items():
         save(got, airline=code)
-        log_history(got, code)
-    rows += [r for got in other.values() for r in got]
-    print(f"refreshed {len(routes)} routes: {len(rows)} saved, {failed} failed")
+        log_history(got, code)  # the permanent history next to each file: never trimmed, one row per change
+        rows += got
+    print(f"refreshed {min(len(jobs), TRACK_MAX)} routes: {len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
 
 
