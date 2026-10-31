@@ -2,6 +2,7 @@
 (Google Hotels and Booking.com). Writes data/daily.csv and data/daily_hotel.csv, which the app loads on start.
 Retries failed days over several passes; exits 1 if any are still missing."""
 import csv
+import os
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -60,6 +61,11 @@ def save(got, path=OUT):
         rows[(day, o, t, c)] = dict(day=day, orig=o, dest=t, cabin=c, price="" if price is None else price, source=source,
                                     fetched=now, nonstop=1)
         fresh.append(rows[(day, o, t, c)])
+    if os.environ.get("DAILY_NEW_ROWS"):  # the workflow's save loop re-applies today's rows to the history of whatever main is newest
+        with open(os.environ["DAILY_NEW_ROWS"], "w", newline="") as f:
+            w = csv.DictWriter(f, FIELDS)
+            w.writeheader()
+            w.writerows(fresh)
     try:  # the permanent history next to the file: never trimmed, one row per change
         history.append_changes(path.with_name("history_prices.csv"), fresh, ("day", "orig", "dest", "cabin", "nonstop"), ("price",))
     except Exception as e:  # the history is a bonus: never let it break the daily run
