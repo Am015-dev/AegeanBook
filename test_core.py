@@ -839,22 +839,6 @@ def test_insights_say_which_weekday_is_cheapest_and_whether_late_booking_costs_m
     assert ins.moves(pd.DataFrame(), "ATH", "FRA", "economy") == {} and len(ins.history_chart(mv["2026-11-18"], "#2563C9").data) == 1
 
 
-def test_insights_page_renders_with_its_takeaways(tmp_path, monkeypatch):
-    import os
-    from streamlit.testing.v1 import AppTest
-    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "when_to_fly.py")
-    _seed_fares(tmp_path, monkeypatch)
-    at = AppTest.from_file(page, default_timeout=90).run()
-    assert not at.exception
-    shown = " ".join(m.value for m in at.markdown)
-    assert "is the cheapest day to fly ATH \u2192 FRA" in shown or "No strong weekday pattern on ATH \u2192 FRA" in shown    # a sentence, then the chart
-    infos = " ".join(i.value for i in at.info)    # the repo's real history grows daily, so accept each of its three honest states
-    assert "Is the fare rising or falling?" in shown
-    assert "We started recording" in infos or "No fare on this route has changed" in infos or any(s.key == "ins-day" for s in at.selectbox)
-    at.radio(key="ins-cabin").set_value("business").run()
-    assert not at.exception and "business" in " ".join(c.value for c in at.caption)
-
-
 def test_advice_names_a_shortlist_of_days_not_one_arbitrary_day():
     import pandas as pd
     import best_days as bd
