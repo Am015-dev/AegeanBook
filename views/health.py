@@ -8,6 +8,10 @@ from ui import route
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 route("Health", None, "Check that each data source answers right now. Run this first if results look odd or empty.")
+st.markdown('<p class="card-title">GitHub minutes</p>', unsafe_allow_html=True)
+import budget as _budget
+import gh as _gh
+st.caption(_budget.line(_gh.budget()))
 st.markdown('<p class="card-title">Data freshness</p>', unsafe_allow_html=True)
 for name, last, age, level, how in freshness(DATA):
     when = "no data yet" if last is None else f"last collected {last[:10]} ({'today' if age == 0 else 'yesterday' if age == 1 else f'{age} days ago'})"

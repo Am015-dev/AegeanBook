@@ -323,3 +323,12 @@ which saves to `data/hotel_searches.csv`. **Show flight times** under the Overvi
 (`fetch_details.py`), which saves the flight numbers, times and Google's lowest fare of the leave and return days to
 `data/flight_details.csv`. Those prices are Google's lowest fare for the flight, whatever it includes; the app does not know the fare family. Every fetch merges its rows into the newest file before pushing, so fetches running at the
 same time (and the daily run) never overwrite each other.
+
+## GitHub minutes
+
+A private repository has 2,000 free GitHub Actions minutes a month; the morning run and the searches from the app spend about 600.
+`budget.py` reads the account's usage from GitHub's billing API at the start of every run; past 85% the morning run and the searches do
+nothing until the month resets, so the account never pays. The reading needs a token that can see billing: add a repository secret
+`BILLING_TOKEN` (a fine-grained personal access token with the account permission *Plan: read*, or a classic token with the `user`
+scope). Without it the guard cannot read the usage and nothing is paused. The Health page shows the same line, with the app's own token
+when it has that permission.

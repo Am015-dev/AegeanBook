@@ -38,6 +38,9 @@ def button(key, label, legs, what, nonstop=True):
     if not tok:
         st.caption(f"{what} is not fetched yet. Search those dates on the Flights page to fetch the fares.")
         return
+    if gh.paused():  # the month's free GitHub minutes are nearly spent: no new run until the month resets (budget.py)
+        st.caption(f"{what} is not fetched yet. Searches are paused until the GitHub minutes reset at the start of next month.")
+        return
     if not st.session_state.get(f"gh-{key}"):  # while a fetch runs, only its progress shows
         if st.button(label, key=f"fetch-{key}", icon=":material/cloud_download:"):
             try:
