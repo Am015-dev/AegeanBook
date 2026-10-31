@@ -29,7 +29,7 @@ CABINS = {"A3": ("economy", "business"), "GQ": ("economy",)}  # Sky Express: eco
 HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA code -> its permanent history, next to OUT
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
-TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 40, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
 HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
 
@@ -162,7 +162,7 @@ def refresh(passes=3, pause=90):
         if r["last_requested"] >= since and a <= b:
             jobs.append((r, code, a, b))
     jobs.sort(key=lambda j: j[0]["last_requested"], reverse=True)
-    for r, *_ in jobs[TRACK_MAX:]:  # ponytail: a fixed cap keeps the run under ~30 min; split into matrix jobs if more routes are wanted
+    for r, *_ in jobs[TRACK_MAX:]:  # ponytail: a fixed cap keeps the daily run inside its timeout; split into matrix jobs if more routes are wanted
         print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)")
     got_by, failed = {"A3": []}, 0  # rows by airline: each airline is saved in its own file, with its own permanent history
     for r, code, a, b in jobs[:TRACK_MAX]:
