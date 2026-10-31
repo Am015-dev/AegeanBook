@@ -6,6 +6,25 @@ Compares Economy cash, Business cash (Google Flights date grid via `fli` (packag
     pip install -r requirements.txt
     streamlit run app.py
 
+## The pages
+
+**Overview** is the one place to find a trip. One search bar: From, To (every airport with fares saved first, then every other AEGEAN
+destination, and **Anywhere** at the top), When (the next 30 days, or any month up to about 11 months ahead), Nights (2 to 7, pick any),
+Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one answer:
+
+- a **route** gives a boarding pass with the cheapest trip leaving in that period and two plain sentences on what the price means
+  ("Usually €180–€240 return. €140 is cheap."), the booking links, the cheapest month, the date grid (day you leave × nights you stay, with
+  **Leave on** weekday pills), **How this fare moved**, and two expanders, **Best weekday to fly** and **How far ahead to book**, with the
+  chart and a one-line takeaway for that route and cabin;
+- **Anywhere** lists every destination with fares saved from there, cheapest first, as cards (the dates of the trip, how many days have a
+  flight, what it usually costs; a route saved one way only shows its one-way); **See dates** puts that destination in To;
+- a route or month with **nothing saved** gets one button, **Search this route on GitHub** (or **Search May 2027 on GitHub**), which fetches
+  both directions on GitHub's servers and shows the answer when it lands, usually in 1–3 minutes; a route AEGEAN does not fly says so and
+  names the airports it does fly in that city. Without the GitHub token, a line points to the Flights page instead.
+
+On first load the page shows the first saved route (Athens → Frankfurt) and says so until you pick something. **Expert** is the other
+top-level page; Flights (search any dates by hand), Hotels, Alerts, Database, Statistics and Health are under **More**.
+
 Self-check: `python collector.py`. Scraping may break whenever Google changes its page.
 
 ## Award recorder (optional, your own account, your own machine)
@@ -66,8 +85,11 @@ be on. Nothing is exposed to the public internet.
   AEGEAN destinations and prints any airport it could not match). Names come from `data/airports.csv`, every airport with scheduled
   flights, built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
 - **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
-- **Cheap days:** "Cheap means within" keeps every day within 0–30 % of the cheapest price (a route often has several days
-  at the same lowest fare); "Days of the week" limits cards, chips and chart to the weekdays you can travel.
+- **Pay with:** Cash € (the default) shows the cash fares; Miles adds the award seats collected for the route (Miles+Bonus, economy and
+  business) beside them, as on the Overview.
+- **Options:** nonstop only, re-check saved days, and the finer filters: "Cheap means within" keeps every day within 0–30 % of the
+  cheapest price (10 % by default; a route often has several days at the same lowest fare), and "Days of the week" limits cards, chips
+  and chart to the weekdays you can travel.
 
 ## Return trips and statistics
 
@@ -91,12 +113,13 @@ airline may price a group differently.
 ## Compare with Sky Express (economy only, for now)
 
 Sky Express (GQ) is AEGEAN's competitor on Greek domestic routes and a growing set of European ones. Where both airports are in its
-network, the Overview's route bar and the Flights page's search card show a **Compare with Sky Express** toggle (its state is kept per
-route). On the Overview it adds one line to the boarding pass stub, "Sky Express: €X on <day> (economy)", the cheapest Sky Express trip for
-the same days and nights picked, plus a day-by-day table of both fares and the difference under the grid; on the Flights page Sky Express's
+network, the Overview (once Sky Express fares are saved for the route and period) and the Flights page's search card show a **Compare with
+Sky Express** toggle (its state is kept per route). On the Overview it adds **Cheapest by airline** under the boarding pass: one card per airline with its cheapest trip for
+the same days and nights picked, the cheaper one marked, a line saying how much cheaper, plus a day-by-day table of both fares and the
+difference under the grid; on the Flights page Sky Express's
 economy fare is a dashed line on the price charts, and **Update prices** fetches it for the same days (its own run on GitHub, or in the app
-without a token). With no Sky Express fares saved yet, the Overview offers **Fetch Sky Express fares** (GitHub token needed, as for AEGEAN's
-fetches). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
+without a token). With no Sky Express fares saved yet, the Overview shows **Search Sky Express fares** in the toggle's place (GitHub token
+needed, as for AEGEAN's fetches; without one, nothing). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
 `data/skyexpress.csv`, which the app loads into its own table (`gq_prices`) beside AEGEAN's, so nothing about the AEGEAN data changes; a
 Sky Express route searched from the app is tracked in `data/tracked_routes.csv` (column `airline`) and refreshed by the daily run like the
 others. Every Sky Express fare collected is also kept for good in `data/history_skyexpress.csv`, its own permanent history beside
@@ -113,34 +136,50 @@ Every morning at 07:17 Athens time GitHub Actions (`.github/workflows/daily.yml`
 ATH–FRA, FRA–ATH, ATH–ZRH and ZRH–ATH, both cabins, nonstop, for the next 90 days. That is 720 prices. Days that fail
 are retried in up to 4 passes. If any are still missing, the run is marked red, and those days keep yesterday's price.
 The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter Hof, 1 night, 2 adults) from Google Hotels and Booking.com for every check-in day, into `data/daily_hotel.csv` (change `HOTEL` in `collect_daily.py` for another hotel). The flight results go to `data/daily.csv`, and the app loads that file when it starts, so these routes are ready without
-pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
-edit `LEGS` in `collect_daily.py`.
+pressing Update prices. The same run also fetches Sky Express economy fares on those legs where both airports are in its network
+(ATH–FRA and back today; `AIRLINE=GQ python fetch_route.py --daily`), into `data/skyexpress.csv` and its permanent history, so the
+Compare with Sky Express toggle has something to show on the daily routes without a fetch. To run it by hand, open GitHub → Actions →
+Daily fares → Run workflow. To change the routes, edit `LEGS` in `collect_daily.py`.
 
-## Explore: where can I fly cheaply?
+## Anywhere: where can I fly cheaply?
 
-The **Explore** page is Google Flights' Explore for AEGEAN: pick where you leave from, when (the next 30 days or a month), one way or a
-2–7 night return, the cabin and a budget, and it lists every destination with fares saved, cheapest first (the price, the dates of that
-trip, how many days have a flight, and the typical price), the ones over budget greyed at the bottom. **See dates** opens the Overview's
-date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the daily run tracks.
+**Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, When, Nights and Cabin in the bar it
+lists every destination with fares saved, cheapest first (the price, the dates of that trip, how many days have a flight, and what it
+usually costs). **See dates** opens the date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the
+daily run tracks; a month nobody has fetched offers **Search all routes from Athens on GitHub**. The list is one grouped list, the price
+trailing, with a **See dates for** pill row under it.
 
 ## Price insights (Overview)
 
-Like Google Flights, the Overview says whether the boarding pass's fare is **Low**, **Typical** or **High** for that route, from our own
-history: `data/history_prices.csv` keeps every fare change the daily run and the Flights page have seen since 29 Oct 2026. Low and high
-are the 25th and 75th percentiles of every one-way fare seen on the route, on any departure day, in any snapshot of the last 60 days (the
-two legs are added up for a return). Until a route has seven days of prices the pass only says since when it is tracked, and **How this
-fare moved** under the date grid charts the pass's own days across the snapshots (`price_insights.py`, tests in `test_price_insights.py`).
+Like Google Flights, the Overview says whether the boarding pass's fare is cheap, typical or high for that route, from our own history:
+`data/history_prices.csv` keeps every fare change the daily run and the Flights page have seen since 29 Oct 2026. The pass says "Usually
+€180–€240 return. €140 is cheap.": the range is the 25th to 75th percentile of every one-way fare seen on the route, on any departure day, in
+any snapshot of the last 60 days (the two legs added up for a return). Until a route has seven days of prices the pass says instead what
+trips like it usually cost among the dates saved, and **How this fare moved** under the date grid charts the pass's own days across the snapshots
+(`price_insights.py`, tests in `test_price_insights.py`). **Best weekday to fly** and **How far ahead to book** (the former Insights page,
+`insights.py`) are expanders under the grid for the route and cabin picked.
 
-## The expert (Expert page, and its daily take on the Overview)
+## The expert (Expert page)
 
-An AI model reads the saved fares, award miles and hotel prices, writes a three-line briefing once a day (shown on the Overview) and answers questions in a chat that remembers the conversation. **Plan a trip** on the Expert page asks it from your own choices (destination, month, cabin, cash or miles, one way or return with nights, hotel, the days you can leave): the app works out every candidate trip first, and the expert explains the best time to fly and why. The hotel is one you searched on the Hotels page (1 night) in that city, the most recent first; the Overview's Frankfurt trips use the most recent Frankfurt search too. Add one key under
+The Expert page reads the same answer as the Overview's boarding pass and explains it. Its controls are the Overview's (From, To, When,
+Cabin, Pay with, Nights, Days I can leave, plus a Hotel searched in that city), with the same defaults, and **Ask the expert about it** on the
+Overview opens it on exactly the pass shown (`?from=&to=&cabin=&pay=&nights=`). The numbers come from the very functions the pass uses, with the
+same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for the typical and lowest price,
+`price_insights` for the usual range, Sky Express's best trip when it has fares, the hotel for those nights), so the two pages cannot disagree.
+**Today's briefing** is three plain sentences: the recommended trip with dates, nights and price; why (the usual range or the typical price,
+the weekday, how far ahead); and the one alternative that matters (Sky Express when it is cheaper, the cheapest cash trip when paying with
+miles, otherwise the next-cheapest week). An AI model writes them in its own words, once a day per search, from those facts and nothing
+else; when it is busy, out of quota or there is no key, the page shows the same three sentences built in Python (`expert_chat.sentences`),
+so it never shows nothing. The chat under it answers follow-ups from the same facts plus every tracked route's one-way fares, and says when
+something is not in the data ("I only have fares up to 29 January; search that month on the Overview"). Add one key under
 **Settings → Secrets** of the app on Streamlit Cloud:
 
 - `GEMINI_API_KEY = "..."`: free. Create it at aistudio.google.com; no card needed. Uses `gemini-3.8-flash`, falling back to
   `gemini-3.5-flash-lite` when the first is busy or out of free quota.
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
-Without either key, the expert is hidden. Either way the app answers at most 60 questions a day (`MAX_PER_DAY` in `expert_chat.py`).
+Without either key, the page still shows the plain briefing, and the chat is hidden. Either way the app answers at most 60 questions a day
+(`MAX_PER_DAY` in `expert_chat.py`).
 
 ## Price alerts (free, by email or phone)
 
@@ -180,13 +219,15 @@ your own computer, say), the search runs in the app as before.
 
 A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
 the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
-`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks.
+`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks. The fares a search brings back go
+into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
+keeps a row when a price changes, so the refresh seeing the same fare adds nothing.
 
-**Planning months ahead.** The Overview's *Leaving*, the Expert's *When* and Explore's *When* list every month up to about 11 months
+**Planning months ahead.** The Overview's *When* and the Expert's *When* list every month up to about 11 months
 ahead (`trip_plan.months`), not only the months with fares saved; a month nobody has fetched is marked "not fetched yet". Choose one and
-the Overview and the Expert offer one button, **Fetch May 2027 fares**, which fetches both directions for that month on GitHub's servers
-(only the days still missing, like Update prices on Flights) and reloads the page with the fares; Explore's button fetches the month for
-every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
+the Overview offers **Search May 2027 on GitHub** and the Expert **Fetch May 2027 fares**, which fetch both directions for that month on
+GitHub's servers (only the days still missing, like Update prices on Flights) and reload the page with the fares; with To set to Anywhere
+the Overview's button fetches the month for every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
 Flights page. A month fetched this way is tracked with its dates (`from,to` in `data/tracked_routes.csv`, the union of every range asked
 for, at most today + 330 days), and the daily refresh fetches each tracked route up to that day instead of stopping at 90 days; the
 daily routes (ATH–FRA, ATH–ZRH) get only the part beyond the daily run's own 90 days. *Actions minutes:* a one-way leg costs about

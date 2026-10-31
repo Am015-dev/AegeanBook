@@ -94,14 +94,19 @@ def test_fetch_route_with_airline_gq_writes_skyexpress_csv_economy_only(tmp_path
                                                                               f"ATH,HER,1,{date.today()},{d1},{d1},GQ"]
     fetch_route.save(fetch_route.read(tmp_path / "skyexpress.csv"), track=True, airline="GQ")  # the --merge step for a GQ job
     assert len(fetch_route.read(tmp_path / "skyexpress.csv")) == 1 and fetch_route.outfile("GQ") == tmp_path / "skyexpress.csv"
-    # the merge step also logs every Sky Express fare it saves in the permanent history, so an on-request fetch is never lost
+    # the merge step also logs every fare it saves in the airline's permanent history, so an on-request fetch is never lost
     assert fetch_route.log_history(fetch_route.read(tmp_path / "skyexpress.csv"), "GQ") == 1
     assert fetch_route.log_history(fetch_route.read(tmp_path / "skyexpress.csv"), "GQ") == 0  # the same fare again: one row, not two
     assert fetch_route.read(tmp_path / "history_skyexpress.csv")[0]["price"] == "70.0" and not (tmp_path / "history_prices.csv").exists()
+    assert fetch_route.log_history(fetch_route.read(out), "A3") == 2  # AEGEAN's fetch too, into its own history
+    assert fetch_route.log_history(fetch_route.read(out), "A3") == 0  # the daily run saving the same fares later adds nothing
+    assert {r["cabin"] for r in fetch_route.read(tmp_path / "history_prices.csv")} == {"economy", "business"}
     main = open(os.path.join(HERE, "fetch_route.py")).read()
-    assert "log_history(rows, airline)" in main[main.index('if sys.argv[1] == "--merge"'):]
+    merge = main[main.index('if sys.argv[1] == "--merge"'):main.index('elif sys.argv[1] == "--refresh"')]
+    assert "log_history(rows, airline)" in merge and "if airline" not in merge  # every airline, not only Sky Express
     wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
     assert "AIRLINE: ${{ inputs.airline }}" in wf and 'default: "A3"' in wf and "data/skyexpress.csv data/history_skyexpress.csv" in wf
+    assert "git add data/routes.csv data/tracked_routes.csv data/history_prices.csv" in wf  # the AEGEAN history is committed too
     assert "inputs.airline }}\"" not in wf
     assert "data/skyexpress.csv data/history_skyexpress.csv" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
 
@@ -129,6 +134,27 @@ def test_refresh_keeps_sky_express_routes_fresh_economy_only(tmp_path, monkeypat
     hist = fetch_route.read(tmp_path / "history_skyexpress.csv")  # Sky Express has its own permanent history, written the same way
     assert {(r["orig"], r["dest"], r["cabin"], r["price"]) for r in hist} == {("ATH", "FRA", "economy", "88.0"), ("ATH", "HER", "economy", "88.0")}
     assert fetch_route.refresh() == 0 and len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2  # unchanged prices: no new rows
+
+
+def test_daily_fetches_sky_express_on_the_daily_legs_it_serves(tmp_path, monkeypatch):
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "skyexpress_airports.csv").write_text("iata,city,country,seasonal\nATH,Athens,Greece,0\nFRA,Frankfurt,Germany,0\n")
+    asked = []
+
+    def fake(a, b, o, d, skip=(), nonstop=True, **kw):
+        asked.append((o, d, kw["airline"].name, a, b))
+        for cabin in kw["cabins"]:
+            yield a, cabin, 66.0, "calendar", "ok", None
+    monkeypatch.setattr(fetch_route, "fetch_range", fake)
+    assert fetch_route.daily() == 0
+    first, last = today + timedelta(1), today + timedelta(90)  # collect_daily.DAYS; ZRH is not in Sky Express's network
+    assert asked == [("ATH", "FRA", "GQ", first, last), ("FRA", "ATH", "GQ", first, last)]
+    assert {(r["orig"], r["dest"], r["cabin"]) for r in fetch_route.read(tmp_path / "skyexpress.csv")} == {("ATH", "FRA", "economy"),
+                                                                                                           ("FRA", "ATH", "economy")}
+    assert len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2 and not out.exists()
+    assert not (tmp_path / "tracked_routes.csv").exists()  # not tracked: --refresh must not fetch them a second time
+    assert "AIRLINE=GQ python fetch_route.py --daily" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
 
 
 def test_github_dispatch_carries_the_airline(monkeypatch):
@@ -182,10 +208,13 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     # the pass: AEGEAN €60 out on day 10 + €150 back = €210; Sky Express €45 out on day 10 + €120 back = €165, the same filters
-    assert "€210" in text and "Sky Express: €165 on" in text and "(economy)" in text
+    assert "€210" in text and "AEGEAN Cheapest return" in text  # the pass is AEGEAN's; Sky Express's answer is the card below
+    cards = next(m.value for m in at.markdown if 'class="airlines"' in m.value)  # the cheapest trip of each airline, side by side
+    assert "AEGEAN" in cards and "Sky Express" in cards and "€210" in cards and "€165" in cards
+    assert cards.count("Cheapest") == 1 and cards.index("Sky Express") < cards.index("Cheapest")  # the badge is on Sky Express's card
     captions = " ".join(c.value for c in at.caption)
-    assert "Sky Express: €165" in captions and "30 days with a Sky Express fare ATH → FRA, 30 back" in captions
-    shown = at.dataframe[1].value  # the grid first, then the day-by-day table in the expander
+    assert "Sky Express is €45 cheaper for these dates" in captions and "30 days with a Sky Express fare ATH → FRA, 30 back" in captions
+    shown = at.dataframe[0].value  # the day-by-day table sits under the cards, before the grid
     assert list(shown.columns) == ["AEGEAN", "Sky Express", "Sky Express − AEGEAN"] and (shown["Sky Express"] == "€45").sum() == 1
     assert not at.button  # nothing to fetch: the fares are there
     at.button_group(key="ov-grid-cabin").set_value("business").run()
@@ -200,25 +229,22 @@ def test_overview_offers_to_fetch_sky_express_fares_on_github_when_none_are_save
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop, airline="A3": started.append((legs, nonstop, airline)) or "gq123456")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
     at = open_page("overview.py").run()
-    at.toggle(key="ov-gq-ATHFRA").set_value(True).run()
-    assert not at.exception and "Sky Express: €" not in " ".join(m.value for m in at.markdown)
-    fetch = [b for b in at.button if b.label == "Fetch Sky Express fares"]
+    assert not at.exception and not at.toggle  # nothing to compare yet, so no toggle: the fetch button sits in its place
+    fetch = [b for b in at.button if b.label == "Search Sky Express fares"]
     assert len(fetch) == 1
     fetch[0].click().run()
     assert not at.exception and len(started) == 1
     legs, nonstop, airline = started[0]
     assert airline == "GQ" and nonstop is True and [(o, d_) for o, d_, _, _ in legs] == [("ATH", "FRA"), ("FRA", "ATH")]
     assert legs[0][2] == date.today() + timedelta(1) and legs[0][3] == date.today() + timedelta(30)  # the saved AEGEAN range
-    assert "Searching on GitHub" in " ".join(i.value for i in at.info) and not [b for b in at.button if b.label == "Fetch Sky Express fares"]
+    assert "Searching on GitHub" in " ".join(i.value for i in at.info) and not [b for b in at.button if b.label == "Search Sky Express fares"]
     state["run"] = dict(status="completed", conclusion="success", url="u")
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(i.value for i in at.info)
-    # without a token: a caption instead of the button
+    # without a token the fares cannot be fetched from here (the Flights page does it on your own computer): neither button nor toggle
     monkeypatch.setattr(gh, "token", lambda: None)
     at = open_page("overview.py").run()
-    at.toggle(key="ov-gq-ATHFRA").set_value(True).run()
-    assert not at.exception and not [b for b in at.button if b.label == "Fetch Sky Express fares"]
-    assert "needs the GitHub token" in " ".join(c.value for c in at.caption)
+    assert not at.exception and not [b for b in at.button if b.label == "Search Sky Express fares"] and not at.toggle
     at.selectbox(key=f"ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle at all
     assert not at.exception and not at.toggle
 
@@ -234,6 +260,7 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = open_page("flights.py").run()
     assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is False
+    assert "Sky Express fares can be fetched too" not in " ".join(c.value for c in at.caption)  # fares saved: the toggle is in the card
     at.toggle(key="fl-gq-ATHFRA").set_value(True).run()
     assert not at.exception
     assert "Dashed: Sky Express economy, cheapest €45" in " ".join(c.value for c in at.caption)
@@ -247,3 +274,15 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     assert airline == "GQ" and legs == [("ATH", "FRA", date.today() + timedelta(21), date.today() + timedelta(30)),
                                         ("FRA", "ATH", date.today() + timedelta(21), date.today() + timedelta(30))]
     assert "Sky Express fares appear here" in " ".join(i.value for i in at.info)
+
+
+def test_flights_page_keeps_the_sky_express_toggle_under_options_until_its_fares_are_saved(tmp_path, monkeypatch):
+    open_page = pages(tmp_path, monkeypatch)
+    seed(tmp_path / "tracker.db", gq=False)
+    at = open_page("flights.py").run()
+    assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is False  # still there, under Options
+    assert "Sky Express fares can be fetched too: Options → Compare with Sky Express" in " ".join(c.value for c in at.caption)
+    at.toggle(key="fl-gq-ATHFRA").set_value(True).run()
+    assert not at.exception and "No Sky Express fares saved for these days yet" in " ".join(c.value for c in at.caption)
+    at.selectbox(key="dest").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle, no caption
+    assert not at.exception and not at.toggle and "Sky Express" not in " ".join(c.value for c in at.caption)

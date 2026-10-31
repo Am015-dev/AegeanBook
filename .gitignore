@@ -6,3 +6,5 @@ __pycache__/
 award_recording.json
 hotel_export.xlsx
 .streamlit/secrets.toml
+.claude/skills/
+.claude/worktrees/

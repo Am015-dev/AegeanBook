@@ -14,7 +14,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_aegean_airports import DROP, match, plain, wikipedia_rows  # noqa: E402  the same matching as the AEGEAN list
+from build_aegean_airports import DROP, airport_not_city, match, plain, wikipedia_rows  # noqa: E402  the same matching as the AEGEAN list
 
 SITE = "https://www.skyexpress.gr/en/discover/destinations"
 WIKI = "https://en.wikipedia.org/wiki/Sky_Express_(Greece)"
@@ -75,6 +75,9 @@ def main():
     print(f"{len(out)} airports from {source} ({greek} in Greece, {len(out) - greek} abroad, {sum(r[3] for r in out)} seasonal)")
     for m in missed:
         print("not matched (add to FIX):", m)
+    for r in out:
+        if airport_not_city(r[1]):
+            print("city reads like an airport (fix the source row or FIX):", r)
 
 
 if __name__ == "__main__":
