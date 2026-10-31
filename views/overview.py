@@ -34,7 +34,7 @@ if getattr(deals, "VERSION", 0) < 5:
     deals = importlib.reload(deals)
 if getattr(pi, "VERSION", 0) < 1:
     pi = importlib.reload(pi)
-if getattr(sx, "VERSION", 0) < 1:
+if getattr(sx, "VERSION", 0) < 2:
     sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 1:
     fa = importlib.reload(fa)
@@ -71,13 +71,6 @@ st.markdown(f"""<style>
 .pass-stub .ctx {{ font-size:.82rem; color:{INK}; margin-top:8px; line-height:1.4; }}
 .pass-stub .good {{ display:inline-block; font-size:.8rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
   padding:1px 7px; margin-right:6px; }}
-.airlines {{ display:flex; gap:12px; flex-wrap:wrap; margin:4px 0 6px; }}
-.airlines > div {{ flex:1; min-width:220px; background:{SURFACE}; border-radius:14px; padding:14px 18px; box-shadow:{SHADOW}; }}
-.airlines .a {{ font-size:.85rem; font-weight:700; }}
-.airlines .p {{ display:block; font:700 1.9rem/1.1 {FONT}; letter-spacing:-.03em; color:{INK}; margin:4px 0 2px; }}
-.airlines .d {{ display:block; font-size:.82rem; color:{MUTED}; }}
-.airlines .win {{ outline:2px solid var(--c); }} .airlines .win .p {{ color:var(--c); }}
-.airlines .tag {{ float:right; font-size:.8rem; font-weight:650; color:var(--c); border:1px solid var(--c); border-radius:6px; padding:1px 7px; }}
 .months {{ display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 18px; }}
 .months > div {{ background:{SURFACE}; border-radius:12px; padding:10px 14px; min-width:92px; box-shadow:{SHADOW}; }}
 .months .m {{ display:block; font-size:.82rem; color:{MUTED}; }} .months .v {{ display:block; font-weight:650; font-size:1.05rem; color:{INK}; }}
@@ -278,32 +271,18 @@ else:
             st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
                        f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
 
-# --- Sky Express beside it (the toggle under the bar), economy only: the cheapest trip of each airline, side by side ----------------------
+# --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
 if gq:
-    ret = best is not None and best["back"] is not None
-    st.markdown('<p class="group">Cheapest by airline, same days and nights</p>', unsafe_allow_html=True)
-    cards = ""
-    for name, col_, b in (("AEGEAN", ECONOMY, best), (sx.NAME, sx.COLOUR, gq_best)):
-        other = gq_best if b is best else best
-        win = b is not None and (other is None or b["price"] <= other["price"])
-        if b is None:
-            body = f'<span class="p">—</span><span class="d">no {"return" if ret else "one-way"} fare saved for these days</span>'
-        else:
-            when_ = f"Leave {b['depart']:%a %d %b}" + (f" · back {b['back']:%a %d %b} · {b['nights']} nights" if b["back"] is not None
-                                                       else " · one way")
-            body = f'<span class="p">{e(money(b["price"] * pax))}</span><span class="d">{e(when_)}</span>'
-        cards += (f'<div class="{"win" if win else ""}" style="--c:{col_}"><span class="a" style="color:{col_}">{e(name)}</span>'
-                  f'{"<span class=tag>Cheapest</span>" if win and other is not None else ""}{body}</div>')
-    st.markdown(f'<div class="airlines">{cards}</div>', unsafe_allow_html=True)
-    if best is not None and gq_best is not None and best["price"] != gq_best["price"]:
-        cheap, dear = sorted((("AEGEAN", best), (sx.NAME, gq_best)), key=lambda x: x[1]["price"])
-        st.caption(f"{cheap[0]} is €{(dear[1]['price'] - cheap[1]['price']) * pax:,.0f} cheaper for these dates. Economy, nonstop, "
-                   f"{who}, fares as last checked. {len(gq_out)} days with a Sky Express fare {orig} → {dest}"
-                   + (f", {len(gq_back.dropna())} back" if gq_back is not None else "") + ".")
-    with st.expander("Sky Express against AEGEAN, day by day"):
-        t = sx.compare(out_s[(out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())], gq_out)  # iso days sort as text
-        st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
-        st.caption(f"Economy one-way {orig} → {dest}, nonstop, one adult. A negative difference is a Sky Express saving.")
+    st.markdown('<p class="group">AEGEAN or Sky Express?</p>', unsafe_allow_html=True)
+    span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
+    a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
+    args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
+    st.dataframe(sx.head_to_head(*args), width="stretch")
+    st.markdown(f"**{e(sx.verdict(*args))}**")
+    st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
+    st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
+    t = sx.compare(out_s[span], gq_out)
+    st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
 
 # --- by month -----------------------------------------------------------------------------------------------------------------------------
 m = deals.by_month(out_s)
