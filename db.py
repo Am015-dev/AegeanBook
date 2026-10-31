@@ -4,7 +4,9 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 
-RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 5))  # raise it when running on your own computer
+import gh
+
+RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 30))  # fetched days are kept and reused this long; "Re-check" fetches again
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
@@ -64,8 +66,12 @@ def log_run(db, page, label, started, seconds, j):
 DAILY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily.csv")
 
 
-def load_daily(db, path=None):
-    """Load the prices the daily GitHub job saved (collect_daily.py), once per file version."""
+ROUTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "routes.csv")  # fetched on GitHub on request (fetch_route.py)
+
+
+def load_daily(db, path=None, label="Daily"):
+    """Load the prices the daily GitHub job saved (collect_daily.py), or the routes fetched on GitHub (fetch_route.py, label "Fetched"),
+    once per file version."""
     path = path or DAILY
     if not os.path.exists(path):
         return
@@ -77,7 +83,7 @@ def load_daily(db, path=None):
                          r["fetched"], int(r["nonstop"])) for r in rows if r["fetched"] == fetched])
         got = [r for r in rows if r["fetched"] == fetched]
         priced = sum(bool(r["price"]) for r in got)
-        db.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?)", ("daily", f"Daily: {len({(r['orig'], r['dest']) for r in got})} routes",
+        db.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?)", ("daily", f"{label}: {len({(r['orig'], r['dest']) for r in got})} routes",
                                                                  fetched, None, len(got), priced, len(got) - priced, 0, None))
 
 
@@ -155,6 +161,12 @@ def connect(path="tracker.db"):
     load_daily(db)
     load_daily_hotel(db)
     load_daily_award(db)
+    load_daily(db, ROUTES, "Fetched")
+    # the repository's newest copies, so data committed since this deploy shows without Streamlit redeploying (loading is idempotent)
+    for name, load in (("daily.csv", load_daily), ("daily_hotel.csv", load_daily_hotel), ("daily_award.csv", load_daily_award),
+                       ("routes.csv", lambda d, p: load_daily(d, p, "Fetched"))):
+        if path := gh.data_file(f"data/{name}"):
+            load(db, path)
     for t in ("prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     # award miles live as long as the flight day is ahead: they come from the repo's CSV, so the 5-day fetch retention would make

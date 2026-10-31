@@ -106,3 +106,18 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
         time.sleep(3)
         for item, p, err in parallel(failed, look, 1, retries=3):
             yield verdict(item, p, err)
+
+
+def gaps(start, end, skip, cabins=("economy", "business")):
+    """[(first, last)] runs of consecutive days from `start` to `end` that still miss a cabin in `skip` ((iso day, cabin) pairs already
+    saved), so a fetch asks only for what is missing: May to July saved and August asked for gives just August."""
+    out = []
+    for i in range((end - start).days + 1):
+        d = start + timedelta(i)
+        if all((d.isoformat(), c) in skip for c in cabins):
+            continue
+        if out and out[-1][1] == d - timedelta(1):
+            out[-1] = (out[-1][0], d)
+        else:
+            out.append((d, d))
+    return out

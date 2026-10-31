@@ -108,8 +108,9 @@ addresses stay private), at most 5 per address and 300 in all.
 
 **One-time setup by the owner** (free):
 1. **Saving alerts:** on GitHub, Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: only this
-   repository; Permissions → Issues: Read and write. Add it to the app's Streamlit secrets as `GITHUB_TOKEN = "..."` (or `GITHUB = "..."`).
-   Without it, the Alerts page offers the owner a filled-in GitHub issue instead.
+   repository; Permissions → Issues: Read and write, **Actions: Read and write** and **Contents: Read** (the last two let the Flights page
+   search on GitHub's servers and read the newest data, see "Searching from the app" below). Add it to the app's Streamlit secrets as
+   `GITHUB_TOKEN = "..."` (or `GITHUB = "..."`). Without it, the Alerts page offers the owner a filled-in GitHub issue instead.
 2. **Sending email:** turn on 2-step verification for a Gmail account, create an app password (Google Account → Security → App
    passwords), and add two repository secrets on GitHub (Settings → Secrets and variables → Actions): `SMTP_USER` (the Gmail address)
    and `SMTP_PASSWORD` (the app password). Add the same two lines to the Streamlit secrets as well, and confirmation emails go out the
@@ -117,3 +118,14 @@ addresses stay private), at most 5 per address and 300 in all.
 
 An alert can also be written by hand as an issue labelled `price-alert`: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or
 `miles below: 16000`), optional `from:` and `to:` dates. Those are answered with a comment on the issue, which GitHub notifies.
+
+
+## Searching from the app
+
+Google rate-limits Streamlit Cloud's shared server (HTTP 429), often before this app has asked anything. So with the GitHub token in
+the secrets (Actions read and write, Contents read), **Update prices** on the Flights page does not search from Streamlit: it starts
+`.github/workflows/fetch-route.yml`, which runs `fetch_route.py` on a fresh GitHub server (as the daily run does), retries failed days
+after a pause, and commits the fares to `data/routes.csv`. The page shows "Searching on GitHub's servers" and reloads with the fares,
+usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitHub (every 5 minutes at most), so the daily fares and
+fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
+your own computer, say), the search runs in the app as before.
