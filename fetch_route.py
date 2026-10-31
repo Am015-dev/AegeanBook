@@ -14,7 +14,7 @@ from collector import fetch_range
 
 OUT = Path(__file__).parent / "data" / "routes.csv"
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
-KEEP = 14  # days a fetch is kept in the file; the app drops it sooner (RETENTION_DAYS)
+KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
 
 
 def parse(legs):
@@ -32,16 +32,18 @@ def parse(legs):
 
 
 def save(rows, path=None):
-    """Add the new rows to the file; rows fetched more than KEEP days ago and past days are dropped."""
+    """Add the new rows to the file, one row per day, cabin and route (the newest); rows fetched more than KEEP days ago and past days
+    are dropped."""
     path, keep = path or OUT, []
     if path.exists():
         with path.open() as f:
             old = (datetime.now() - timedelta(days=KEEP)).isoformat()
             keep = [r for r in csv.DictReader(f) if r["fetched"] >= old and r["day"] > date.today().isoformat()]
+    newest = {(r["day"], r["orig"], r["dest"], r["cabin"], str(r["nonstop"])): r for r in keep + rows}  # a day fetched again: the new row
     with path.open("w", newline="") as f:
         w = csv.DictWriter(f, FIELDS)
         w.writeheader()
-        w.writerows(keep + rows)
+        w.writerows(sorted(newest.values(), key=lambda r: (r["orig"], r["dest"], r["day"], r["cabin"])))
 
 
 def main(legs, nonstop, passes=3, pause=90):

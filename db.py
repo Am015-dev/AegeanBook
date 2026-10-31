@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import gh
 
-RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 5))  # raise it when running on your own computer
+RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 30))  # fetched days are kept and reused this long; "Re-check" fetches again
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);

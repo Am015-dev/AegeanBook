@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 import gh
-from collector import fetch_range
+from collector import fetch_range, gaps
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options
 from best_days import best_miles_days, best_miles_pairs, cheapest_days, cheapest_pairs
@@ -98,7 +98,8 @@ if rend and rend > today + timedelta(HORIZON):
 stay = f"return, {', '.join(map(str, sorted(nights)))} nights" if nights else "one-way"
 route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
-legs = [(orig, dest, start, end)] + ([(dest, orig, rstart, rend)] if nights else [])
+# both directions, always: Bilbao -> Athens also fetches Athens -> Bilbao (the way back of a return, or the same days for a one-way)
+legs = [(orig, dest, start, end), (dest, orig, rstart, rend) if nights else (dest, orig, start, end)]
 key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}|{rend}"
 if fetch:
     skips = [set() if recheck else saved_flight_days(db, o, d, nonstop, a, b) for o, d, a, b in legs]
@@ -119,7 +120,8 @@ if fetch:
     tok = gh.token()
     if total > 0 and tok:  # Google rate-limits Streamlit Cloud's shared server: let GitHub's servers do the searching
         try:
-            st.session_state[f"gh-{key}"] = (gh.fetch(tok, legs, nonstop), time.time())
+            missing = [(o, d, x, y) for (o, d, a, b), skip in zip(legs, skips) for x, y in gaps(a, b, skip)]  # only what is not saved yet
+            st.session_state[f"gh-{key}"] = (gh.fetch(tok, missing, nonstop), time.time())
         except gh.GitHubError as err:
             st.warning(f"{err} Searching from this server instead.", icon=":material/warning:")
             tok = None
