@@ -31,15 +31,16 @@ def test_parallel_retries_and_reports_errors():
     assert got[0] == (0, None) and got[1] == (10, None) and got[2][0] is None and "always" in got[2][1]
 
 
-def test_calendar_gaps_are_checked_day_by_day_only_on_weekdays_the_route_flies(monkeypatch):
-    d0, asked = date(2026, 11, 1), []  # a Sunday; the calendar shows only it, so only the next Sunday is worth a day search
+def test_every_calendar_gap_is_checked_once(monkeypatch):
+    """The calendar leaves out real flights (ATH-BIO summer Sundays), so every gap is searched; once, as the calendar already said empty."""
+    d0, asked = date(2026, 11, 1), []
     monkeypatch.setattr(collector, "fetch_cabin", lambda *a: {"2026-11-01": 100.0})
-    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append(day) or (222.0 if day == d0 + timedelta(7) else None))
+    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append(day) or (222.0 if day == d0 + timedelta(3) else None))
     monkeypatch.setattr(time, "sleep", lambda s: None)
     got = {g[0]: (g[2], g[3], g[4]) for g in collector.fetch_range(d0, d0 + timedelta(8), "ATH", "BIO", cabins=("economy",))}
-    assert got[d0] == (100.0, "calendar", "ok") and got[d0 + timedelta(7)] == (222.0, "day search", "ok")
-    assert got[d0 + timedelta(1)] == (None, "calendar", "none") and len(got) == 9
-    assert asked == [d0 + timedelta(7)]  # one request, not one per empty day (Google rate-limits the app's server)
+    assert got[d0] == (100.0, "calendar", "ok") and got[d0 + timedelta(3)] == (222.0, "day search", "ok")  # a Wednesday the calendar missed
+    assert got[d0 + timedelta(1)] == (None, "", "none") and len(got) == 9
+    assert sorted(asked) == [d0 + timedelta(i) for i in range(1, 9)]  # each gap once, not twice
 
 
 def test_business_is_not_searched_on_days_without_an_economy_flight(monkeypatch):
@@ -48,7 +49,8 @@ def test_business_is_not_searched_on_days_without_an_economy_flight(monkeypatch)
     monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append((day, c)) or None)
     monkeypatch.setattr(time, "sleep", lambda s: None)
     rows = list(collector.fetch_range(d0, d0 + timedelta(7), "ATH", "BIO"))
-    assert asked == [(d0 + timedelta(7), "economy")] and len(rows) == 16 and all(r[4] in ("ok", "none") for r in rows)
+    assert sorted(asked) == [(d0 + timedelta(i), "economy") for i in range(1, 8)]  # business is not asked on those days
+    assert len(rows) == 16 and all(r[4] in ("ok", "none") for r in rows)
 
 
 def test_empty_answer_is_asked_twice_when_the_calendar_failed(monkeypatch):

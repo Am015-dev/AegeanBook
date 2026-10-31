@@ -46,7 +46,7 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
     one slower last pass."""
     days = [start + timedelta(i) for i in range((end - start).days + 1)]
     todo = [c for c in cabins if any((d.isoformat(), c) not in skip for d in days)]
-    pending, limited, grid_ok, flown = [], False, set(), set()
+    pending, limited, grid_ok = [], False, set()
     for cabin, grid, err in parallel(todo, lambda c: fetch_cabin(orig, dest, c, start, end, nonstop), 2):
         if err and "429" in err:  # rate-limited: do not hammer Google with 60 more lookups
             for d in days:
@@ -56,7 +56,6 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
             continue
         if not err:
             grid_ok.add(cabin)
-            flown |= {date.fromisoformat(k).weekday() for k in grid}
         grid = {} if err else grid
         for d in days:
             if (d.isoformat(), cabin) in skip:
@@ -68,14 +67,8 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
 
     if limited:
         return
-    # Each request counts towards Google's limit (HTTP 429 on the app's shared server), so ask only where a flight is plausible.
-    # ponytail: a weekday the calendar never shows is taken as not flown on this route; a route flown on it only now and then, outside the
-    # calendar's days, is missed. Search again with a shorter window if that matters.
-    sure = [(d, c) for d, c in pending if c in grid_ok and flown and d.weekday() not in flown]
-    for d, c in sure:
-        yield d, c, None, "calendar", "none", None
-    pending = [a for a in pending if a not in sure]
-
+    # Each request counts towards Google's limit (HTTP 429 on the app's shared server). Every day the calendar left out is still searched:
+    # its gaps include real flights (ATH-BIO summer Sundays, absent from the calendar), so no weekday or date is ever assumed empty.
     def look(a):
         r = fetch_day(orig, dest, a[1], a[0], nonstop)
         if r is None and a[1] not in grid_ok:  # the calendar already said "empty" once for its cabins; otherwise ask a second time
