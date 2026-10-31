@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 import deals
+import flight_times
 import overview as ov
 import trip_plan as tp
 from db import connect
@@ -130,6 +131,7 @@ else:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation
             pass
+    flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
     hotels = tp.hotels(db, dest) if ret else []
     if hotels and pay == "cash":
         h = hotels[0]
