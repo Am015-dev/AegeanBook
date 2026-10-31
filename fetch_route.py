@@ -5,6 +5,7 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
     python fetch_route.py "ATH,BIO,2026-11-01,2026-11-30;BIO,ATH,2026-11-03,2026-12-07" 1 [new_rows.csv]
     python fetch_route.py --merge new_rows.csv   # add those rows to the current data/routes.csv (the workflow's save step)
     python fetch_route.py --refresh              # the daily run: fetch again every route searched in the last 60 days
+    AIRLINE=GQ python fetch_route.py --daily     # the daily run: Sky Express on the daily legs it serves, so both airlines are compared
 
 AIRLINE=GQ (environment, or a fourth argument) fetches Sky Express instead, economy only, into data/skyexpress.csv (same columns; the
 file is the airline). --merge and --refresh read AIRLINE too; --refresh keeps every tracked airline fresh. Each airline has its own
@@ -176,6 +177,21 @@ def refresh(passes=3, pause=90):
     return 0 if rows or not failed else 1
 
 
+def daily(airline="GQ", passes=3, pause=90):
+    """The daily run's legs (collect_daily.LEGS) for Sky Express too, the next DAYS, where both airports are in its network: the
+    Overview's and Flights page's comparison needs both airlines' fares for the same days. Not tracked: --refresh would fetch them twice."""
+    from collect_daily import DAYS, LEGS
+    with open(OUT.with_name("skyexpress_airports.csv"), encoding="utf-8") as f:  # not skyexpress.py: that needs pandas, the runner has none
+        net = {r["iata"] for r in csv.DictReader(f)}
+    today = date.today()
+    legs = ";".join(f"{o},{d},{today + timedelta(1)},{today + timedelta(DAYS)}" for o, d in LEGS if o in net and d in net)
+    rows, failed = fetch(legs, True, passes, pause, airline) if legs else ([], 0)
+    save(rows, airline=airline)
+    log_history(rows, airline)
+    print(f"daily {airline}: {len(rows)} saved, {failed} failed")
+    return 0 if rows or not failed else 1
+
+
 if __name__ == "__main__":
     airline = (sys.argv[4] if len(sys.argv) > 4 else os.environ.get("AIRLINE") or "A3").upper()
     if airline not in AIRLINES:
@@ -187,5 +203,7 @@ if __name__ == "__main__":
             log_history(rows, airline)
     elif sys.argv[1] == "--refresh":
         sys.exit(refresh())
+    elif sys.argv[1] == "--daily":
+        sys.exit(daily(airline))
     else:
         sys.exit(main(sys.argv[1], sys.argv[2] not in ("0", "false", "False"), new=sys.argv[3] if len(sys.argv) > 3 else None, airline=airline))
