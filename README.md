@@ -132,5 +132,7 @@ your own computer, say), the search runs in the app as before.
 
 Hotels work the same way: **Update prices** on the Hotels page starts `.github/workflows/fetch-hotel.yml` (`fetch_hotel.py`: Google
 Hotels for every check-in not saved yet, plus the TripAdvisor cheap-day calendar and Booking.com on the cheap days when a key is given),
-which saves to `data/hotel_searches.csv`. Every fetch merges its rows into the newest file before pushing, so fetches running at the
+which saves to `data/hotel_searches.csv`. **Show flight times** under the Overview's boarding pass starts `.github/workflows/fetch-details.yml`
+(`fetch_details.py`), which saves the flight numbers, times and Google's lowest fare of the leave and return days to
+`data/flight_details.csv`. Those prices are Google's lowest fare for the flight, whatever it includes; the app does not know the fare family. Every fetch merges its rows into the newest file before pushing, so fetches running at the
 same time (and the daily run) never overwrite each other.
