@@ -14,20 +14,30 @@ jobs:
     outputs:
       refresh: ${{ steps.plan.outputs.jobs }}
       missing: ${{ steps.run.outcome }}
+      stop: ${{ steps.budget.outputs.stop }}
     steps:
       - uses: actions/checkout@v4
+      - id: budget  # past 85% of the month's free minutes nothing below runs (budget.py; BILLING_TOKEN is a token with Plan: read)
+        run: python3 budget.py
+        env:
+          BILLING_TOKEN: ${{ secrets.BILLING_TOKEN }}
       - uses: actions/setup-python@v5
+        if: steps.budget.outputs.stop != 'true'
         with:
           python-version: "3.12"
       - run: pip install flights==0.9.0 stays==0.1.1
+        if: steps.budget.outputs.stop != 'true'
       - id: run
+        if: steps.budget.outputs.stop != 'true'
         run: python collect_daily.py
         continue-on-error: true  # save what was collected even if some days are still missing
         env:
           DAILY_NEW_ROWS: ${{ runner.temp }}/daily_rows.csv  # today's rows on their own, for the save loop below
       - run: AIRLINE=GQ python fetch_route.py --daily "$RUNNER_TEMP/gq_rows.csv"  # Sky Express economy on the daily legs it serves
+        if: steps.budget.outputs.stop != 'true'
         continue-on-error: true  # a bonus: it must never stop the daily commit below
       - name: Commit results
+        if: steps.budget.outputs.stop != 'true'
         run: |
           git config user.name "daily-fares"
           git config user.email "actions@users.noreply.github.com"
@@ -48,6 +58,7 @@ jobs:
             sleep $((i * 4))
           done
       - id: plan  # the routes searched from the app in the last 60 days, a few per job below (fetch_route.PER_JOB), as JSON for the matrix
+        if: steps.budget.outputs.stop != 'true'
         run: echo "jobs=$(python fetch_route.py --plan)" >> "$GITHUB_OUTPUT"
   refresh:  # one job per few tracked routes: each on its own GitHub server (its own share of Google's rate limit and its own timeout),
     # merging its rows into whatever main is newest when it saves, like a fetch from the app, so the routes build a price history
@@ -92,7 +103,7 @@ jobs:
           exit 1
   finish:  # on the newest main, with every job's fares in: the digest of what changed, the price alerts, the issue
     needs: [collect, refresh]
-    if: ${{ !cancelled() }}  # also when there was nothing to refresh, or a refresh job failed
+    if: ${{ !cancelled() && needs.collect.outputs.stop != 'true' }}  # also when there was nothing to refresh, or a refresh job failed
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

@@ -22,13 +22,20 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       legs: ${{ steps.split.outputs.legs }}
+      stop: ${{ steps.budget.outputs.stop }}
     steps:
+      - uses: actions/checkout@v4
+      - id: budget  # past 85% of the month's free minutes no leg is fetched (budget.py; BILLING_TOKEN is a token with Plan: read)
+        run: python3 budget.py
+        env:
+          BILLING_TOKEN: ${{ secrets.BILLING_TOKEN }}
       - id: split
         env:
           LEGS: ${{ inputs.legs }}
         run: python3 -c 'import json, os; print("legs=" + json.dumps([l for l in os.environ["LEGS"].split(";") if l]))' >> "$GITHUB_OUTPUT"
   fetch:
     needs: plan
+    if: needs.plan.outputs.stop != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:

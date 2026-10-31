@@ -78,6 +78,25 @@ def data_file(path, tok=None):
     return local
 
 
+def budget(tok=None):
+    """GitHub Actions minutes used this month, from budget.py's reading with the app's token (None when the token cannot read billing:
+    it needs the account permission Plan: read). Cached for FRESH seconds like the data files."""
+    import budget as b
+    at, u = _files.get("budget", (0, None))
+    if time.time() - at < FRESH:
+        return u
+    u = b.usage(tok or token())
+    _files["budget"] = (time.time(), u)
+    return u
+
+
+def paused():
+    """True when searches on GitHub are paused: the month's free minutes are past budget.LIMIT (budget.py)."""
+    import budget as b
+    u = budget()
+    return bool(u and u["fraction"] >= b.LIMIT)
+
+
 def forget(path):
     """Read `path` from GitHub again on the next data_file call (a fetch just finished)."""
     _files.pop(path, None)
