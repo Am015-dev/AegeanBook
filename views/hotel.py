@@ -23,7 +23,7 @@ with st.container(border=True, key="search"):
     query = c[0].text_input("Hotel search", "Steigenberger Frankfurt", help="What you would type into Google Hotels.")
     filt = c[1].text_input("Name must contain", "Frankfurter Hof", help="Picks your hotel out of the search results.")
     nights, adults = c[2].number_input("Nights", 1, 14, 1), c[3].number_input("Adults", 1, 6, 2)
-    start, end = window_picker(st, "ho", today, HORIZON)
+    start, end = window_picker(st, "ho", today, HORIZON, "Check-in between")
     c = st.columns(2)
     fetch = c[0].button("Update prices", type="primary", width="stretch")
     with c[1].popover("Options", width="stretch"):

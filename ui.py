@@ -211,18 +211,13 @@ def airport_picker(where, label, default, key):
                            help="Type a city, airport name or code, for example Athens, Bilbao or FRA. Only AEGEAN's destinations are listed.")
 
 
-def window_picker(where, key, today, horizon):
-    """A start date (tomorrow by default) plus 15 / 30 / 60 / 90 days; Custom asks for the end date. Returns (start, end)."""
+def window_picker(where, key, today, horizon, label="Leaving between"):
+    """The days to look at, as two dates (the next 30 days by default), the same control as the Overview's. Returns (start, end)."""
     last = today + timedelta(horizon)
-    c = where.columns([1, 2])
-    start = c[0].date_input("Starting", today + timedelta(1), min_value=today, max_value=last, key=f"{key}-from",
-                            format="DD/MM/YYYY")
-    pick = c[1].pills("For the next", list(WINDOWS) + ["Custom"], default="30 days", required=True, key=f"{key}-win")
-    if pick == "Custom":
-        end = c[0].date_input("Until", min(start + timedelta(29), last), min_value=start, max_value=last, key=f"{key}-to",
-                              format="DD/MM/YYYY")
-        return start, end
-    return start, min(start + timedelta(WINDOWS[pick] - 1), last)
+    when = where.date_input(label, (today + timedelta(1), today + timedelta(30)), min_value=today, max_value=last, key=f"{key}-when",
+                            format="DD/MM/YYYY", help="A weekend, mid-December, the whole summer: the fares for every day in between.")
+    when = tuple(when) if isinstance(when, (tuple, list)) else (when,)
+    return when[0], when[-1]  # one date while the second is being picked: that single day
 
 
 def smart_filters(where, key):
