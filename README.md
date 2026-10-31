@@ -94,6 +94,13 @@ The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter 
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
 
+## Explore: where can I fly cheaply?
+
+The **Explore** page is Google Flights' Explore for AEGEAN: pick where you leave from, when (the next 30 days or a month), one way or a
+2–7 night return, the cabin and a budget, and it lists every destination with fares saved, cheapest first (the price, the dates of that
+trip, how many days have a flight, and the typical price), the ones over budget greyed at the bottom. **See dates** opens the Overview's
+date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the daily run tracks.
+
 ## Price insights (Overview)
 
 Like Google Flights, the Overview says whether the boarding pass's fare is **Low**, **Typical** or **High** for that route, from our own
