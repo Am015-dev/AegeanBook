@@ -7,6 +7,7 @@ from datetime import date
 import streamlit as st
 
 import explore as xp
+import fetch_ahead as fa
 import overview as ov
 import trip_plan as tp
 from db import connect
@@ -14,13 +15,15 @@ from ui import BUSINESS, ECONOMY, FONT, INK, MUTED, SHADOW, SURFACE, route
 
 if getattr(xp, "VERSION", 0) < 1:  # Streamlit Cloud keeps an older copy of a module across redeploys
     xp = importlib.reload(xp)
-if getattr(ov, "VERSION", 0) < 3:
+if getattr(ov, "VERSION", 0) < 4:
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 3:
+if getattr(tp, "VERSION", 0) < 4:
     tp = importlib.reload(tp)
+if getattr(fa, "VERSION", 0) < 1:
+    fa = importlib.reload(fa)
 db = connect()
 today = date.today()
-legs = ov.legs(db, today)
+legs = ov.legs(db, today, tp.HORIZON)  # as far ahead as a month can be fetched, so a fetched summer month lists its destinations
 route("Explore", None, "Where can you fly cheaply, and when? Every destination with fares saved, cheapest first.")
 if not legs:
     st.info("No fares are saved yet. The daily check fills this page every morning; or open Flights and press Update prices.")
@@ -45,18 +48,23 @@ st.markdown(f"""<style>
 place = lambda a: f"{tp.city(a)} ({a})"
 froms = xp.origins(legs)
 lastday = max(date.fromisoformat(s.index.max()) for f in legs.values() for s in f.values() if len(s))
-periods = tp.months(today, lastday)
+periods = tp.months(today, lastday)  # every month up to the horizon: a month with no fares yet can be fetched below
 c = st.columns([1.3, 1.2, 1.3, 1])
 orig = c[0].selectbox("From", froms, format_func=place, key="xp-orig", help="Every airport with fares saved from it.")
-when = c[1].selectbox("When", range(len(periods)), format_func=lambda i: periods[i][0], key="xp-when")
+when = c[1].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="xp-when")
 trip = c[2].pills("Trip", ["one way", "return"], default="one way", format_func={"one way": "One way", "return": "Return, 2–7 nights"}.get,
                   required=True, key="xp-trip")
 cabin = c[3].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="xp-cabin")
-_, a, b = periods[when]
-rows = xp.destinations(legs, orig, a, b, cabin, xp.NIGHTS if trip == "return" else None)
+p = periods[when]
+rows = xp.destinations(legs, orig, p.start, p.end, cabin, xp.NIGHTS if trip == "return" else None)
 if rows.empty:
-    st.info(f"No {cabin} {'return trips' if trip == 'return' else 'fares'} saved from {tp.city(orig)} for {periods[when][0].lower()}. "
+    st.info(f"No {cabin} {'return trips' if trip == 'return' else 'fares'} saved from {tp.city(orig)} for {p.name}. "
             "Try the other cabin or another month, or search a route on the Flights page.")
+    # nothing saved for the period: one request fetches every route from here, both ways where the way back is known
+    dests = [d for o, d in legs if o == orig]
+    todo, blank = fa.missing(db, [(orig, d, p.start, p.end) for d in dests] + [(d, orig, p.start, p.end) for d in dests if (d, orig) in legs], today)
+    if todo:
+        fa.button(f"ahead|{orig}|all|{p.start}", f"Fetch {p.name} for all routes from {tp.city(orig)}", todo, f"{p.name.capitalize()} from {tp.city(orig)}")
     st.stop()
 top = int(-(-rows.price.max() // 10) * 10)  # the dearest destination, rounded up to €10, so the default budget fits every one
 budget = st.slider("Budget (€, one adult)", 0, top, top, 10, format="€%d", key=f"xp-budget-{orig}-{when}-{trip}-{cabin}")
@@ -64,7 +72,7 @@ within, over = xp.fit(rows, budget)
 
 # --- one card per destination, over budget greyed at the bottom ----------------------------------------------------------------------
 colour = ECONOMY if cabin == "economy" else BUSINESS
-st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(periods[when][0].lower())}, {e(cabin)}, '
+st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(p.name)}, {e(cabin)}, '
             f'{"return" if trip == "return" else "one way"}</p>', unsafe_allow_html=True)
 if within.empty:
     st.caption(f"Nothing from {tp.city(orig)} fits €{budget:,.0f}: the cheapest is {tp.city(rows.dest[0])} at €{rows.price[0]:,.0f}.")

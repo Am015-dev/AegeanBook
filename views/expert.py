@@ -1,11 +1,12 @@
 """Expert: plan a trip from your own choices (from and to any airport with fares saved, month, cabin, cash or miles, hotel) and get the best time to fly and why, then
 ask follow-ups; plus today's briefing. The AI is in expert_chat, the trip maths in trip_plan."""
 import importlib
-from datetime import date
+from datetime import date, timedelta
 
 import streamlit as st
 
 import expert_chat as ex
+import fetch_ahead as fa
 import overview as ov
 import trip_plan as tp
 from db import connect
@@ -14,10 +15,12 @@ from ui import route
 
 if getattr(ex, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
-if getattr(ov, "VERSION", 0) < 3:
+if getattr(ov, "VERSION", 0) < 4:
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 3:
+if getattr(tp, "VERSION", 0) < 4:
     tp = importlib.reload(tp)
+if getattr(fa, "VERSION", 0) < 1:
+    fa = importlib.reload(fa)
 db = connect()
 today = date.today()
 route("Expert", None, "Tell it your trip and it finds the best time to fly, in cash or miles, and explains why. Then ask follow-ups.")
@@ -70,9 +73,9 @@ with st.container(border=True, key="search"):
     orig = c[0].selectbox("From", froms, format_func=place, key="plan-orig",
                           help="Every airport with fares saved: the daily routes, plus any route you searched on the Flights page.")
     dest = c[1].selectbox("To", tp.destinations(db, orig), format_func=place, key=f"plan-dest-{orig}")
-    last = date.fromisoformat(max(s.index.max() for leg in fares.values() for s in leg.values() if len(s)))  # the last day with fares
-    periods = tp.months(today, last)
-    when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i][0], key="plan-when")
+    last = date.fromisoformat(db.execute("SELECT MAX(day) FROM prices WHERE price IS NOT NULL").fetchone()[0])  # the last day with fares, any route
+    periods = tp.months(today, last)  # every month up to the horizon: a month with no fares yet can be fetched below
+    when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="plan-when")
     c = st.columns([1, 1, 2])
     cabin = c[0].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="plan-cabin")
     trip = c[1].pills("Trip", ["One way", "Return"], default="Return", required=True, key="plan-trip")
@@ -90,9 +93,15 @@ with st.container(border=True, key="search"):
             c[1].caption(f"No hotel in {tp.city(dest)} searched yet: search one on the Hotels page with 1 night, and it appears here.")
     weekdays = st.pills("Days I can leave", DAYS, selection_mode="multi", default=DAYS, key="plan-days")
     go = st.button("Ask the expert", type="primary", icon=":material/auto_awesome:")
+    p = periods[when]  # no fares saved for this route in the period (either way for a return): one button fetches them on GitHub
+    legs = [(orig, dest, p.start, p.end)] + ([(dest, orig, p.start + timedelta(nights), p.end + timedelta(nights))] if nights else [])
+    todo, blank = fa.missing(db, legs, today)
+    if blank:
+        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Fetch {p.label} fares" if when else "Fetch the next 30 days", todo,
+                  f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 
 if go:
-    label, start, end = periods[when]
+    label, start, end, _ = periods[when]
     t = tp.candidates(db, dest, start, end, cabin, nights, weekdays, hotel, pay, orig)
     if t.empty:
         st.warning("No fares are saved for this choice: try another month, more weekdays or fewer nights.")

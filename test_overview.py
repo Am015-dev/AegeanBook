@@ -243,7 +243,7 @@ def test_trip_planner_months_hotels_candidates_and_question(tmp_path):
     t.commit()
     assert tp.city("ZRH") == "Zurich" and set(tp.destinations(t)) == {"FRA", "ZRH"}
     m = tp.months(today, today + timedelta(60))
-    assert m[0][0] == "Next 30 days" and m[0][1] == today + timedelta(1) and all(a <= b for _, a, b in m)
+    assert m[0][0] == "Next 30 days" and m[0][1] == today + timedelta(1) and all(p.start <= p.end for p in m)
     assert [h["name"] for h in tp.hotels(t, "FRA")] == ["Steigenberger"] and tp.hotels(t, "ZRH") == []  # matched by the city's name
     start, end = today + timedelta(1), today + timedelta(20)
     biz = tp.candidates(t, "ZRH", start, end, "business", 3, [], None, "miles")
@@ -259,6 +259,20 @@ def test_trip_planner_months_hotels_candidates_and_question(tmp_path):
     assert "Zurich (ZRH)" in q and "business" in q and "Fri/Sat" in q and "why" in q
     text = tp.facts(biz, "ZRH", "Next 30 days", start, end, "business", "miles", 3, None, today)
     assert "fewest miles first" in text and "award taxes are not collected yet" in text and "depart,back,cash,miles" in text
+
+
+def test_months_reach_the_horizon_and_say_which_are_fetched():
+    import trip_plan as tp
+    today, last = date(2026, 10, 31), date(2027, 1, 29)  # the daily run's 90 days
+    m = tp.months(today, last)
+    assert [p.label for p in m[:4]] == ["Next 30 days", "November 2026", "December 2026", "January 2027"]
+    assert m[-1].label == "September 2027" and m[-1].end == today + timedelta(330) and len(m) == 12  # up to the horizon, cut there
+    assert m[0] == ("Next 30 days", date(2026, 11, 1), date(2026, 11, 30), True) and m[1].start == date(2026, 11, 1)
+    assert [p.fetched for p in m] == [True] * 4 + [False] * 8  # fares saved to 29 Jan: February on is not fetched yet
+    assert m[3].title == "January 2027" and m[7].title == "May 2027 · not fetched yet" and m[7].name == "May 2027"
+    assert m[0].name == "the next 30 days" and (m[7].start, m[7].end) == (date(2027, 5, 1), date(2027, 5, 31))
+    assert tp.months(today, last, horizon=60)[-1].label == "December 2026"  # a shorter horizon
+    assert not any(p.fetched for p in tp.months(today, today))  # nothing saved past today: no period is fetched
 
 
 def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):

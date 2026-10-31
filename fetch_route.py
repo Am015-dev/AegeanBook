@@ -6,7 +6,8 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
     python fetch_route.py --merge new_rows.csv   # add those rows to the current data/routes.csv (the workflow's save step)
     python fetch_route.py --refresh              # the daily run: fetch again every route searched in the last 60 days
 
-Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested) so the daily run can refresh them.
+Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested,from,to) so the daily run can refresh them:
+from and to are the union of the days ever requested, so a summer month planned on the Overview stays fresh until it is booked.
 """
 import csv
 import sys
@@ -20,7 +21,8 @@ from collector import fetch_range
 OUT = Path(__file__).parent / "data" / "routes.csv"
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
-TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead
+TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 20, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
 
 def parse(legs):
@@ -55,14 +57,18 @@ def save(rows, path=None, track=False):
 
 
 def track_routes(rows, path):
-    """Upsert the rows' distinct (orig, dest, nonstop) into the tracked-routes file with last_requested = today."""
-    routes = {(r["orig"], r["dest"], r["nonstop"]): r["last_requested"] for r in read(path)} if path.exists() else {}
+    """Upsert the rows' distinct (orig, dest, nonstop) into the tracked-routes file with last_requested = today and from,to widened to the
+    rows' days (the union of every range requested, to at most today + HORIZON), so --refresh keeps a month planned far ahead fresh."""
+    routes = {(r["orig"], r["dest"], r["nonstop"]): [r["last_requested"], r.get("from") or "", r.get("to") or ""] for r in read(path)} if path.exists() else {}
+    far = (date.today() + timedelta(HORIZON)).isoformat()
     for r in rows:
-        routes[(r["orig"], r["dest"], str(r["nonstop"]))] = date.today().isoformat()
+        v = routes.setdefault((r["orig"], r["dest"], str(r["nonstop"])), ["", "", ""])
+        v[0] = date.today().isoformat()
+        v[1], v[2] = min(filter(None, (v[1], r["day"]))), min(max(v[2], r["day"]), far)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["orig", "dest", "nonstop", "last_requested"])
-        w.writerows(k + (v,) for k, v in sorted(routes.items()))
+        w.writerow(["orig", "dest", "nonstop", "last_requested", "from", "to"])
+        w.writerows(k + tuple(v) for k, v in sorted(routes.items()))
 
 
 def read(path):
@@ -112,19 +118,26 @@ def main(legs, nonstop, passes=3, pause=90, new=None):
 
 
 def refresh(passes=3, pause=90):
-    """The daily run: fetch the next REFRESH_DAYS again for every tracked route searched in the last TRACK_DAYS (the newest TRACK_MAX
-    of them; the daily run's own legs are skipped), and add the rows to the permanent history so recent weeks can be compared."""
-    from collect_daily import LEGS  # here: that module needs the hotel packages, which the fetch-route job does not install
+    """The daily run: fetch again the next REFRESH_DAYS, or up to the last day ever requested (`to`) when that is further, for every tracked
+    route searched in the last TRACK_DAYS (the newest TRACK_MAX of them). The daily run's own legs get only the part beyond its DAYS, so a
+    summer planned on ATH-FRA stays fresh too. The rows go to the permanent history as well, so recent weeks can be compared."""
+    from collect_daily import DAYS, LEGS  # here: that module needs the hotel packages, which the fetch-route job does not install
     tracked = OUT.with_name("tracked_routes.csv")
-    since = (date.today() - timedelta(TRACK_DAYS)).isoformat()
-    routes = [r for r in read(tracked) if r["last_requested"] >= since and (r["orig"], r["dest"]) not in LEGS] if tracked.exists() else []
-    routes.sort(key=lambda r: r["last_requested"], reverse=True)
-    for r in routes[TRACK_MAX:]:  # ponytail: a fixed cap keeps the run under ~30 min; split into matrix jobs if more routes are wanted
+    today = date.today()
+    since = (today - timedelta(TRACK_DAYS)).isoformat()
+    jobs = []  # (route, first day, last day) for every route with something to fetch
+    for r in read(tracked) if tracked.exists() else []:
+        a = today + timedelta(1 + (DAYS if (r["orig"], r["dest"]) in LEGS else 0))  # collect_daily fetches its legs' first DAYS already
+        b = today + timedelta(REFRESH_DAYS)
+        if r.get("to"):
+            b = max(b, min(date.fromisoformat(r["to"]), today + timedelta(HORIZON)))
+        if r["last_requested"] >= since and a <= b:
+            jobs.append((r, a, b))
+    jobs.sort(key=lambda j: j[0]["last_requested"], reverse=True)
+    for r, _, _ in jobs[TRACK_MAX:]:  # ponytail: a fixed cap keeps the run under ~30 min; split into matrix jobs if more routes are wanted
         print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)")
-    routes = routes[:TRACK_MAX]
-    a, b = date.today() + timedelta(1), date.today() + timedelta(REFRESH_DAYS)
     rows, failed = [], 0
-    for r in routes:
+    for r, a, b in jobs[:TRACK_MAX]:
         got, f = fetch(f"{r['orig']},{r['dest']},{a},{b}", r["nonstop"] not in ("0", "false", "False"), passes, pause)
         rows, failed = rows + got, failed + f
     save(rows)
@@ -132,7 +145,7 @@ def refresh(passes=3, pause=90):
         history.append_changes(OUT.with_name("history_prices.csv"), rows, ("day", "orig", "dest", "cabin", "nonstop"), ("price",))
     except Exception as e:  # the history is a bonus: never let it break the run
         print(f"  history: {type(e).__name__}: {e}")
-    print(f"refreshed {len(routes)} routes: {len(rows)} saved, {failed} failed")
+    print(f"refreshed {min(len(jobs), TRACK_MAX)} routes: {len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
 
 
