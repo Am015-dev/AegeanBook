@@ -116,6 +116,7 @@ def load_daily_award(db, path=None):
                         for r in rows if r.get("fetched") == fetched and num(r.get("nonstop")) is not None])  # bad rows are skipped
 
 
+HOTEL_SEARCHES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "hotel_searches.csv")  # fetch_hotel.py, on request
 DAILY_HOTEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily_hotel.csv")
 
 
@@ -162,9 +163,10 @@ def connect(path="tracker.db"):
     load_daily_hotel(db)
     load_daily_award(db)
     load_daily(db, ROUTES, "Fetched")
+    load_daily_hotel(db, HOTEL_SEARCHES)
     # the repository's newest copies, so data committed since this deploy shows without Streamlit redeploying (loading is idempotent)
     for name, load in (("daily.csv", load_daily), ("daily_hotel.csv", load_daily_hotel), ("daily_award.csv", load_daily_award),
-                       ("routes.csv", lambda d, p: load_daily(d, p, "Fetched"))):
+                       ("routes.csv", lambda d, p: load_daily(d, p, "Fetched")), ("hotel_searches.csv", load_daily_hotel)):
         if path := gh.data_file(f"data/{name}"):
             load(db, path)
     for t in ("prices", "hotel", "heat", "booking"):
