@@ -44,8 +44,8 @@ def test_fetch_route_parses_fetches_and_keeps_only_fresh_future_rows(tmp_path, m
     assert len(rows) == 1 + 3 and any(",ATH,BIO,economy,97.0," in r for r in rows) and any(",BIO,ATH,economy,," in r for r in rows)
     assert not any("business" in r and "BIO" in r for r in rows) and not any("2020-01-01" in r for r in rows)
     today = date.today().isoformat()  # the searched routes are recorded, with the days asked for, so the daily run can refresh them
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines() == ["orig,dest,nonstop,last_requested,from,to",
-                                                                           f"ATH,BIO,1,{today},{d1},{d1}", f"BIO,ATH,1,{today},{d1},{d1}"]
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines() == ["orig,dest,nonstop,last_requested,from,to,airline",
+                                                                           f"ATH,BIO,1,{today},{d1},{d1},A3", f"BIO,ATH,1,{today},{d1},{d1},A3"]
 
 
 def test_tracked_routes_are_upserted_by_the_merge_step_with_the_newest_request_date(tmp_path, monkeypatch):
@@ -55,14 +55,14 @@ def test_tracked_routes_are_upserted_by_the_merge_step_with_the_newest_request_d
     row = dict(day=d1, orig="ATH", dest="BIO", cabin="economy", price=97.0, source="calendar", fetched=datetime.now().isoformat(), nonstop=1)
     fetch_route.write_new([row], tmp_path / "a.csv")
     fetch_route.save(fetch_route.read(tmp_path / "a.csv"), track=True)  # the --merge path
-    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,BIO,1,{date.today()},{d1},{d1}", "SKG,LCA,1,2026-02-02,,"]
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == [f"ATH,BIO,1,{date.today()},{d1},{d1},A3", "SKG,LCA,1,2026-02-02,,,A3"]
     fetch_route.save([dict(row, price=98.0)])  # a --refresh save does not count as a request
-    assert f"ATH,BIO,1,{date.today()},{d1},{d1}" in (tmp_path / "tracked_routes.csv").read_text()
+    assert f"ATH,BIO,1,{date.today()},{d1},{d1},A3" in (tmp_path / "tracked_routes.csv").read_text()
     may, far = (date.today() + timedelta(200)).isoformat(), (date.today() + timedelta(400)).isoformat()  # a summer month planned later
     fetch_route.save([dict(row, day=may), dict(row, day=far)], track=True)
-    assert f"ATH,BIO,1,{date.today()},{d1},{date.today() + timedelta(330)}" in (tmp_path / "tracked_routes.csv").read_text()  # the union, capped
+    assert f"ATH,BIO,1,{date.today()},{d1},{date.today() + timedelta(330)},A3" in (tmp_path / "tracked_routes.csv").read_text()  # the union, capped
     fetch_route.save([dict(row, day=(date.today() + timedelta(2)).isoformat())], track=True)  # a nearer search widens the start, keeps the end
-    assert f"ATH,BIO,1,{date.today()},{date.today() + timedelta(2)},{date.today() + timedelta(330)}" in (tmp_path / "tracked_routes.csv").read_text()
+    assert f"ATH,BIO,1,{date.today()},{date.today() + timedelta(2)},{date.today() + timedelta(330)},A3" in (tmp_path / "tracked_routes.csv").read_text()
     wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
     assert "git add data/routes.csv data/tracked_routes.csv" in wf
 
@@ -144,7 +144,7 @@ def test_github_calls(monkeypatch):
     request = gh.fetch("tok", [("ATH", "BIO", d1, d1 + timedelta(29))], True)
     body = json.loads(sent[0].data)
     assert sent[0].full_url.endswith("/actions/workflows/fetch-route.yml/dispatches") and body["ref"] == "main"
-    assert body["inputs"] == {"legs": "ATH,BIO,2026-11-03,2026-12-02", "nonstop": "1", "request": request}
+    assert body["inputs"] == {"legs": "ATH,BIO,2026-11-03,2026-12-02", "nonstop": "1", "request": request, "airline": "A3"}
     assert sent[0].headers["Authorization"] == "Bearer tok"
     assert gh.run("tok", request) == dict(status="completed", conclusion="success", url="https://github.com/run/1")
 

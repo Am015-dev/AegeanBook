@@ -83,12 +83,13 @@ def forget(path):
     _files.pop(path, None)
 
 
-def fetch(tok, legs, nonstop):
-    """Start fetching on GitHub. legs: [(orig, dest, start, end)]. Returns the request id that names the run."""
+def fetch(tok, legs, nonstop, airline="A3"):
+    """Start fetching on GitHub. legs: [(orig, dest, start, end)]; airline A3 (AEGEAN, both cabins) or GQ (Sky Express, economy, to
+    data/skyexpress.csv). Returns the request id that names the run."""
     request = secrets.token_hex(4)
     _api(tok, "POST", f"/actions/workflows/{WORKFLOW}/dispatches", {"ref": "main", "inputs": {
         "legs": ";".join(f"{o},{d},{a.isoformat()},{b.isoformat()}" for o, d, a, b in legs),
-        "nonstop": "1" if nonstop else "0", "request": request}})
+        "nonstop": "1" if nonstop else "0", "request": request, "airline": airline}})
     return request
 
 

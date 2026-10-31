@@ -3,6 +3,7 @@ month-by-month view, the date grid behind it, one tip, and every route with fare
 shows only numbers the data proves, so it never changes unless the fares do."""
 import html
 import importlib
+import time
 from datetime import date, timedelta
 
 import pandas as pd
@@ -12,13 +13,15 @@ import booking
 import deals
 import fetch_ahead as fa
 import flight_times
+import gh
 import overview as ov
 import price_insights as pi
+import skyexpress as sx
 import trip_plan as tp
 from db import connect
 from insights import DAYS, FULL, weekday_stats
 from trip_cost import night_prices
-from ui import ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, price_chart, route
+from ui import ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, github_note, github_progress, price_chart, route
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
@@ -28,6 +31,8 @@ if getattr(deals, "VERSION", 0) < 5:
     deals = importlib.reload(deals)
 if getattr(pi, "VERSION", 0) < 1:
     pi = importlib.reload(pi)
+if getattr(sx, "VERSION", 0) < 1:
+    sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 1:
     fa = importlib.reload(fa)
 db = connect()
@@ -92,6 +97,10 @@ pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"ca
                  key="ov-grid-pay")
 pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", help="Adults. Fares are collected for one adult; the pass and the booking "
                         "links use this number.")
+gq = False  # Sky Express beside AEGEAN: economy cash only, and only where both airports are in its network (state kept per route)
+if gcab == "economy" and pay == "cash" and sx.serves(orig, dest):
+    gq = st.toggle("Compare with Sky Express", key=f"ov-gq-{orig}{dest}",
+                   help="Sky Express's economy fares for the same days, nonstop, one adult, fetched on request like AEGEAN's.")
 
 # cash fares as far ahead as a month can be fetched (ov.collect stops at 90 days, enough for the tables below); miles are collected 90 days ahead
 far = ov.legs(db, today, tp.HORIZON)
@@ -111,6 +120,9 @@ best = deals.best_trip(out_s, back_s, today + timedelta(1), lastday, stays, wday
 ctx = deals.trip_context(out_s, back_s, today + timedelta(1), lastday)
 # ponytail: the history CSV is read on every rerun (a few hundred rows a day, so years before it takes a visible fraction of a second)
 hist = pi.history() if pay == "cash" else None  # every fare change ever seen, for the verdict and the "how it moved" chart; miles have none
+gq_out = sx.cash_by_day(db, orig, dest, today + timedelta(1), lastday) if gq else pd.Series(dtype=float)  # Sky Express, same filters
+gq_back = sx.cash_by_day(db, dest, orig, today + timedelta(1), lastday) if gq and back_s is not None else None
+gq_best = deals.best_trip(gq_out, gq_back, today + timedelta(1), lastday, stays, wdays) if len(gq_out) else None
 
 # --- the answer, as a boarding pass ---------------------------------------------------------------------------------------------------
 if best is None:
@@ -142,6 +154,8 @@ else:
         say += f" · lowest of {ctx['days']} days" if best["price"] <= ctx["low"] else f" · lowest is {money(ctx['low'])}"
         good = '<span class="good">Good price</span>' if best["price"] <= ctx["typical"] * 0.75 else ""
         context = f'<span class="ctx">{good}{e(say)}</span>'
+    if gq_best is not None:  # Sky Express's answer to the same question, one line under the price
+        insight += f'<span class="verdict" style="color:{sx.COLOUR}">{e(sx.sentence(gq_best, ret))}</span>'
     st.markdown(
         f'<div class="pass"><div class="pass-main"><div class="pass-codes">{e(orig)}<span class="line"></span>{e(dest)}</div>'
         f'<div class="pass-cities"><span>{e(tp.city(orig))}</span><span>{e(tp.city(dest))}</span></div><dl class="pass-fields">'
@@ -212,6 +226,34 @@ if back_s is not None and len(back_s.dropna()):
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
+
+# --- Sky Express beside it (the toggle in the route bar), economy only ----------------------------------------------------------------
+if gq:
+    gqkey = f"ov-gq|{orig}|{dest}"
+    if len(gq_out):
+        ret = best is not None and best["back"] is not None
+        st.caption(sx.sentence(gq_best, ret) + (" for the days and nights picked above" if ret else "") + f". {len(gq_out)} days with a "
+                   f"Sky Express fare {orig} → {dest}" + (f", {len(gq_back.dropna())} back" if gq_back is not None else "") + ".")
+        with st.expander("Sky Express against AEGEAN, day by day"):
+            t = sx.compare(out_s, gq_out)
+            st.dataframe(sx.table(t), width="stretch", height=min(36 * len(t) + 38, 420))
+            st.caption(f"Economy one-way {orig} → {dest}, nonstop, one adult. A negative difference is a Sky Express saving.")
+    else:
+        tok = gh.token()
+        if tok and not st.session_state.get(f"gh-{gqkey}"):
+            if st.button("Fetch Sky Express fares", icon=":material/cloud_download:", key=f"gq-fetch-{orig}{dest}",
+                         help=f"Economy, both ways, the next {(lastday - today).days} days, on GitHub's servers like AEGEAN's fares."):
+                try:
+                    legs = [(orig, dest, today + timedelta(1), lastday), (dest, orig, today + timedelta(1), lastday)]
+                    st.session_state[f"gh-{gqkey}"] = (gh.fetch(tok, legs, True, airline="GQ"), time.time())
+                    st.rerun()  # the button gives way to the progress note at once
+                except gh.GitHubError as err:
+                    st.warning(str(err), icon=":material/warning:")
+        elif not tok:
+            st.caption("No Sky Express fares saved for this route yet. They are fetched on GitHub's servers, which needs the GitHub token in "
+                       "the app's secrets (see the README); on your own computer, the Flights page fetches them with Update prices.")
+        github_progress(gqkey, "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
+        github_note(gqkey)
 
 # --- how the pass's fares moved over our snapshots, only once there is something to draw ----------------------------------------------
 if best is not None and hist is not None:

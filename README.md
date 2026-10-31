@@ -88,6 +88,25 @@ cabins on its results anyway), and the names may change when AEGEAN redesigns it
 the pass by hand. Fares are collected for one adult, so the pass multiplies the per-adult fare by the passengers chosen and says so; the
 airline may price a group differently.
 
+## Compare with Sky Express (economy only, for now)
+
+Sky Express (GQ) is AEGEAN's competitor on Greek domestic routes and a growing set of European ones. Where both airports are in its
+network, the Overview's route bar and the Flights page's search card show a **Compare with Sky Express** toggle (its state is kept per
+route). On the Overview it adds one line to the boarding pass stub, "Sky Express: €X on <day> (economy)", the cheapest Sky Express trip for
+the same days and nights picked, plus a day-by-day table of both fares and the difference under the grid; on the Flights page Sky Express's
+economy fare is a dashed line on the price charts, and **Update prices** fetches it for the same days (its own run on GitHub, or in the app
+without a token). With no Sky Express fares saved yet, the Overview offers **Fetch Sky Express fares** (GitHub token needed, as for AEGEAN's
+fetches). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
+`data/skyexpress.csv`, which the app loads into its own table (`gq_prices`) beside AEGEAN's, so nothing about the AEGEAN data changes; a
+Sky Express route searched from the app is tracked in `data/tracked_routes.csv` (column `airline`) and refreshed by the daily run like the
+others. Every Sky Express fare collected is also kept for good in `data/history_skyexpress.csv`, its own permanent history beside
+`data/history_prices.csv` (one row per fare change, never trimmed), written by every fetch from the app and by the daily refresh, and shown
+and downloadable on the Database page under **Sky Express fares**. Only itineraries whose every leg is Sky Express count, as only all-AEGEAN ones do for AEGEAN. The airport list is
+`data/skyexpress_airports.csv` (62 airports: 33 in Greece, 29 abroad, seasonal ones marked), refreshed by hand with
+`python data/build_skyexpress_airports.py`, which reads the destination cards on skyexpress.gr (and Wikipedia's Sky Express destinations
+table for the airport of each city and the seasonal marks; Wikipedia alone when the site cannot be parsed) and prints any city it could
+not match. Business is not compared: Sky Express sells one cabin on most of its network.
+
 ## Daily fares (automatic, free)
 
 Every morning at 07:17 Athens time GitHub Actions (`.github/workflows/daily.yml`) runs `collect_daily.py`. It fetches

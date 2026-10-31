@@ -1,5 +1,6 @@
-"""Database: the permanent history kept in the repo, every cash fare, award miles value and hotel price ever recorded. The app's own cache
-only keeps a few days; these files (data/history_*.csv, data/award_history.csv) are never trimmed."""
+"""Database: the permanent history kept in the repo, every cash fare (AEGEAN's and Sky Express's, each in its own file), award miles value
+and hotel price ever recorded. The app's own cache only keeps a few days; these files (data/history_*.csv, data/award_history.csv) are never
+trimmed."""
 import os
 from datetime import date
 
@@ -15,6 +16,8 @@ COLOURS = {"economy": ECONOMY, "business": BUSINESS, "google": ECONOMY, "booking
 SETS = {
     "Cash fares": dict(file="history_prices.csv", value="price", unit="€", key=["day", "orig", "dest", "cabin", "nonstop"], series="cabin",
                        route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="AEGEAN fare, from Google Flights"),
+    "Sky Express fares": dict(file="history_skyexpress.csv", value="price", unit="€", key=["day", "orig", "dest", "cabin", "nonstop"], series="cabin",
+                              route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="Sky Express economy fare, from Google Flights"),
     "Award miles": dict(file="award_history.csv", value="miles", unit=" miles", key=["day", "orig", "dest", "cabin", "nonstop"], series="cabin",
                         route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="AEGEAN award miles, lowest of the day"),
     "Hotels": dict(file="history_hotel.csv", value="price", unit="€", key=["source", "day", "query", "filt", "nights", "adults"], series="source",

@@ -12,6 +12,9 @@ on:
       request:
         description: "An id the app uses to find this run"
         required: true
+      airline:
+        description: "A3 for AEGEAN (both cabins, data/routes.csv) or GQ for Sky Express (economy only, data/skyexpress.csv)"
+        default: "A3"
 permissions:
   contents: write
 jobs:
@@ -42,9 +45,11 @@ jobs:
         env:  # passed as variables, never pasted into the script, so the inputs cannot run commands
           LEG: ${{ matrix.leg }}
           NONSTOP: ${{ inputs.nonstop }}
+          AIRLINE: ${{ inputs.airline }}
       - name: Commit results
         env:
           REQUEST: ${{ inputs.request }}
+          AIRLINE: ${{ inputs.airline }}
         run: |
           git config user.name "fetch-route"
           git config user.email "actions@users.noreply.github.com"
@@ -53,7 +58,7 @@ jobs:
           for i in 1 2 3 4 5 6; do
             git fetch -q origin main && git reset -q --hard origin/main
             python fetch_route.py --merge "$RUNNER_TEMP/new_rows.csv"
-            git add data/routes.csv data/tracked_routes.csv
+            git add data/routes.csv data/tracked_routes.csv data/skyexpress.csv data/history_skyexpress.csv
             git diff --cached --quiet && exit 0
             git commit -q -m "Fetched $REQUEST"
             git push -q origin HEAD:main && exit 0
