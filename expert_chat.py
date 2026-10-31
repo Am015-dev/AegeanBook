@@ -60,14 +60,14 @@ _used = {}
 
 
 # --- the facts: the Overview's numbers for one search ----------------------------------------------------------------------------------
-def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=None, hist=None):
+def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=None, hist=None, oneway=False):
     """Everything the briefing and the chat may say about one search, as one dict, from the functions the Overview's pass uses with the
     same filters: `best` is deals.best_trip (depart, back, nights, price; None without a fare), `ctx` deals.trip_context (low, typical,
     days), `insight` price_insights.trip (cash only), `skyexpress` its best trip when it has fares (economy cash only), `hotel` (name,
     adults, price) for the pass's nights when `hotel` (a trip_plan.hotels entry) has every night priced, `other` the cheapest trip leaving
     in another week (cash), and for miles `award` (the cash fare and award taxes of the same dates) and `cash` (the cheapest cash trip).
     `nights` and `wdays` empty mean no constraint, as on the Overview; `period` is (first, last departure day); `hist` is the price history
-    (price_insights.history() when None)."""
+    (price_insights.history() when None). `oneway`: price no way back, whatever is saved."""
     today = today or date.today()
     start, end = period
     stays, wdays = sorted(nights) or NIGHTS, list(wdays) or DAYS
@@ -80,6 +80,8 @@ def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=N
         m_back, t_back, _ = load_award(db, dest, orig, True, start, far)
         pick = lambda frame: frame[cabin] if cabin in frame else pd.Series(dtype=float)
         out, back = pick(m_out), pick(m_back)
+    if oneway:
+        back = None
     best = deals.best_trip(out, back, start, end, stays, wdays)
     f = dict(orig=orig, dest=dest, cabin=cabin, pay=pay, nights=stays, wdays=wdays, start=start, end=end, today=today, best=best,
              ctx=deals.trip_context(out, back, start, end), insight=None, skyexpress=None, hotel=None, other=None, award=None, cash=None)

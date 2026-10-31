@@ -57,7 +57,7 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     assert "usually €" in cards[1] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
     assert not [m for m in at.markdown if 'class="pass"' in m.value] and "From Athens, the next 30 days, economy" in " ".join(m.value for m in at.markdown)
     assert list(at.dataframe[-1].value.Route)[0] == "ATH → FRA"  # the route table still closes the page
-    at.button_group(key="ov-nights").set_value([5]).run()
+    at.slider(key="ov-nights").set_value((5, 5)).run()
     assert not at.exception and "5 nights" in rows()[1]
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert len(rows()) == 2  # business fares are saved to FRA and ZRH only
