@@ -2,7 +2,7 @@
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
 import pandas as pd
 
-VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 
 def by_month(fares, min_days=7):
@@ -35,10 +35,11 @@ def month_colours(t, dear=0.15):
     return t.apply(row, axis=1, result_type="expand").set_axis(t.columns, axis=1)
 
 
-def trip_grid(out, back, start, end, nights=range(2, 8)):
+def trip_grid(out, back, start, end, nights=range(2, 8), weekdays=None):
     """Google Flights' date grid for a return trip: outbound days from `start` to `end` (dates) as rows, nights away as columns, the two
-    one-way fares added up in each cell (NaN when either day has no fare). out, back: Series of fares by iso day."""
-    days = pd.date_range(start, end)
+    one-way fares added up in each cell (NaN when either day has no fare). out, back: Series of fares by iso day. `weekdays` (Mon..Sun
+    abbreviations) keeps only those departure days."""
+    days = [d for d in pd.date_range(start, end) if weekdays is None or f"{d:%a}" in weekdays]
     out = pd.to_numeric(out, errors="coerce").set_axis(pd.to_datetime(out.index))  # award days without seats can come as None
     back = pd.to_numeric(back, errors="coerce").set_axis(pd.to_datetime(back.index))
     t = pd.DataFrame({f"{n} nights": [out.get(d, float("nan")) + back.get(d + pd.Timedelta(days=n), float("nan")) for d in days]
@@ -63,11 +64,12 @@ def styled(t, fmt, colours):
     return text.style.apply(lambda _: colours(t), axis=None)
 
 
-def best_trip(out, back, start, end, nights=range(2, 8)):
+def best_trip(out, back, start, end, nights=range(2, 8), weekdays=None):
     """The cheapest trip leaving between `start` and `end`: dict(depart, back, nights, price) for a return when there are fares both
-    ways, else the cheapest one-way (back and nights None); None without any fare. depart/back are dates."""
+    ways, else the cheapest one-way (back and nights None); None without any fare. depart/back are dates. `weekdays` (Mon..Sun) and
+    `nights` narrow the trips to the traveller's constraints."""
     if back is not None and len(back.dropna()):
-        g = trip_grid(out, back, start, end, nights)
+        g = trip_grid(out, back, start, end, nights, weekdays)
         if len(g) and g.notna().any().any():
             s = g.stack()
             day, n = s.idxmin()
@@ -77,6 +79,22 @@ def best_trip(out, back, start, end, nights=range(2, 8)):
             return dict(depart=d.date(), back=(d + pd.Timedelta(days=n)).date(), nights=n, price=float(s.min()))
     o = pd.to_numeric(out, errors="coerce").dropna()
     o = o[(pd.to_datetime(o.index) >= pd.Timestamp(start)) & (pd.to_datetime(o.index) <= pd.Timestamp(end))]
+    if weekdays is not None:
+        o = o[[f"{pd.Timestamp(d):%a}" in weekdays for d in o.index]]
     if not len(o):
         return None
     return dict(depart=pd.Timestamp(o.idxmin()).date(), back=None, nights=None, price=float(o.min()))
+
+
+def trip_context(out, back, start, end, nights=range(2, 8)):
+    """What a trip on this route usually costs, so the pass's price means something: dict(low, typical, days) over every return trip
+    (trip_grid cells) leaving between `start` and `end`, or over the one-way fares when there are no fares back; None without any fare.
+    typical is the median, days the number of days in the window."""
+    if back is not None and len(back.dropna()):
+        s = trip_grid(out, back, start, end, nights).stack()
+    else:
+        o = pd.to_numeric(out, errors="coerce").dropna()
+        s = o[(pd.to_datetime(o.index) >= pd.Timestamp(start)) & (pd.to_datetime(o.index) <= pd.Timestamp(end))]
+    if not len(s):
+        return None
+    return dict(low=float(s.min()), typical=float(s.median()), days=(end - start).days + 1)
