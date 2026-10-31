@@ -176,22 +176,37 @@ trips like it usually cost among the dates saved, and **How this fare moved** un
 The Expert page reads the same answer as the Overview's boarding pass and explains it. Its controls are the Overview's (From, To, Leaving between,
 Cabin, Pay with, Nights, Days I can leave, plus a Hotel searched in that city), with the same defaults, and **Ask the expert about it** on the
 Overview opens it on exactly the pass shown (`?from=&to=&cabin=&pay=&nights=`). The numbers come from the very functions the pass uses, with the
-same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for the typical and lowest price,
-`price_insights` for the usual range, Sky Express's best trip when it has fares, the hotel for those nights), so the two pages cannot disagree.
-**Today's briefing** is three plain sentences: the recommended trip with dates, nights and price; why (the usual range or the typical price,
-the weekday, how far ahead); and the one alternative that matters (Sky Express when it is cheaper, the cheapest cash trip when paying with
-miles, otherwise the next-cheapest week). An AI model writes them in its own words, once a day per search, from those facts and nothing
-else; when it is busy, out of quota or there is no key, the page shows the same three sentences built in Python (`expert_chat.sentences`),
-so it never shows nothing. The chat under it answers follow-ups from the same facts plus every tracked route's one-way fares, and says when
-something is not in the data ("I only have fares up to 29 January; search that month on the Overview"). Add one key under
-**Settings → Secrets** of the app on Streamlit Cloud:
+same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for what most trips in the period cost and
+the lowest, `price_insights` for the usual range, Sky Express's best trip when it has fares, the hotel for those nights), so the two pages cannot
+disagree. **Today's briefing** is three plain sentences: the recommended trip with dates, nights and price; why (the usual range or what most
+trips cost, the weekday, how far ahead); and the one alternative that matters (Sky Express when it is cheaper, the cheapest cash trip when
+paying with miles, otherwise the next-cheapest week). An AI model writes them in its own words, once a day per search, from those facts and
+nothing else; when it is busy, out of quota or there is no key, the page shows the same three sentences built in Python
+(`expert_chat.sentences`), so it never shows nothing. Under the briefing are the Overview's two links for that very trip, **Book on
+aegeanair.com** and **Check it on Google Flights** (`booking.aegean_url`, `booking.google_url`).
+
+**Suggested questions** sit under the briefing as pills; clicking one asks it, and the answer comes instantly from the saved fares, in plain
+Python (`expert_chat.questions` and `expert_chat.answer`), with or without an AI key:
+
+- *Cheaper if I leave a day earlier or later?*: the same trip shifted a day either way (`facts()['near']`); when a neighbour is cheaper, why
+  the pass did not take it (a weekday you cannot leave on, or outside the days searched).
+- *What if I stay a week?*: the cheapest 7-night trip with the same filters (`week`), and the gap to the recommended stay.
+- *Is business worth it?*: the recommended dates in both cabins (`cabins`), and what the gap means (a small gap, about double, a steep premium).
+- *How does Sky Express compare?*, only on a route Sky Express serves: its cheapest trip, its price on AEGEAN's dates and AEGEAN's on its dates.
+- *Should I book now or wait?*, cash fares only: the fare's verdict against the route's usual range (`price_insights`), and how the fare of those
+  very dates has moved over the saved history (`trend`: first seen, now, lowest, highest, a week ago).
+
+A question is offered only when the facts can answer it. The same answers go into the model's data, and its rules forbid any number that is
+not there, so a typed question gets the same numbers in other words. The chat answers typed follow-ups from the same facts plus every tracked
+route's one-way fares, and says when something is not in the data ("I only have fares up to 29 January; search that month on the Overview").
+Add one key under **Settings → Secrets** of the app on Streamlit Cloud:
 
 - `GEMINI_API_KEY = "..."`: free. Create it at aistudio.google.com; no card needed. Uses `gemini-3.8-flash`, falling back to
   `gemini-3.5-flash-lite` when the first is busy or out of free quota.
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
-Without either key, the page still shows the plain briefing, and the chat is hidden. Either way the app answers at most 60 questions a day
-(`MAX_PER_DAY` in `expert_chat.py`).
+Without either key, the page still shows the plain briefing, the booking links and the suggested questions; only typed questions need a key.
+Either way the model answers at most 60 typed questions a day (`MAX_PER_DAY` in `expert_chat.py`); the suggested ones cost nothing.
 
 ## Price alerts (free, by email or phone)
 

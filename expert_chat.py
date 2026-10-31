@@ -1,7 +1,9 @@
 """Virtual expert: the Overview's answer for one search, explained. facts() works the recommended trip out with the very functions the
 Overview's boarding pass uses (deals.best_trip, deals.trip_context, price_insights, Sky Express, the hotel), with the same filters, so the two
 pages can never disagree; sentences() says it in three plain sentences; an AI model writes the same three sentences in its own words (the
-briefing) and answers follow-up questions in a chat that remembers the conversation, from those facts and nothing else.
+briefing) and answers follow-up questions in a chat that remembers the conversation, from those facts and nothing else. questions() names
+the follow-ups the facts can answer (a day earlier or later, a week away, business, Sky Express, book now or wait) and answer() answers each
+in plain Python, instantly and without a model; the model gets those answers in its data too, so a typed question gets the same numbers.
 Two providers, picked by which key is in the Streamlit secrets (or the environment):
 - GEMINI_API_KEY: Google Gemini on its free tier (no card; create a key at aistudio.google.com). Used first, because it costs nothing.
 - ANTHROPIC_API_KEY: Claude Haiku 5.5, about a tenth of a cent a question.
@@ -26,7 +28,7 @@ from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 from trip_plan import city
 
-VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -42,7 +44,10 @@ earlier answers in the conversation.
 Rules:
 - <data> names one recommended trip: the same one the app's Overview page shows. Explain it; do not propose a different trip unless the
   traveller asks for different constraints (other dates, nights, weekdays, cabin or way of paying).
-- Use only the data given. Quote dates (weekday + day + month) and euro amounts from it. Never invent a price, a route or a date.
+- Use only the data given. Quote dates (weekday + day + month) and euro amounts from it. Never invent a price, a route or a date, and never
+  write a number (a price, miles, a date, a count of days) that is not in <data>; no arithmetic beyond what <data> already states.
+- <data> ends with ready answers to the common questions (a day earlier or later, a week away, business, Sky Express, book now or wait).
+  When the traveller asks one of those, give that answer in your own words; do not contradict it.
 - When asked about a route, cabin or dates that are not in the data, say which fares you do have and where to get the rest, in one sentence
   (for example "I only have fares up to 29 January; search that month on the Overview"). Do not guess.
 - Lead with the answer in one or two sentences, then at most five short bullets of evidence. No headings, no tables.
@@ -53,6 +58,8 @@ BRIEFING = ("Write today's briefing for this search as exactly three plain sente
             "(3) the one alternative <data> names (Sky Express when it is cheaper, the cash fare when paying with miles, otherwise the "
             "next-cheapest week). Use only numbers that are in <data>. No introduction and no closing line.")
 
+NEAR, WEEK, BUSINESS, SKY, BOOK = ("Cheaper if I leave a day earlier or later?", "What if I stay a week?", "Is business worth it?",
+                                   "How does Sky Express compare?", "Should I book now or wait?")  # the suggested questions, in this order
 CARD = ("<style>.st-key-brief{background:#fff;border:0 !important;border-left:4px solid #2563C9 !important;border-radius:14px;"
         "box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);padding:16px 20px}.st-key-brief ul{margin-bottom:.2rem}</style>")
 
@@ -66,8 +73,13 @@ def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=N
     days), `insight` price_insights.trip (cash only), `skyexpress` its best trip when it has fares (economy cash only), `hotel` (name,
     adults, price) for the pass's nights when `hotel` (a trip_plan.hotels entry) has every night priced, `other` the cheapest trip leaving
     in another week (cash), and for miles `award` (the cash fare and award taxes of the same dates) and `cash` (the cheapest cash trip).
-    `nights` and `wdays` empty mean no constraint, as on the Overview; `period` is (first, last departure day); `hist` is the price history
-    (price_insights.history() when None). `oneway`: price no way back, whatever is saved."""
+    For the suggested questions: `near` what the same trip costs leaving a day earlier and a day later ({earlier, later}: depart, back,
+    price; price None when a day has no fare), `week` the cheapest 7-night trip (a return only), `cabins` the same dates in economy and in
+    business ({economy, business}: price or None), `trend` how the fare of the recommended dates moved over the saved history (cash only:
+    days, first, last, low, high, since, week_ago; None under two days), `skyexpress_same` Sky Express's price on the recommended dates and
+    `aegean_same` AEGEAN's on Sky Express's cheapest dates (None without a flight), `gq_serves` whether Sky Express flies both airports
+    (economy cash only). `nights` and `wdays` empty mean no constraint, as on the Overview; `period` is (first, last departure day); `hist`
+    is the price history (price_insights.history() when None). `oneway`: price no way back, whatever is saved."""
     today = today or date.today()
     start, end = period
     stays, wdays = sorted(nights) or NIGHTS, list(wdays) or DAYS
@@ -84,17 +96,34 @@ def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=N
         back = None
     best = deals.best_trip(out, back, start, end, stays, wdays)
     f = dict(orig=orig, dest=dest, cabin=cabin, pay=pay, nights=stays, wdays=wdays, start=start, end=end, today=today, best=best,
-             ctx=deals.trip_context(out, back, start, end), insight=None, skyexpress=None, hotel=None, other=None, award=None, cash=None)
+             ctx=deals.trip_context(out, back, start, end), insight=None, skyexpress=None, hotel=None, other=None, award=None, cash=None,
+             near=None, week=None, cabins=None, trend=None, skyexpress_same=None, aegean_same=None,
+             gq_serves=pay == "cash" and cabin == "economy" and sx.serves(orig, dest))
     if best is None:
         return f
     ret = best["back"] is not None
+    f["near"] = _near(out, back, best)
+    if ret:
+        week = deals.best_trip(out, back, start, end, [7], wdays)  # a one-way when no 7-night trip fits the saved fares: not an answer
+        f["week"] = week if week and week["back"] is not None else None
+    if pay == "cash":
+        f["cabins"] = {c: sx.trip_price(cash_by_day(db, orig, dest, c, True, start, end), cash_by_day(db, dest, orig, c, True, start, far),
+                                        best["depart"], best["back"]) for c in ("economy", "business")}
+    else:
+        f["cabins"] = {c: sx.trip_price(m_out[c] if c in m_out else None, m_back[c] if c in m_back else None, best["depart"], best["back"])
+                       for c in ("economy", "business")}
     if pay == "cash":
         hist = pi.history() if hist is None else hist
         f["insight"] = pi.trip(hist, [(orig, dest)] + ([(dest, orig)] if ret else []), cabin, best["price"], today)
-        if cabin == "economy" and sx.serves(orig, dest):
+        f["trend"] = _trend(hist, orig, dest, cabin, best)
+        if f["gq_serves"]:
             gq_out = sx.cash_by_day(db, orig, dest, start, end)
+            gq_back = sx.cash_by_day(db, dest, orig, start, far) if ret else None
             if len(gq_out):
-                f["skyexpress"] = deals.best_trip(gq_out, sx.cash_by_day(db, dest, orig, start, far) if ret else None, start, end, stays, wdays)
+                f["skyexpress"] = deals.best_trip(gq_out, gq_back, start, end, stays, wdays)
+                f["skyexpress_same"] = sx.trip_price(gq_out, gq_back, best["depart"], best["back"])
+            if f["skyexpress"] is not None:
+                f["aegean_same"] = sx.trip_price(out, back, f["skyexpress"]["depart"], f["skyexpress"]["back"])
         if ret and hotel:
             night = night_prices(db, hotel["query"], hotel["filt"], hotel["adults"], best["depart"], best["back"])
             stay = [(best["depart"] + timedelta(i)).isoformat() for i in range(best["nights"])]
@@ -119,6 +148,33 @@ def _other_week(out, back, best, start, end, stays, wdays):
     found = [deals.best_trip(out, back, a, b, stays, wdays) for a, b in ((start, monday - timedelta(1)), (monday + timedelta(7), end)) if a <= b]
     found = [t for t in found if t]
     return min(found, key=lambda t: t["price"]) if found else None
+
+
+def _near(out, back, best):
+    """What the recommended trip costs shifted by one day either way, the same nights: {'earlier': dict(depart, back, price), 'later': ...};
+    price None when either day has no fare saved (a day before the period, say). out/back are the fare series the trip was chosen from."""
+    near = {}
+    for k, shift in (("earlier", -1), ("later", 1)):
+        d = best["depart"] + timedelta(shift)
+        b = best["back"] + timedelta(shift) if best["back"] is not None else None
+        near[k] = dict(depart=d, back=b, nights=best["nights"], price=sx.trip_price(out, back, d, b))
+    return near
+
+
+def _trend(hist, orig, dest, cabin, best):
+    """How the fare of exactly the recommended dates moved over the saved history (price_insights.series, the two legs added up on the days
+    both were fetched): dict(days, first, last, low, high, since, week_ago), week_ago the last fare at least seven days before the newest
+    (None when the history is shorter). None when the dates were seen on fewer than two days."""
+    s = pi.series(hist, orig, dest, cabin, best["depart"].isoformat())
+    if best["back"] is not None:
+        s = (s + pi.series(hist, dest, orig, cabin, best["back"].isoformat())).dropna()
+    s = s.dropna()
+    if len(s) < 2:
+        return None
+    last_day = date.fromisoformat(s.index[-1])
+    ago = s[[date.fromisoformat(d) <= last_day - timedelta(7) for d in s.index]]
+    return dict(days=len(s), first=float(s.iloc[0]), last=float(s.iloc[-1]), low=float(s.min()), high=float(s.max()),
+                since=date.fromisoformat(s.index[0]), week_ago=float(ago.iloc[-1]) if len(ago) else None)
 
 
 def _when(d, today):
@@ -161,9 +217,10 @@ def sentences(f):
         why = (f"That is a {ins['level']} fare for this route, which usually costs €{ins['low']:,.0f}–€{ins['high']:,.0f} "
                f"{'return' if ret else 'one way'}")
     elif ctx and abs(best["price"] - ctx["typical"]) <= ctx["typical"] * 0.05:
-        why = f"Prices are flat in this period: a typical {'trip' if ret else 'day'} costs {_money(f, ctx['typical'])}"
+        why = f"Prices are much the same whichever day you pick in this period: most {'trips' if ret else 'days'} cost about {_money(f, ctx['typical'])}"
     elif ctx:
-        why = f"A typical {'trip' if ret else 'day'} in this period costs {_money(f, ctx['typical'])}, so this saves {_money(f, ctx['typical'] - best['price'])}"
+        why = (f"{'Trips like this' if ret else 'This flight'} in this period usually cost{'' if ret else 's'} about {_money(f, ctx['typical'])}, "
+               f"so this saves {_money(f, ctx['typical'] - best['price'])}")
     else:
         why = "It is the lowest price saved for this period"
     second = f"{why}; it leaves on a {best['depart']:%A}, {ahead} day{'s' if ahead != 1 else ''} from today."
@@ -200,21 +257,38 @@ def text(f):
         return "\n".join(lines)
     lines.append(f"Recommended trip (the one the Overview's boarding pass shows): {_dates(f, best)}, {_money(f, best['price'])}.")
     if f["ctx"]:
-        lines.append(f"Trips in this period with these filters: typical {_money(f, f['ctx']['typical'])} (half the trips cost less), lowest "
-                     f"{_money(f, f['ctx']['low'])}, over {f['ctx']['days']} departure days.")
+        lines.append(f"Trips in this period with these filters: most cost about {_money(f, f['ctx']['typical'])} (the middle price), the lowest "
+                     f"is {_money(f, f['ctx']['low'])}, over {f['ctx']['days']} departure days.")
     ins = f["insight"]
     if ins and ins.get("level"):
         lines.append(f"Fare verdict: {ins['level']}; this route usually costs €{ins['low']:,.0f}–€{ins['high']:,.0f} for such a trip "
                      f"(from {ins['snapshots']} days of price history since {ins['since']:%d %b}).")
     elif ins and ins.get("since"):
         lines.append(f"Fare verdict: none yet, the route is tracked since {ins['since']:%d %b} ({ins['snapshots']} days of prices).")
+    if f["near"]:
+        cost = lambda v: f"{_dates(f, v)}, " + ("no fare saved" if v["price"] is None else _money(f, v["price"]))
+        lines.append(f"A day earlier: {cost(f['near']['earlier'])}. A day later: {cost(f['near']['later'])}.")
+    if f["week"] is not None:
+        lines.append(f"Cheapest 7-night trip with these filters: {_dates(f, f['week'])}, {_money(f, f['week']['price'])}.")
+    if f["cabins"]:
+        both = "; ".join(f"{c} " + ("not saved" if v is None else _money(f, v)) for c, v in f["cabins"].items())
+        lines.append(f"The recommended dates in each cabin: {both}.")
+    if f["trend"]:
+        t = f["trend"]
+        lines.append(f"The fare of the recommended dates over the saved history: first seen {_money(f, t['first'])} on {t['since']:%d %b}, "
+                     f"now {_money(f, t['last'])}, lowest {_money(f, t['low'])}, highest {_money(f, t['high'])}, over {t['days']} days"
+                     + (f"; a week ago {_money(f, t['week_ago'])}" if t["week_ago"] is not None else "") + ".")
     if f["hotel"]:
         lines.append(f"Hotel: {f['hotel']['name']} ({f['hotel']['adults']} adults) for those nights €{f['hotel']['price']:,.0f}, "
                      f"so €{best['price'] + f['hotel']['price']:,.0f} for the whole trip.")
     if f["skyexpress"] is not None:
         gq = f["skyexpress"]
         lines.append(f"Sky Express (economy): cheapest {_dates(f, gq)}, €{gq['price']:,.0f}, "
-                     f"{'cheaper' if gq['price'] < best['price'] else 'dearer'} than AEGEAN by €{abs(best['price'] - gq['price']):,.0f}.")
+                     f"{'cheaper' if gq['price'] < best['price'] else 'dearer'} than AEGEAN by €{abs(best['price'] - gq['price']):,.0f}. "
+                     "Sky Express on the recommended dates: " + ("no flight" if f["skyexpress_same"] is None else f"€{f['skyexpress_same']:,.0f}")
+                     + "; AEGEAN on Sky Express's dates: " + ("no flight" if f["aegean_same"] is None else f"€{f['aegean_same']:,.0f}") + ".")
+    elif f["gq_serves"]:
+        lines.append("Sky Express flies this route too, but no Sky Express fare is saved for these days.")
     if f["other"] is not None:
         lines.append(f"Next-cheapest trip in another week: {_dates(f, f['other'])}, {_money(f, f['other']['price'])}.")
     if f["award"]:
@@ -224,7 +298,151 @@ def text(f):
     if f["cash"] is not None:
         lines.append(f"Cheapest cash trip with these filters: {_dates(f, f['cash'])}, €{f['cash']['price']:,.0f}.")
     lines.append("Briefing in plain words: " + " ".join(sentences(f)))
+    asks = questions(f)
+    if asks:
+        lines.append("Answers to common questions:")
+        lines.extend(f"- {q} {answer(f, q)}" for q in asks)
     return "\n".join(lines)
+
+
+# --- the suggested questions, answered in plain Python ------------------------------------------------------------------------------------
+def questions(f):
+    """The suggested questions the facts can answer, in a fixed order; empty without a recommended trip. A question is offered only when
+    its answer has something to say: a neighbouring day with a fare, a 7-night trip, both cabins priced, Sky Express serving the route,
+    price history for a cash fare."""
+    best = f["best"]
+    if best is None:
+        return []
+    asks = []
+    if f["near"] and any(v["price"] is not None for v in f["near"].values()):
+        asks.append(NEAR)
+    if best["back"] is not None and f["week"] is not None:
+        asks.append(WEEK)
+    if f["cabins"] and all(v is not None for v in f["cabins"].values()):
+        asks.append(BUSINESS)
+    if f["gq_serves"]:
+        asks.append(SKY)
+    if f["pay"] == "cash" and f["insight"]:
+        asks.append(BOOK)
+    return asks
+
+
+def answer(f, q):
+    """The plain answer to suggested question `q` (NEAR, WEEK, BUSINESS, SKY or BOOK) from the facts alone: instant, and every number is
+    one the page already has. KeyError for any other question (those go to the model)."""
+    return {NEAR: _near_answer, WEEK: _week_answer, BUSINESS: _business_answer, SKY: _sky_answer, BOOK: _book_answer}[q](f)
+
+
+def _gap(f, diff):
+    """"€20 more", "€20 less" or "the same price"."""
+    if diff == 0:
+        return "the same price"
+    return f"{_money(f, abs(diff))} {'more' if diff > 0 else 'less'}"
+
+
+def _near_answer(f):
+    best, near, today = f["best"], f["near"], f["today"]
+    ret = best["back"] is not None
+    same = f"for the same {best['nights']} night{'s' if best['nights'] != 1 else ''}" if ret else "one way"
+    said, cheaper = [], []
+    for k in ("earlier", "later"):
+        v = near[k]
+        if v["price"] is None:
+            said.append(f"a day {k} ({_when(v['depart'], today)}) has no fare saved")
+            continue
+        said.append(f"a day {k} ({_when(v['depart'], today)}) costs {_money(f, v['price'])}, {_gap(f, v['price'] - best['price'])}")
+        if v["price"] < best["price"]:
+            cheaper.append((k, v))
+    if cheaper:  # the pass is the cheapest of the allowed days, so a cheaper neighbour is one the filters left out
+        k, v = min(cheaper, key=lambda kv: kv[1]["price"])
+        why = ""
+        if f"{v['depart']:%a}" not in f["wdays"]:
+            why = f", but {v['depart']:%A} is not among the days you can leave"
+        elif not f["start"] <= v["depart"] <= f["end"]:
+            why = ", but it is outside the days you searched"
+        return (f"Yes: leaving a day {k} ({_dates(f, v)}) costs {_money(f, v['price'])}, {_money(f, best['price'] - v['price'])} less {same}{why}. "
+                f"The other way, {[s for s in said if not s.startswith(f'a day {k}')][0]}.")
+    return f"No: {said[0]}, and {said[1]}, {same}."
+
+
+def _week_answer(f):
+    best, week = f["best"], f["week"]
+    if week is None:
+        return "No 7-night trip is saved for these days: the way back would fall after the last day with fares."
+    if best["nights"] == 7:
+        return f"The recommended trip is already a week: {_dates(f, best)}, {_money(f, best['price'])}."
+    diff = week["price"] - best["price"]
+    return (f"A week away costs {_money(f, week['price'])}: {_dates(f, week)}. That is {_gap(f, diff)} "
+            f"{'than' if diff else 'as'} the {best['nights']}-night trip"
+            + (f", and the hotel would add {7 - best['nights']} more nights" if f["hotel"] else "") + ".")
+
+
+def _business_answer(f):
+    c = f["cabins"]
+    eco, bus = c["economy"], c["business"]
+    if eco is None or bus is None:
+        return f"No {'business' if bus is None else 'economy'} fare is saved for these dates to compare with."
+    than = "as" if bus == eco else "than"
+    if f["cabin"] == "economy":
+        lead = f"Business on the same dates costs {_money(f, bus)}, {_gap(f, bus - eco)} {than} the {_money(f, eco)} economy fare"
+    else:
+        lead = f"Economy on the same dates costs {_money(f, eco)}, {_gap(f, eco - bus)} {than} the {_money(f, bus)} business fare"
+    if bus <= eco:
+        return f"{lead}: business costs no more here, so take it."
+    ratio = bus / eco
+    if ratio <= 1.5:
+        return f"{lead}: a small gap, so business is worth it if you value the wider seat and the lounge."
+    if ratio <= 2.5:
+        return f"{lead}: about double economy, worth it only if the comfort matters more to you than the money."
+    return f"{lead}: {ratio:.1f} times the economy fare, a steep premium that is rarely worth it."
+
+
+def _sky_answer(f):
+    best, gq, same, mine = f["best"], f["skyexpress"], f["skyexpress_same"], f["aegean_same"]
+    if gq is None:
+        return (f"No {sx.NAME} fare is saved for these days yet. Search the route on the Flights page and the two airlines appear side by side.")
+    on_mine = f"On AEGEAN's dates {sx.NAME} costs €{same:,.0f}" if same is not None else f"{sx.NAME} has no flight on AEGEAN's dates"
+    on_gq = f"; on {sx.NAME}'s dates AEGEAN costs €{mine:,.0f}" if mine is not None else f"; AEGEAN has no flight on {sx.NAME}'s dates"
+    if gq["price"] < best["price"]:
+        return (f"{sx.NAME} is cheaper: €{gq['price']:,.0f} ({_dates(f, gq)}, economy) against AEGEAN's €{best['price']:,.0f}, "
+                f"€{best['price'] - gq['price']:,.0f} less. {on_mine}{on_gq}.")
+    if gq["price"] == best["price"]:
+        return f"The same: {sx.NAME}'s cheapest trip is also €{gq['price']:,.0f} ({_dates(f, gq)}, economy). {on_mine}{on_gq}."
+    return (f"AEGEAN is cheaper: €{best['price']:,.0f} against {sx.NAME}'s cheapest €{gq['price']:,.0f} ({_dates(f, gq)}, economy), "
+            f"€{gq['price'] - best['price']:,.0f} less. {on_mine}{on_gq}.")
+
+
+def _book_answer(f):
+    best, ins, t = f["best"], f["insight"] or {}, f["trend"]
+    price, kind = _money(f, best["price"]), "return" if best["back"] is not None else "one way"
+    usual = f"€{ins['low']:,.0f}–€{ins['high']:,.0f} {kind}" if ins.get("level") else ""
+    if ins.get("level") == "low":
+        lead = f"Book now: {price} is a low fare for this route, which usually costs {usual}."
+    elif ins.get("level") == "high":
+        lead = f"Wait if you can: {price} is high for this route, which usually costs {usual}. Set an alert on the Alerts page and it tells you when it drops."
+    elif ins.get("level") == "typical":
+        lead = f"No rush, but no reason to wait either: {price} is about what this route usually costs ({usual})."
+    else:
+        n = ins.get("snapshots") or 0
+        few = (f"the route has only {n} day{'s' if n != 1 else ''} of prices saved" + (f" since {_when(ins['since'], f['today'])}" if ins.get("since") else "")
+               if n else "no price history is saved for this route yet")
+        lead = f"Hard to say yet: {few}, too few to call {price} low or high. Book when the dates suit you, and set an alert on the Alerts page in case it drops."
+    if not t:
+        return lead
+    if t["low"] == t["high"]:
+        move = "has not moved"
+    elif t["last"] == t["first"]:
+        move = f"is back at {_money(f, t['first'])} after moving between {_money(f, t['low'])} and {_money(f, t['high'])}"
+    else:
+        move = f"has {'fallen' if t['last'] < t['first'] else 'risen'} from {_money(f, t['first'])} to {_money(f, t['last'])}"
+    said = f"The fare for these dates {move} since {_when(t['since'], f['today'])} ({t['days']} days of prices)"
+    if t["week_ago"] is not None and t["week_ago"] != t["last"]:
+        said += f", and lately it is {'falling' if t['last'] < t['week_ago'] else 'rising'}"
+    elif t["week_ago"] is not None:
+        said += ", and lately it has been steady"
+    if t["last"] < t["first"] and t["last"] == t["low"]:
+        said += "; it is at its lowest so far"
+    return f"{lead} {said}."
 
 
 def prompt(f):
