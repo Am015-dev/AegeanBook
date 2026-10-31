@@ -3,12 +3,12 @@ month-by-month view, the date grid behind it, one tip, and every route with fare
 shows only numbers the data proves, so it never changes unless the fares do."""
 import html
 import importlib
-import urllib.parse
 from datetime import date, timedelta
 
 import pandas as pd
 import streamlit as st
 
+import booking
 import deals
 import overview as ov
 import trip_plan as tp
@@ -65,7 +65,7 @@ st.markdown(f"""<style>
 # --- the route bar: everything below follows it -------------------------------------------------------------------------------------
 place = lambda a: f"{tp.city(a)} ({a})"
 froms = list(dict.fromkeys(o for o, _ in fares))
-c = st.columns([1.2, 1.2, 1, 1])
+c = st.columns([1.2, 1.2, 1, 1, 0.7])
 orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig",
                       help="Every airport with fares saved: the daily routes, plus any route searched on the Flights page.")
 dests = [d for o, d in fares if o == orig]
@@ -73,6 +73,8 @@ dest = c[1].selectbox("To", dests, format_func=place, key=f"ov-grid-dest-{orig}"
 gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin")
 pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                  key="ov-grid-pay")
+pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", help="Adults. Fares are collected for one adult; the pass and the booking "
+                        "links use this number.")
 
 src = fares if pay == "cash" else awards
 out_s = src.get((orig, dest), {})
@@ -91,24 +93,28 @@ else:
     ret = best["back"] is not None
     fields = [("Leave", f"{best['depart']:%a %d %b}")] + ([("Return", f"{best['back']:%a %d %b}"), ("Stay", f"{best['nights']} nights")]
                                                           if ret else [("Trip", "One way")]) + [("Cabin", gcab.capitalize())]
-    price = money(best["price"])
+    price = money(best["price"] * pax)
     price = price.replace(" miles", "<small> miles</small>")
+    who = "one adult, " if pax == 1 else f"{pax} adults, "
     st.markdown(
         f'<div class="pass"><div class="pass-main"><div class="pass-codes">{e(orig)}<span class="line"></span>{e(dest)}</div>'
         f'<div class="pass-cities"><span>{e(tp.city(orig))}</span><span>{e(tp.city(dest))}</span></div><dl class="pass-fields">'
         + "".join(f"<div><dt>{k}</dt><dd>{e(v)}</dd></div>" for k, v in fields)
         + f'</dl></div><div class="pass-stub"><span class="k">Cheapest {"return" if ret else "one way"}</span>'
         f'<span class="price">{price}</span><span class="note">'
-        f'{"plus taxes and fees, " if pay == "miles" else "one adult, "}best of the next {(lastday - today).days} days</span></div></div>',
+        f'{"plus taxes and fees, " if pay == "miles" else who}best of the next {(lastday - today).days} days</span></div></div>',
         unsafe_allow_html=True)
-    q = f"Flights from {orig} to {dest} on {best['depart']:%Y-%m-%d}" + (f" returning {best['back']:%Y-%m-%d}" if ret else "") + " on Aegean"
-    c = st.columns([1, 1, 1])
-    c[0].link_button("Check it on Google Flights", "https://www.google.com/travel/flights?q=" + urllib.parse.quote(q), width="stretch",
-                     icon=":material/open_in_new:")
+    if pax > 1:
+        st.caption(f"for {pax} adults, from per-adult fares; the airline may price groups differently")
+    links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
+    c = st.columns([1, 1, 1, 1])
+    c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch",
+                     icon=":material/airplane_ticket:")
+    c[1].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), width="stretch", icon=":material/open_in_new:")
     for col, page, label, icon, params in (
-            (c[1], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
+            (c[2], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
              {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"}),
-            (c[2], "views/expert.py", "Ask the expert about it", ":material/forum:", {"from": orig, "to": dest})):
+            (c[3], "views/expert.py", "Ask the expert about it", ":material/forum:", {"from": orig, "to": dest})):
         try:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation
@@ -121,7 +127,7 @@ else:
         if all(s in nights.index for s in stay):
             cost = sum(nights[s] for s in stay)
             st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
-                       f"so €{best['price'] + cost:,.0f} for the whole trip.")
+                       f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
 
 # --- by month -------------------------------------------------------------------------------------------------------------------------
 m = deals.by_month(out_s)
