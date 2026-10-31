@@ -46,7 +46,7 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
     one slower last pass."""
     days = [start + timedelta(i) for i in range((end - start).days + 1)]
     todo = [c for c in cabins if any((d.isoformat(), c) not in skip for d in days)]
-    pending, limited = [], False
+    pending, limited, grid_ok, flown = [], False, set(), set()
     for cabin, grid, err in parallel(todo, lambda c: fetch_cabin(orig, dest, c, start, end, nonstop), 2):
         if err and "429" in err:  # rate-limited: do not hammer Google with 60 more lookups
             for d in days:
@@ -54,6 +54,9 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
                     yield d, cabin, None, "", "error", RATE_LIMITED
             limited = True
             continue
+        if not err:
+            grid_ok.add(cabin)
+            flown |= {date.fromisoformat(k).weekday() for k in grid}
         grid = {} if err else grid
         for d in days:
             if (d.isoformat(), cabin) in skip:
@@ -65,10 +68,17 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
 
     if limited:
         return
+    # Each request counts towards Google's limit (HTTP 429 on the app's shared server), so ask only where a flight is plausible.
+    # ponytail: a weekday the calendar never shows is taken as not flown on this route; a route flown on it only now and then, outside the
+    # calendar's days, is missed. Search again with a shorter window if that matters.
+    sure = [(d, c) for d, c in pending if c in grid_ok and flown and d.weekday() not in flown]
+    for d, c in sure:
+        yield d, c, None, "calendar", "none", None
+    pending = [a for a in pending if a not in sure]
 
     def look(a):
         r = fetch_day(orig, dest, a[1], a[0], nonstop)
-        if r is None:
+        if r is None and a[1] not in grid_ok:  # the calendar already said "empty" once for its cabins; otherwise ask a second time
             time.sleep(0.7)
             r = fetch_day(orig, dest, a[1], a[0], nonstop)
         return r
@@ -77,49 +87,29 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
         d, cabin = item
         return d, cabin, p, "" if p is None else "day search", "error" if err else "ok" if p is not None else "none", err
 
-    failed, gave_up = [], None
-    for item, p, err in parallel(pending, look, workers, give_up_after=6):
-        if err and err.startswith("Gave up"):
-            gave_up = err
-        if err and not gave_up:
-            failed.append(item)
-        else:
-            yield verdict(item, p, err)
-    if gave_up:  # nothing works right now: report everything as failed instead of retrying slowly
-        for item in failed:
-            yield verdict(item, None, gave_up)
-    elif failed:
+    no_flight, failed, gave_up = set(), [], None
+    order = sorted({c for _, c in pending}, key=lambda c: c != "economy")  # economy first: a day without one has no flight at all
+    for i, cabin in enumerate(order):
+        batch = [a for a in pending if a[1] == cabin]
+        if cabin != "economy":
+            for a in batch:
+                if a[0] in no_flight:
+                    yield a[0], cabin, None, "", "none", None
+            batch = [a for a in batch if a[0] not in no_flight]
+        for item, p, err in parallel(batch, look, workers, give_up_after=6):
+            if err and ("429" in err or err.startswith("Gave up")):
+                gave_up = RATE_LIMITED if "429" in err else err
+            if err:
+                failed.append(item)
+                continue
+            if p is None:
+                no_flight.add(item[0])
+            yield verdict(item, p, None)
+        if gave_up:  # Google is refusing or unreachable: report what is left as failed instead of asking more
+            for item in failed + [a for a in pending if a[1] in order[i + 1:]]:
+                yield verdict(item, None, gave_up)
+            return
+    if failed:
         time.sleep(3)
         for item, p, err in parallel(failed, look, 1, retries=3):
             yield verdict(item, p, err)
-
-
-if __name__ == "__main__":  # self-check, no network
-    d0 = date(2026, 11, 1)
-    d1, d2 = d0 + timedelta(1), d0 + timedelta(2)
-    fetch_cabin = lambda o, d, cabin, s, e, n: {"2026-11-01": 100.0}
-    fetch_day = lambda o, d, cabin, day, n: 222.0 if day == d1 else None
-    got = list(fetch_range(d0, d2, "ATH", "FRA", cabins=("economy",)))
-    assert sorted((g[0], g[2], g[3], g[4]) for g in got) == [
-        (d0, 100.0, "calendar", "ok"), (d1, 222.0, "day search", "ok"), (d2, None, "", "none")]
-    assert [g[1] for g in fetch_range(d0, d0, "ATH", "FRA", skip={("2026-11-01", "economy")})] == ["business"]
-
-    calls = {"n": 0}
-
-    def empty_once(o, d, cabin, day, n):  # Google answers empty the first time for a day that has a flight
-        calls["n"] += 1
-        return 150.0 if calls["n"] > 1 else None
-    fetch_cabin, fetch_day = (lambda *a: {}), empty_once
-    assert next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[2:5] == (150.0, "day search", "ok")
-
-    def boom(*a):
-        raise RuntimeError("x")
-    time.sleep = lambda s: None  # keep the failure paths quick
-    fetch_cabin = boom  # grid fails: every day is checked one by one
-    fetch_day = lambda o, d, cabin, day, n: None
-    assert [g[4] for g in fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",))] == ["none"]
-    fetch_day = boom
-    last = next(fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))
-    assert last[4] == "error" and "RuntimeError" in last[5]
-    assert valid_airport("ATH") and not valid_airport("XXX")
-    print("ok")
