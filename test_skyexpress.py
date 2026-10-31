@@ -131,6 +131,27 @@ def test_refresh_keeps_sky_express_routes_fresh_economy_only(tmp_path, monkeypat
     assert fetch_route.refresh() == 0 and len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2  # unchanged prices: no new rows
 
 
+def test_daily_fetches_sky_express_on_the_daily_legs_it_serves(tmp_path, monkeypatch):
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "skyexpress_airports.csv").write_text("iata,city,country,seasonal\nATH,Athens,Greece,0\nFRA,Frankfurt,Germany,0\n")
+    asked = []
+
+    def fake(a, b, o, d, skip=(), nonstop=True, **kw):
+        asked.append((o, d, kw["airline"].name, a, b))
+        for cabin in kw["cabins"]:
+            yield a, cabin, 66.0, "calendar", "ok", None
+    monkeypatch.setattr(fetch_route, "fetch_range", fake)
+    assert fetch_route.daily() == 0
+    first, last = today + timedelta(1), today + timedelta(90)  # collect_daily.DAYS; ZRH is not in Sky Express's network
+    assert asked == [("ATH", "FRA", "GQ", first, last), ("FRA", "ATH", "GQ", first, last)]
+    assert {(r["orig"], r["dest"], r["cabin"]) for r in fetch_route.read(tmp_path / "skyexpress.csv")} == {("ATH", "FRA", "economy"),
+                                                                                                           ("FRA", "ATH", "economy")}
+    assert len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2 and not out.exists()
+    assert not (tmp_path / "tracked_routes.csv").exists()  # not tracked: --refresh must not fetch them a second time
+    assert "AIRLINE=GQ python fetch_route.py --daily" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
+
+
 def test_github_dispatch_carries_the_airline(monkeypatch):
     sent = []
     monkeypatch.setattr(gh, "_api", lambda tok, method, path, body=None, **k: sent.append((path, body)))

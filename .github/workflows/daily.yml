@@ -22,6 +22,8 @@ jobs:
         continue-on-error: true  # save what was collected even if some days are still missing
       - run: python fetch_route.py --refresh  # the routes searched from the app in the last 60 days, so they build a price history
         continue-on-error: true  # a bonus: it must never stop the daily commit below
+      - run: AIRLINE=GQ python fetch_route.py --daily  # Sky Express economy on the daily legs it serves, for the comparison
+        continue-on-error: true  # a bonus: it must never stop the daily commit below
       - id: digest
         run: python digest.py
         continue-on-error: true  # a bonus: it must never stop the daily commit below
