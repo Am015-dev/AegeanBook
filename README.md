@@ -141,6 +141,18 @@ pressing Update prices. The same run also fetches Sky Express economy fares on t
 Compare with Sky Express toggle has something to show on the daily routes without a fetch. To run it by hand, open GitHub → Actions →
 Daily fares → Run workflow. To change the routes, edit `LEGS` in `collect_daily.py`.
 
+The run is three jobs. **collect** does the above and commits it, then plans the refresh (`python fetch_route.py --plan`): every route
+searched from the app in the last 60 days (`data/tracked_routes.csv`, AEGEAN and Sky Express alike), in groups of 8 routes of one airline.
+**refresh** is one job per group (a matrix, like the fetch-route workflow: at most 5 at a time), each on its own GitHub server with its own
+share of Google's rate limit and its own 30-minute timeout, fetching its routes (`python fetch_route.py --refresh "<legs>" 1 new_rows.csv`)
+and then merging its rows into whatever main is newest (`--merge-refresh`, the same conflict-proof loop as a fetch from the app, which does
+not count as a new search), so a route that fails or a server Google throttles costs only its own job. **finish** runs on the newest main
+once every job is in: the digest of what changed (`digest.py`, committed as `data/latest_changes.md` and posted as an issue), then the
+price alerts; it is marked red when the daily legs still have days missing. Measured on 31 Oct 2026: the four daily legs take about 2
+seconds (Google's calendar answers a month at once), the hotel about 2.5 minutes, and a 90-day route 1 to 10 seconds, so 40 routes on
+one server fitted the old 150-minute timeout only as long as Google kept answering; one bad morning would have lost the day. Up to 120
+routes are refreshed (`fetch_route.TRACK_MAX`; the oldest searches are skipped past that), about 15 jobs of a minute or two.
+
 ## Anywhere: where can I fly cheaply?
 
 **Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, Leaving between, Nights and Cabin in the bar it
@@ -217,8 +229,8 @@ usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitH
 fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
 your own computer, say), the search runs in the app as before.
 
-A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
-the next 90 days in both cabins, at most 40 routes) for 60 days after it was last searched, so the fares build a history in
+A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (the refresh jobs of
+`daily.yml`, the next 90 days in both cabins, 8 routes a job, up to 120 routes) for 60 days after it was last searched, so the fares build a history in
 `data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks. The fares a search brings back go
 into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
 keeps a row when a price changes, so the refresh seeing the same fare adds nothing.
