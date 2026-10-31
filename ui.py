@@ -14,16 +14,15 @@ ECONOMY, BUSINESS, INK, MUTED, GRID = "#2563C9", "#B8741A", "#1D1D1F", "#6E6E73"
 BOOKING = "#0E9F6E"
 TIER_COLORS = {"cheap": "#2563C9", "average": "#7D8AA0", "high": "#C2410C"}  # diverging: blue / neutral gray / orange
 BG, SURFACE, FILL = "#F5F5F7", "#FFFFFF", "#E8E8ED"  # white cards on the grey group background; FILL is a control at rest
-FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif"
+FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"  # the platform's face, the same one .streamlit/config.toml gives the widgets
 SHADOW = "0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05)"
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html, body, [class*="css"], .stApp, .stApp button, .stApp input, .stApp textarea {{ font-family: {FONT}; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }}
 .stApp {{ background: {BG}; color: {INK}; }}
 .block-container {{ padding-top: 5.5rem; max-width: 1040px; }}
-::selection {{ background: rgba(37,99,201,.22); }}
+::selection {{ background: rgba(37,99,201,.22); }} input, textarea {{ caret-color: {ECONOMY}; }}
 :focus-visible {{ outline: 2px solid {ECONOMY}; outline-offset: 2px; }}
 * {{ scrollbar-width: thin; scrollbar-color: #C7C7CC transparent; }}
 /* the top bar is the control layer: translucent, content scrolls under it */
@@ -40,9 +39,10 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 .route .code {{ font: 650 clamp(2.1rem,7vw,3.1rem)/1 {FONT}; letter-spacing:-0.035em; color:{INK}; }}
 .route .line {{ flex:1; height:2px; position:relative; background:{GRID}; border-radius:2px; min-width:40px; }}
 .route .line::after {{ content:''; position:absolute; right:1px; top:-2.5px; width:7px; height:7px; border-top:2px solid {MUTED}; border-right:2px solid {MUTED}; transform:rotate(45deg); }}
-.sub {{ color:{MUTED}; margin:0 0 1.25rem; font-size:.95rem; text-wrap:balance; }}
+.sub {{ color:{MUTED}; margin:0 0 1.25rem; font-size:.95rem; max-width:72ch; text-wrap:balance; }}
 /* the answers, as one grouped list: what, when, and the price trailing */
-.group {{ color:{MUTED}; font-size:.85rem; font-weight:600; margin:.2rem 0 .4rem 4px; }}
+/* section headings: dark, and with more room above than below, so each binds to what follows it, not to what came before */
+[data-testid="stMarkdownContainer"] p.group, .group {{ color:{INK}; font-size:1rem; font-weight:650; letter-spacing:-.01em; margin:1.1rem 0 .45rem 2px; }}
 .fares {{ background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; margin:0 0 1.25rem; overflow:hidden; }}
 .fare {{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; }}
 .fare + .fare {{ border-top:1px solid {GRID}; }}
@@ -52,14 +52,15 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 .fare .price {{ font: 650 1.6rem/1 {FONT}; letter-spacing:-0.02em; color:{INK}; white-space:nowrap; }}
 .fare .price.none {{ color:{MUTED}; font-weight:500; }}
 .fare .price .unit {{ font-size:.85rem; font-weight:500; color:{MUTED}; letter-spacing:0; }}
-[data-testid="stCaptionContainer"] {{ color:{MUTED} !important; opacity:1 !important; text-wrap:pretty; }}
-.card-title {{ font:600 1.05rem {FONT}; color:{INK}; margin:.4rem 0 0; }}
+[data-testid="stCaptionContainer"] {{ color:{MUTED} !important; opacity:1 !important; max-width:72ch; text-wrap:pretty; }}
+.stMarkdown p {{ max-width:80ch; }}  /* a measure the eye can track back across; tables, charts and cards keep the full width */
+.card-title {{ font:600 1.05rem/1.35 {FONT}; color:{INK}; margin:.4rem 0 0; max-width:72ch; text-wrap:balance; }}
 /* tabs as a segmented control */
 .stTabs [role="tablist"], .stTabs [data-baseweb="tab-list"] {{ gap:2px; background:{FILL}; padding:3px; border-radius:10px; width:fit-content; max-width:100%; border:0 !important; box-shadow:none !important; }}
 .stTabs [role="tab"] {{ border-radius:8px; padding:6px 18px !important; height:auto; background:transparent; border:0 !important; box-shadow:none; }}
 .stTabs [role="tab"]::after, .stTabs [role="tab"]::before, .stTabs [role="tablist"]::after, .stTabs [role="tablist"]::before, .stTabs .react-aria-SelectionIndicator {{ display:none !important; }}
 .stTabs [aria-selected="true"] {{ background:{SURFACE}; box-shadow:0 1px 3px rgba(0,0,0,.12); }}
-.stTabs [role="tab"] p {{ color:{MUTED}; font-weight:500; }}
+.stTabs [role="tab"] p {{ color:#55555A; font-weight:500; }}  /* 5.6:1 on the grey track; MUTED was 4.2:1 */
 .stTabs [aria-selected="true"] p {{ color:{INK}; font-weight:600; }}
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display:none; }}
 .stButton > button, .stDownloadButton > button {{ border-radius:10px; font-weight:600; min-height:44px; }}
@@ -77,6 +78,7 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 .best .more {{ color:{MUTED}; font-size:.85rem; }}
 /* pills: grey at rest, solid blue when selected, like a segmented control (the tinted default was 4.0:1 contrast) */
 [data-testid="stButtonGroup"] button {{ border:0 !important; background:{FILL} !important; }}
+[data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }}  /* a pill row wraps, it never clips a label: the platform font's width varies by device */
 [data-testid="stButtonGroup"] button[aria-pressed="true"], [data-testid="stButtonGroup"] button[aria-checked="true"] {{ background:{ECONOMY} !important; border-color:{ECONOMY} !important; }}
 [data-testid="stButtonGroup"] button[aria-pressed="true"] *, [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color:#fff !important; }}
 /* a column with nothing in it (Nights away on a one-way trip) must not leave a gap on phones */
