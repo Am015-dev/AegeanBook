@@ -6,6 +6,7 @@ st.set_page_config(page_title="AEGEAN fare tracker", page_icon="✈️", layout=
 st.markdown(CSS, unsafe_allow_html=True)
 st.logo("static/logo.svg", size="large")
 st.navigation({"": [st.Page("views/overview.py", title="Overview", icon=":material/space_dashboard:", default=True),
+                    st.Page("views/explore.py", title="Explore", icon=":material/explore:", url_path="explore"),
                     st.Page("views/expert.py", title="Expert", icon=":material/auto_awesome:", url_path="expert"),
                     st.Page("views/flights.py", title="Flights", icon=":material/flight_takeoff:", url_path="flights"),
                     st.Page("views/hotel.py", title="Hotels", icon=":material/hotel:"),

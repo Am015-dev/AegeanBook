@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 import streamlit as st
 
+import booking
 import gh
 from collector import fetch_range, gaps
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
@@ -206,6 +207,11 @@ with award_col:
         award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
                            f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
     kpis(award_rows)
+pick = trips[trips.cabin == "economy"] if nights else near["economy"]  # the cheapest economy fare above, ready to book
+if len(pick):
+    dep, ret = (date.fromisoformat(pick.iloc[0].depart), date.fromisoformat(pick.iloc[0].back)) if nights else (date.fromisoformat(pick.index[0]), None)
+    st.link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, dep, ret), type="primary", icon=":material/airplane_ticket:",
+                   help=f"AEGEAN's own search, filled in for {dep:%a %d %b}" + (f" to {ret:%a %d %b}" if ret else "") + ", one adult.")
 if nights:
     best_trips(trips[trips.cabin == "economy"], ECONOMY, "Cheap economy returns", tol)
     best_trips(trips[trips.cabin == "business"], BUSINESS, "Cheap business returns", tol)

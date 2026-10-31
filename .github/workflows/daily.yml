@@ -20,6 +20,8 @@ jobs:
       - id: run
         run: python collect_daily.py
         continue-on-error: true  # save what was collected even if some days are still missing
+      - run: python fetch_route.py --refresh  # the routes searched from the app in the last 60 days, so they build a price history
+        continue-on-error: true  # a bonus: it must never stop the daily commit below
       - id: digest
         run: python digest.py
         continue-on-error: true  # a bonus: it must never stop the daily commit below
@@ -27,7 +29,7 @@ jobs:
         run: |
           git config user.name "daily-fares"
           git config user.email "actions@users.noreply.github.com"
-          git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv
+          git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/routes.csv data/tracked_routes.csv
           [ ! -f data/latest_changes.md ] || git add data/latest_changes.md  # only when the digest step wrote it: it must never block the data
           git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} && git push
