@@ -327,6 +327,7 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(x.value for x in at.info)
     from test_overview import grid
+    at.button(key="ov-grid-more-ATHFRA").click().run()  # the grid shows a week first; the button opens the whole month
     assert len(grid(at)) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     assert "€198" in " ".join(m.value for m in at.markdown if 'class="pass"' in m.value)  # and the pass answers for that month
     # without a token nothing can be fetched from here: say so, and where to search
