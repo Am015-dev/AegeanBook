@@ -74,6 +74,17 @@ be on. Nothing is exposed to the public internet.
   plus what is saved now per route: days checked, how many came from Google's calendar vs. day-by-day search, and
   cheapest / median / dearest prices.
 
+## Booking it, for one or more passengers
+
+The boarding pass on the Overview has **Book on aegeanair.com** (`booking.py`): AEGEAN's own flight search, pre-filled with the airports, the
+dates, one way or return, and the number of passengers chosen in the route bar (1 to 9 adults). The Flights page has the same button for the
+cheapest economy day or return pair shown. AEGEAN publishes no booking-link API; the link is the one its own fare site
+(flights.aegeanair.com) sends to `en.aegeanair.com/srv/posthandler/flight/search`, which answered it with its results page. What could not
+be confirmed: that page renders in JavaScript, so it was not seen pre-filled from here, the cabin is not part of the link (AEGEAN shows both
+cabins on its results anyway), and the names may change when AEGEAN redesigns its site; if the search opens empty, enter the dates from
+the pass by hand. Fares are collected for one adult, so the pass multiplies the per-adult fare by the passengers chosen and says so; the
+airline may price a group differently.
+
 ## Daily fares (automatic, free)
 
 Every morning at 07:17 Athens time GitHub Actions (`.github/workflows/daily.yml`) runs `collect_daily.py`. It fetches
