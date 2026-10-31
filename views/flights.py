@@ -118,7 +118,7 @@ if rend and rend > today + timedelta(HORIZON):
              "Choose an earlier start, a shorter window or fewer nights.")
     st.stop()
 
-stay = f"return, {', '.join(map(str, sorted(nights)))} nights" if nights else "one-way"
+stay = (f"return, {min(nights)}–{max(nights)} nights" if len(nights) > 1 else f"return, {nights[0]} nights") if nights else "one way"
 route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
 # both directions, always: Bilbao -> Athens also fetches Athens -> Bilbao (the way back of a return, or the same days for a one-way)
