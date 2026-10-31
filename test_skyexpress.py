@@ -277,6 +277,10 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     at.toggle(key="fl-gq-ATHFRA").set_value(True).run()
     assert not at.exception
     assert "Dashed: Sky Express economy, cheapest €45" in " ".join(c.value for c in at.caption)
+    cards = next(m.value for m in at.markdown if 'class="fares"' in m.value)  # the cards: AEGEAN's two lines, then Sky Express's, then the verdict
+    assert "Cheapest economy" in cards and "Cheapest Sky Express (economy)" in cards and "€45" in cards and cards.count('class="fare"') == 4
+    assert "Cheapest of the two" in cards and "Sky Express" in cards.split("Cheapest of the two")[1] and "€15 less than AEGEAN" in cards
+    assert "Cheap Sky Express days" in " ".join(m.value for m in at.markdown)
     at.button[1].click().run()  # Update prices: the AEGEAN days are all saved (30 of 30), Sky Express's too, so nothing is dispatched
     assert not at.exception and not started and "already saved" in " ".join(i.value for i in at.info)
     t.execute(f"DELETE FROM gq_prices WHERE day > ?", (d(20),))  # ten Sky Express days missing
