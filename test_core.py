@@ -31,18 +31,31 @@ def test_parallel_retries_and_reports_errors():
     assert got[0] == (0, None) and got[1] == (10, None) and got[2][0] is None and "always" in got[2][1]
 
 
-def test_calendar_gaps_are_checked_day_by_day(monkeypatch):
-    d0 = date(2026, 11, 1)
+def test_every_calendar_gap_is_checked_once(monkeypatch):
+    """The calendar leaves out real flights (ATH-BIO summer Sundays), so every gap is searched; once, as the calendar already said empty."""
+    d0, asked = date(2026, 11, 1), []
     monkeypatch.setattr(collector, "fetch_cabin", lambda *a: {"2026-11-01": 100.0})
-    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: 222.0 if day == d0 + timedelta(1) else None)
+    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append(day) or (222.0 if day == d0 + timedelta(3) else None))
     monkeypatch.setattr(time, "sleep", lambda s: None)
-    got = sorted((g[0], g[2], g[3], g[4]) for g in collector.fetch_range(d0, d0 + timedelta(2), "ATH", "BIO", cabins=("economy",)))
-    assert got == [(d0, 100.0, "calendar", "ok"), (d0 + timedelta(1), 222.0, "day search", "ok"), (d0 + timedelta(2), None, "", "none")]
+    got = {g[0]: (g[2], g[3], g[4]) for g in collector.fetch_range(d0, d0 + timedelta(8), "ATH", "BIO", cabins=("economy",))}
+    assert got[d0] == (100.0, "calendar", "ok") and got[d0 + timedelta(3)] == (222.0, "day search", "ok")  # a Wednesday the calendar missed
+    assert got[d0 + timedelta(1)] == (None, "", "none") and len(got) == 9
+    assert sorted(asked) == [d0 + timedelta(i) for i in range(1, 9)]  # each gap once, not twice
 
 
-def test_empty_answer_is_asked_twice(monkeypatch):
+def test_business_is_not_searched_on_days_without_an_economy_flight(monkeypatch):
+    d0, asked = date(2026, 11, 1), []
+    monkeypatch.setattr(collector, "fetch_cabin", lambda o, d, c, *a: {"2026-11-01": 100.0})
+    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append((day, c)) or None)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    rows = list(collector.fetch_range(d0, d0 + timedelta(7), "ATH", "BIO"))
+    assert sorted(asked) == [(d0 + timedelta(i), "economy") for i in range(1, 8)]  # business is not asked on those days
+    assert len(rows) == 16 and all(r[4] in ("ok", "none") for r in rows)
+
+
+def test_empty_answer_is_asked_twice_when_the_calendar_failed(monkeypatch):
     calls = []
-    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: {})
+    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: (_ for _ in ()).throw(RuntimeError("Google returned no date grid")))
     monkeypatch.setattr(collector, "fetch_day", lambda *a: calls.append(1) or (150.0 if len(calls) > 1 else None))
     monkeypatch.setattr(time, "sleep", lambda s: None)
     d0 = date(2026, 11, 1)
@@ -815,6 +828,21 @@ def test_advice_names_a_shortlist_of_days_not_one_arbitrary_day():
     cash_of = {(r.depart, r.back): float(r.total) for r in trips.itertuples()}
     assert bd.best_miles_pairs(out_m, back_m, [7], cash_of).startswith("best trips to use them: Mon 09 Nov \u2192 Mon 16 Nov (cash \u20ac450), Sat 07 Nov \u2192 Sat 14 Nov (cash \u20ac110)")
 
+
+
+def test_rate_limit_during_day_searches_stops_asking(monkeypatch):
+    asked = []
+
+    def limited(o, d, c, day, n):
+        asked.append(day)
+        raise RuntimeError("SearchHTTPError: HTTP 429")
+    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: {})  # the calendar answered, but empty: every day is worth a look
+    monkeypatch.setattr(collector, "fetch_day", limited)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    d0 = date(2026, 11, 1)
+    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "BIO", workers=1))
+    assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
+    assert len(asked) <= 6  # stops after a few refusals instead of asking for all 60
 
 
 def test_schedule_note_names_the_weekdays_and_the_last_flight_of_a_seasonal_route():
