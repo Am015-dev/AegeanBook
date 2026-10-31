@@ -163,6 +163,18 @@ A searched route is remembered in `data/tracked_routes.csv` and refreshed every 
 the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
 `data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks.
 
+**Planning months ahead.** The Overview's *Leaving*, the Expert's *When* and Explore's *When* list every month up to about 11 months
+ahead (`trip_plan.months`), not only the months with fares saved; a month nobody has fetched is marked "not fetched yet". Choose one and
+the Overview and the Expert offer one button, **Fetch May 2027 fares**, which fetches both directions for that month on GitHub's servers
+(only the days still missing, like Update prices on Flights) and reloads the page with the fares; Explore's button fetches the month for
+every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
+Flights page. A month fetched this way is tracked with its dates (`from,to` in `data/tracked_routes.csv`, the union of every range asked
+for, at most today + 330 days), and the daily refresh fetches each tracked route up to that day instead of stopping at 90 days; the
+daily routes (ATH–FRA, ATH–ZRH) get only the part beyond the daily run's own 90 days. *Actions minutes:* a one-way leg costs about
+one minute per 60 days, so a 120-day summer range adds roughly 2 extra minutes per route pair per day to the daily run, for as long as
+the route stays tracked (60 days after it was last asked for). GitHub gives private repositories 2,000 free minutes a month; the Actions
+tab shows the usage.
+
 Hotels work the same way: **Update prices** on the Hotels page starts `.github/workflows/fetch-hotel.yml` (`fetch_hotel.py`: Google
 Hotels for every check-in not saved yet, plus the TripAdvisor cheap-day calendar and Booking.com on the cheap days when a key is given),
 which saves to `data/hotel_searches.csv`. **Show flight times** under the Overview's boarding pass starts `.github/workflows/fetch-details.yml`

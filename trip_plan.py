@@ -6,6 +6,7 @@ import csv
 import os
 import unicodedata
 from datetime import date, timedelta
+from typing import NamedTuple
 
 import pandas as pd
 
@@ -13,8 +14,9 @@ from award_view import load_award
 from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 HOME = "ATH"
+HORIZON = 330  # days ahead a month can be planned and fetched: Google's calendar reaches about 11 months (views/flights.py uses the same)
 PAY = {"cash": "Cash", "miles": "Miles", "both": "Cash or miles"}
 LEGS = ["out_cash", "out_miles", "out_taxes", "back_cash", "back_miles", "back_taxes"]  # each direction of a return, for mixed trips
 
@@ -50,15 +52,34 @@ def destinations(db, orig=HOME):
     return [d for d, _ in rows]
 
 
-def months(today, last):
-    """[(label, first day, last day)]: the next 30 days, then every calendar month up to `last` (the last day with fares)."""
-    out = [("Next 30 days", today + timedelta(1), min(today + timedelta(30), last))]
-    m = date(today.year, today.month, 1)
-    while m <= last:
+class Period(NamedTuple):
+    """One entry of months(): a label, its first and last day, and whether any fare is saved that far (`fetched`)."""
+    label: str
+    start: date
+    end: date
+    fetched: bool
+
+    @property
+    def title(self):
+        """The label for a selectbox: a month nobody has fetched yet says so."""
+        return self.label if self.fetched else f"{self.label} · not fetched yet"
+
+    @property
+    def name(self):
+        """The period in a sentence: "May 2027", or "the next 30 days"."""
+        return "the next 30 days" if self.label == "Next 30 days" else self.label
+
+
+def months(today, last, horizon=HORIZON):
+    """[Period]: the next 30 days, then every calendar month up to today + `horizon` days, so a trip months ahead can be planned first and
+    fetched after. `last` is the last day with fares saved: a period starting after it is marked not fetched."""
+    out = [Period("Next 30 days", today + timedelta(1), today + timedelta(30), today + timedelta(1) <= last)]
+    m, far = date(today.year, today.month, 1), today + timedelta(horizon)
+    while m <= far:
         nxt = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
-        a, b = max(m, today + timedelta(1)), min(nxt - timedelta(1), last)
+        a, b = max(m, today + timedelta(1)), min(nxt - timedelta(1), far)
         if a <= b:
-            out.append((f"{m:%B %Y}", a, b))
+            out.append(Period(f"{m:%B %Y}", a, b, a <= last))
         m = nxt
     return out
 

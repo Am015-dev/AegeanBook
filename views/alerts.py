@@ -14,8 +14,10 @@ import trip_plan as tp
 from db import connect
 from ui import route
 
-if getattr(ov, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
+if getattr(tp, "VERSION", 0) < 4:
+    tp = importlib.reload(tp)
 db = connect()
 today = date.today()
 route("Price alerts", None, "Get an email or a phone notification when a fare drops below your limit. Checked every morning, free.")
@@ -74,8 +76,8 @@ with st.container(border=True, key="search"):
                               value=int(now["min"] // 10 * 10) if unit == "eur" and now else 15000, key=f"al-limit-{leg[0]}{leg[1]}-{cabin}-{unit}",
                               help=f"Cheapest now: €{now['min']:,.0f} on {day(now['day'])}." if now else None)
     last = date.fromisoformat(max(s.index.max() for leg_ in fares.values() for s in leg_.values() if len(s)))
-    periods = [("Any date in the next 90 days", "", "")] + [(l, a.isoformat(), b.isoformat()) for l, a, b in tp.months(today, last)
-                                                             if l != "Next 30 days"]
+    periods = [("Any date in the next 90 days", "", "")] + [(p.title, p.start.isoformat(), p.end.isoformat()) for p in tp.months(today, last)
+                                                             if p.label != "Next 30 days"]  # a month not fetched yet says so
     when = c[1].selectbox("Departing", range(len(periods)), format_func=lambda i: periods[i][0], key="al-when")
     how = st.pills("Send it to", ["email", "phone"], default="email", required=True, key="al-how",
                    format_func={"email": "My email", "phone": "My phone (free ntfy app)"}.get)

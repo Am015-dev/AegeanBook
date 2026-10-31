@@ -11,7 +11,7 @@ from trip_cost import night_prices, trip_costs
 from trip_plan import city, hotels as searched_hotels
 from ui import round_trips
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 
 LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]
 CABINS = ("economy", "business")
@@ -19,10 +19,11 @@ NIGHTS = (2, 3, 4, 7)
 DAYS = 90
 
 
-def legs(db, today):
-    """{(orig, dest): {cabin: Series of fares by iso day}} over the next DAYS days: the daily run's LEGS first, then every other route with
-    fares saved (searched on Flights), so a route like BIO -> ATH shows up as soon as its fares are in. Legs with no fare are left out."""
-    start, end = today + timedelta(1), today + timedelta(DAYS)
+def legs(db, today, days=DAYS):
+    """{(orig, dest): {cabin: Series of fares by iso day}} over the next `days` days: the daily run's LEGS first, then every other route with
+    fares saved (searched on Flights), so a route like BIO -> ATH shows up as soon as its fares are in. Legs with no fare are left out.
+    The pages pass trip_plan.HORIZON where a month fetched far ahead must show (the Overview's date grid, Explore)."""
+    start, end = today + timedelta(1), today + timedelta(days)
     out = {}
     for o, d in LEGS + [r for r in routes(db, True) if r not in LEGS]:
         fares = {c: cash_by_day(db, o, d, c, True, start, end) for c in CABINS}
