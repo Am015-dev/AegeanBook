@@ -659,8 +659,9 @@ def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
     assert not at.exception
     d10, d14 = date.today() + timedelta(10), date.today() + timedelta(14)
     alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Alert me if it gets cheaper")
+    when = f"{date.today() + timedelta(1)},{date.today() + timedelta(30)}"
     assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "210", "depart": d10.isoformat(), "back": d14.isoformat(),
-                     "nights": "4", "trip": "return"}  # €60 out on day 10, €150 back 4 nights later, per adult
+                     "nights": "2-7", "trip": "return", "when": when}  # €60 out on day 10, €150 back 4 nights later, per adult; the bar's nights
     expert = next(q for page, label, q in seen if page == "views/expert.py")
     assert expert["from"] == "ATH" and expert["to"] == "FRA" and expert["nights"] == "2-7"
     at.number_input(key="ov-pax").set_value(2).run()  # the alert is on the fare, which is collected for one adult
@@ -668,7 +669,8 @@ def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
     at.button_group(key="ov-trip").set_value("oneway").run()
     assert not at.exception
     alert = next(q for page, label, q in seen[-2:] if page == "views/alerts.py")
-    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "60", "depart": d10.isoformat(), "trip": "oneway"}
+    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "60", "depart": d10.isoformat(), "trip": "oneway",
+                     "nights": "2-7", "when": when}  # no way back, so no back
     t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
               (d10.isoformat(), "ATH", "FRA", "business", 25000, 1, datetime.now().isoformat(), None))
     t.commit()
