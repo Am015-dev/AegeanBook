@@ -47,6 +47,8 @@ if q.get("from") in froms:  # from the Overview's "Ask the expert about it": ope
     stays = [int(n) for v in q.get_all("nights") for n in v.split(",") if n.strip().isdigit()]  # ?nights=2,3 or ?nights=2&nights=3
     if stays and all(n in ex.NIGHTS for n in stays):
         st.session_state["plan-nights"] = sorted(set(stays))
+asked_when = q.get("when")  # the period is matched once the list exists, below
+if q.get("from") in froms:
     q.clear()
 for key, value in (("plan-cabin", "economy"), ("plan-pay", "cash"), ("plan-nights", ex.NIGHTS), ("plan-days", DAYS)):
     st.session_state.setdefault(key, value)  # the Overview's defaults; set here, not as widget defaults, so a link can preset them
@@ -58,10 +60,10 @@ with st.container(border=True, key="search"):
     orig = c[0].selectbox("From", froms, format_func=place, key="plan-orig",
                           help="Every airport with fares saved: the daily routes, plus any route you searched on the Flights page.")
     dest = c[1].selectbox("To", [d for o, d in fares if o == orig], format_func=place, key=f"plan-dest-{orig}")
-    lastday = max(date.fromisoformat(s.index.max()) for f in fares.values() for s in f.values() if len(s))  # the pass's horizon
     last = date.fromisoformat(db.execute("SELECT MAX(day) FROM prices WHERE price IS NOT NULL").fetchone()[0])  # the last day with fares, any route
-    # first the Overview pass's own window (best of the next N days), then every month up to the horizon, fetchable below when not fetched yet
-    periods = [tp.Period(f"Next {(lastday - today).days} days", today + timedelta(1), lastday, True)] + tp.months(today, last)[1:]
+    periods = tp.months(today, last)  # the Overview's own list, so both pages open on the same answer: the next 30 days, then every month
+    if asked_when in [x.name for x in periods]:  # ?when=January 2027 from the Overview's link
+        st.session_state["plan-when"] = [x.name for x in periods].index(asked_when)
     when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="plan-when")
     c = st.columns([1, 1, 2])
     cabin = c[0].pills("Cabin", ["economy", "business"], format_func=str.capitalize, required=True, key="plan-cabin")

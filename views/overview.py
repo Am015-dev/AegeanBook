@@ -261,7 +261,8 @@ else:
     for col, page, label, icon, params in (
             (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
              {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"}),
-            (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:", {"from": orig, "to": dest})):
+            (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
+             {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": ",".join(map(str, nights or NIGHTS)), "when": p.name})):
         try:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation

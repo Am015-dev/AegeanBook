@@ -388,10 +388,13 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     assert not at.exception and briefed[-1]["nights"] == [2, 3] and briefed[-1]["best"]["price"] > 210 and not at.chat_message
     # the Overview's "Ask the expert about it" link names the pass the traveller saw
     at = open_page("expert.py")
-    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3,4"})
+    month = f"{(date.today() + timedelta(45)).replace(day=1):%B %Y}"  # a period the Overview offers, by its name
+    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3,4", "when": month})
     at.run()
     assert not at.exception and at.selectbox(key="plan-dest-ATH").value == "ZRH"
     assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-nights")] == ["business", "miles", [3, 4]]
+    assert at.selectbox(key="plan-when").format_func(at.selectbox(key="plan-when").value).startswith(month)  # the same period as the pass
+    assert at.selectbox(key="plan-when").format_func(0) == "Next 30 days"  # the same list as the Overview, same first entry
     assert briefed[-1]["dest"] == "ZRH" and briefed[-1]["pay"] == "miles" and briefed[-1]["best"] is None  # no award seats seeded
 
 
