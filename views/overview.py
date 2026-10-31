@@ -12,11 +12,12 @@ import streamlit as st
 import deals
 import flight_times
 import overview as ov
+import price_insights as pi
 import trip_plan as tp
 from db import connect
 from insights import DAYS, FULL, weekday_stats
 from trip_cost import night_prices
-from ui import ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, route
+from ui import ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, price_chart, route
 
 if getattr(ov, "VERSION", 0) < 3:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
@@ -24,6 +25,8 @@ if getattr(tp, "VERSION", 0) < 3:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 5:
     deals = importlib.reload(deals)
+if getattr(pi, "VERSION", 0) < 1:
+    pi = importlib.reload(pi)
 db = connect()
 today = date.today()
 fares, summary, trips, weekday, hotel_night, awards = ov.collect(db, today)
@@ -53,6 +56,7 @@ st.markdown(f"""<style>
 .pass-stub .k {{ font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:{MUTED}; }}
 .pass-stub .price {{ font:700 2.6rem/1.05 {FONT}; letter-spacing:-.04em; color:{ECONOMY}; margin:6px 0 4px; }}
 .pass-stub .price small {{ font-size:.42em; font-weight:600; letter-spacing:0; }}
+.pass-stub .verdict {{ font-size:.8rem; font-weight:600; color:{MUTED}; margin:0 0 4px; }}
 .pass-stub .note {{ font-size:.82rem; color:{MUTED}; }}
 .pass-stub .ctx {{ font-size:.78rem; color:{MUTED}; margin-top:8px; line-height:1.35; }}
 .pass-stub .good {{ display:inline-block; font-size:.68rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
@@ -92,6 +96,8 @@ wdays = st.session_state.get(f"ov-grid-days-{fkey}") or DAYS  # none picked: no 
 stays = sorted(st.session_state.get(f"ov-grid-nights-{fkey}") or NIGHTS)
 best = deals.best_trip(out_s, back_s, today + timedelta(1), lastday, stays, wdays)
 ctx = deals.trip_context(out_s, back_s, today + timedelta(1), lastday)
+# ponytail: the history CSV is read on every rerun (a few hundred rows a day, so years before it takes a visible fraction of a second)
+hist = pi.history() if pay == "cash" else None  # every fare change ever seen, for the verdict and the "how it moved" chart; miles have none
 
 # --- the answer, as a boarding pass ---------------------------------------------------------------------------------------------------
 if best is None:
@@ -103,6 +109,17 @@ else:
                                                           if ret else [("Trip", "One way")]) + [("Cabin", gcab.capitalize())]
     price = money(best["price"])
     price = price.replace(" miles", "<small> miles</small>")
+    # Google Flights' "low / typical / high", from our own history of this route's fares (price_insights); cash only, miles have none
+    insight = ""
+    if hist is not None:
+        ins = pi.trip(hist, [(orig, dest)] + ([(dest, orig)] if ret else []), gcab, best["price"], today)
+        if ins["level"]:
+            colour = {"low": "#0E7A53", "high": "#C2410C"}.get(ins["level"], MUTED)
+            insight = (f'<span class="verdict" style="color:{colour}">{ins["level"].capitalize()} fare · usually '
+                       f'€{ins["low"]:,.0f}–€{ins["high"]:,.0f} {"return" if ret else "one way"}</span>')
+        elif ins["since"]:
+            n = ins["snapshots"]
+            insight = f'<span class="verdict">Tracking since {ins["since"]:%d %b} · {n} day{"s" if n != 1 else ""} of prices</span>'
     context = ""
     if ctx and ctx["typical"] > 0:
         say = f"a typical {'trip' if ret else 'day'} costs {money(ctx['typical'])}"
@@ -116,7 +133,7 @@ else:
         f'<div class="pass-cities"><span>{e(tp.city(orig))}</span><span>{e(tp.city(dest))}</span></div><dl class="pass-fields">'
         + "".join(f"<div><dt>{k}</dt><dd>{e(v)}</dd></div>" for k, v in fields)
         + f'</dl></div><div class="pass-stub"><span class="k">Cheapest {"return" if ret else "one way"}</span>'
-        f'<span class="price">{price}</span><span class="note">'
+        f'<span class="price">{price}</span>{insight}<span class="note">'
         f'{"plus taxes and fees, " if pay == "miles" else "one adult, "}best of the next {(lastday - today).days} days</span>{context}</div></div>',
         unsafe_allow_html=True)
     q = f"Flights from {orig} to {dest} on {best['depart']:%Y-%m-%d}" + (f" returning {best['back']:%Y-%m-%d}" if ret else "") + " on Aegean"
@@ -172,6 +189,19 @@ if back_s is not None and len(back_s.dropna()):
         st.caption("No return trips saved for those days" + (" and nights" if len(wdays) < 7 or len(stays) < 6 else "") + ".")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
+
+# --- how the pass's fares moved over our snapshots, only once there is something to draw ----------------------------------------------
+if best is not None and hist is not None:
+    moved = {"out": (f"Out {best['depart']:%a %d %b}", ECONOMY, pi.series(hist, orig, dest, gcab, best["depart"].isoformat()))}
+    if best["back"] is not None:
+        moved["back"] = (f"Back {best['back']:%a %d %b}", MUTED, pi.series(hist, dest, orig, gcab, best["back"].isoformat()))
+    if max(len(s) for _, _, s in moved.values()) >= 3:  # one or two points are not a line
+        with st.expander("How this fare moved"):
+            fig = price_chart(pd.DataFrame({k: s for k, (_, _, s) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
+            fig.update_layout(height=280)  # shorter than the Flights page's chart: it sits in an expander
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+            first = min(s.index.min() for _, _, s in moved.values() if len(s))
+            st.caption(f"The fare for those days each time it was checked, since {pd.Timestamp(first):%d %b}. The ring marks the lowest it has been.")
 
 # --- one tip, only when the data shows a real difference ------------------------------------------------------------------------------
 if pay == "cash":
