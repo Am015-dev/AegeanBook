@@ -134,3 +134,19 @@ def test_update_prices_fetches_on_github_and_shows_the_results(tmp_path, monkeyp
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(i.value for i in at.info)
     assert "€77" in " ".join(m.value for m in at.markdown)
+
+
+def test_save_step_merges_into_the_newest_file_so_parallel_fetches_never_conflict(tmp_path, monkeypatch):
+    """31 Oct: two fetches started from the same commit; the second's rebase conflicted on routes.csv and its 311 rows were lost.
+    Now each job keeps its own rows and merges them into whatever routes.csv is newest when it saves."""
+    out, d1, now = tmp_path / "routes.csv", (date.today() + timedelta(5)).isoformat(), datetime.now().isoformat()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    row = lambda o, d, p: dict(day=d1, orig=o, dest=d, cabin="economy", price=p, source="calendar", fetched=now, nonstop=1)
+    fetch_route.write_new([row("ATH", "BIO", 97.0)], tmp_path / "a.csv")
+    fetch_route.write_new([row("BIO", "ATH", 91.0)], tmp_path / "b.csv")
+    fetch_route.save(fetch_route.read(tmp_path / "a.csv"))  # the first job saves
+    fetch_route.save(fetch_route.read(tmp_path / "b.csv"))  # the second merges into the file with the first one's rows in it
+    rows = fetch_route.read(out)
+    assert {(r["orig"], r["dest"], r["price"]) for r in rows} == {("ATH", "BIO", "97.0"), ("BIO", "ATH", "91.0")}
+    wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
+    assert "--merge" in wf and "pull --rebase" not in wf and "fromJSON(needs.plan.outputs.legs)" in wf  # one job per leg, merged saves
