@@ -24,7 +24,7 @@ def _plain(s):
 
 
 # ponytail: OurAirports names the town an airport is in, which for a few big ones is a suburb nobody books by; add more here as they turn up
-CITY = {"ATH": "Athens", "MXP": "Milan", "BGY": "Milan", "CIA": "Rome", "BVA": "Paris", "ORY": "Paris", "EWR": "New York"}
+CITY = {"ATH": "Athens", "MXP": "Milan", "LIN": "Milan", "BGY": "Milan", "CIA": "Rome", "BVA": "Paris", "ORY": "Paris", "EWR": "New York"}
 
 
 def city(iata):

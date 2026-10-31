@@ -62,6 +62,48 @@ def test_empty_answer_is_asked_twice_when_the_calendar_failed(monkeypatch):
     assert next(collector.fetch_range(d0, d0, "ATH", "FRA", cabins=("economy",)))[2:5] == (150.0, "day search", "ok")
 
 
+def test_route_without_a_calendar_is_settled_by_three_probes(monkeypatch):
+    """ATH-LCY: Google has no date grid because AEGEAN does not fly it. Three spread-out empty days say so for the whole range."""
+    asked = []
+    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: (_ for _ in ()).throw(RuntimeError("Google returned no date grid")))
+    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append((day, c)) or None)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    d0 = date(2026, 11, 1)
+    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "LCY"))
+    assert len(rows) == 60 and all(r[2] is None and r[4] == "none" and r[5] is None for r in rows)
+    assert sorted(r[0] for r in rows if r[1] == "economy") == [d0 + timedelta(i) for i in range(30)]
+    assert all(r[3] == "probe" for r in rows if r[1] == "economy")
+    assert len(asked) <= 3 and {c for _, c in asked} == {"economy"}  # first, middle, last; business needs no asking at all
+    assert {d for d, _ in asked} == {d0, d0 + timedelta(15), d0 + timedelta(29)}
+
+
+def test_route_without_a_calendar_but_with_a_flight_is_searched_day_by_day(monkeypatch):
+    """No date grid, yet a probe finds a flight (Google has calendar holes): every day is still searched, as before."""
+    asked = []
+    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: (_ for _ in ()).throw(RuntimeError("Google returned no date grid")))
+    monkeypatch.setattr(collector, "fetch_day", lambda o, d, c, day, n: asked.append(day) or (99.0 if day == d0 + timedelta(15) else None))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    d0 = date(2026, 11, 1)
+    got = {g[0]: g[2:5] for g in collector.fetch_range(d0, d0 + timedelta(29), "ATH", "BIO", cabins=("economy",))}
+    assert len(got) == 30 and got[d0 + timedelta(15)] == (99.0, "day search", "ok") and got[d0] == (None, "", "none")
+    assert set(asked) == {d0 + timedelta(i) for i in range(30)} and "probe" not in {v[1] for v in got.values()}
+
+
+def test_rate_limit_during_the_probes_stops_everything(monkeypatch):
+    asked = []
+
+    def limited(o, d, c, day, n):
+        asked.append(day)
+        raise RuntimeError("SearchHTTPError: HTTP 429")
+    monkeypatch.setattr(collector, "fetch_cabin", lambda *a: (_ for _ in ()).throw(RuntimeError("Google returned no date grid")))
+    monkeypatch.setattr(collector, "fetch_day", limited)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    d0 = date(2026, 11, 1)
+    rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "LCY", workers=1))
+    assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
+    assert len(asked) <= 3
+
+
 def test_total_failure_is_reported_not_hidden(monkeypatch):
     def boom(*a):
         raise RuntimeError("blocked")
@@ -260,6 +302,17 @@ def test_airport_search_finds_cities_and_names():
     assert len(names) > 3000 and {"ATH", "FRA", "BIO"} <= set(names)
     assert "MMI" not in names  # McMinn County (Athens, USA) has no scheduled flights: typing Athens must not pick it
     assert "Athens" in names["ATH"] and "Bilbao" in names["BIO"] and "Frankfurt" in names["FRA"]
+
+
+def test_airport_picker_offers_only_aegean_destinations():
+    """ATH -> London City found nothing after a 3-minute search: AEGEAN flies to Heathrow and, in summer, Gatwick."""
+    import ui
+    names = ui.aegean_airports()
+    assert 100 < len(names) < 200 and {"ATH", "SKG", "LHR", "LGW", "FRA", "ZRH", "IST", "BIO", "LCA", "CHQ"} <= set(names)
+    assert "LCY" not in names and "MMI" not in names
+    assert names["LHR"] == "LHR · London Heathrow Airport — London, United Kingdom"
+    assert names["LGW"] == "LGW · London Gatwick Airport — London, United Kingdom (seasonal)"
+    assert "Athens" in names["ATH"] and "Greece" in names["ATH"] and "Bilbao" in names["BIO"]
 
 
 
@@ -858,3 +911,18 @@ def test_schedule_note_names_the_weekdays_and_the_last_flight_of_a_seasonal_rout
                                                "checked (search later dates to see when it flies again).")
     assert schedule_note(seen(lambda d: True), "ATH", "FRA") is None  # every day: nothing to say
     assert schedule_note(seen(lambda d: d.weekday() == 0), "ATH", "XXX") == "AEGEAN flies ATH → XXX only on Mondays."  # weekly, not stopped
+
+
+def test_schedule_note_says_no_service_and_names_aegean_airports_in_that_city():
+    import pandas as pd
+    from datetime import date, timedelta
+    from ui import schedule_note
+    def seen(n):
+        return pd.DataFrame([dict(day=(date(2026, 10, 31) + timedelta(i)).isoformat(), cabin=c, price=float("nan"))
+                             for i in range(n) for c in ("economy", "business")])
+    assert schedule_note(seen(1), "ATH", "LCY") == ("AEGEAN has no nonstop flights ATH → LCY on the days checked (Sat 31 Oct). "
+                                                    "Try London Heathrow (LHR) or London Gatwick (LGW, seasonal).")
+    assert schedule_note(seen(30), "ATH", "LGW") == ("AEGEAN has no nonstop flights ATH → LGW on the days checked (Sat 31 Oct – Sun 29 Nov). "
+                                                     "Try London Heathrow (LHR).")
+    assert schedule_note(seen(3), "ATH", "FRA", nonstop=False) == "AEGEAN has no flights ATH → FRA on the days checked (Sat 31 Oct – Mon 02 Nov)."
+    assert schedule_note(seen(0), "ATH", "LCY") is None  # nothing checked yet: nothing to say

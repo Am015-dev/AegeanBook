@@ -60,8 +60,11 @@ be on. Nothing is exposed to the public internet.
 
 ## Searching and filters
 
-- **Airports:** type a city, airport name or code. The list (`data/airports.csv`) has every airport with scheduled flights,
-  built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
+- **Airports:** type a city, airport name or code. Only AEGEAN's destinations are offered (`data/aegean_airports.csv`, about 135
+  airports, seasonal ones marked), because a route AEGEAN does not fly is the slowest search of all: Google has no calendar for it,
+  so every day would be searched one by one. Refresh the list with `python data/build_aegean_airports.py` (reads Wikipedia's list of
+  AEGEAN destinations and prints any airport it could not match). Names come from `data/airports.csv`, every airport with scheduled
+  flights, built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
 - **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
 - **Cheap days:** "Cheap means within" keeps every day within 0–30 % of the cheapest price (a route often has several days
   at the same lowest fare); "Days of the week" limits cards, chips and chart to the weekdays you can travel.
