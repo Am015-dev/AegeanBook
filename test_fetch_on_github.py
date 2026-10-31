@@ -348,15 +348,15 @@ def test_expert_and_explore_fetch_a_month_with_no_fares_on_github(tmp_path, monk
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
-    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- ok")
+    monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- ok", None))
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: pytest.fail("nothing to plan with"))
     at = open_page("expert.py").run()
     assert not at.exception and at.selectbox(key="plan-when").options[i] == f"{p.label} · not fetched yet"
-    assert at.button[0].label == "Ask the expert" and len(at.button) == 1  # the month on screen is saved: nothing to fetch
+    assert not [b for b in at.button if b.label.startswith("Fetch")]  # the window on screen is saved: nothing to fetch
     at.selectbox(key="plan-when").set_value(i).run()
-    assert not at.exception and at.button[0].label == "Ask the expert"  # the planner's own button stays first
-    at.button(key=f"fetch-ahead|ATH|FRA|{p.start}").click().run()  # a 3-night return by default: the way back three days later
-    assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(3), p.end + timedelta(3))]]
+    assert not at.exception
+    at.button(key=f"fetch-ahead|ATH|FRA|{p.start}").click().run()  # 2 to 7 nights by default, as on the Overview: the way back 2 to 7 days later
+    assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(2), p.end + timedelta(7))]]
     assert "Searching on GitHub" in " ".join(x.value for x in at.info)
     started.clear()
     at = open_page("explore.py").run()
@@ -385,6 +385,8 @@ def test_expert_and_explore_fetch_a_month_with_no_fares_on_github(tmp_path, monk
     at = open_page("expert.py")
     at.session_state["plan-when"] = i
     at.run()
-    assert not [b for b in at.button if b.label.startswith("Fetch")]
-    at.button[0].click().run()
-    assert not at.exception and f"{p.label}: I want a 3-night return trip" in seen[-1][0][-1]["content"] and ",88," in seen[-1][1]
+    assert not at.exception and not [b for b in at.button if b.label.startswith("Fetch")]
+    at.chat_input[0].set_value("Why then?").run()  # the chat reads that month's facts: the recommended trip is €88 out and €88 back
+    assert not at.exception and seen[-1][0][-1]["content"] == "Why then?"
+    assert f"departures {p.start:%a %d %b %Y}" in seen[-1][1] and "Recommended trip (the one the Overview's boarding pass shows): leave" in seen[-1][1]
+    assert "€176." in seen[-1][1]

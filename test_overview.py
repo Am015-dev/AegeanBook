@@ -123,30 +123,118 @@ def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypat
         list(ex.chat([user("x")], "", ("gemini", "g"), urlopen=busy))
 
 
-def test_briefing_is_asked_once_per_day_and_a_failure_is_retried_later(monkeypatch):
+NO_HISTORY = pd.DataFrame(columns=["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])  # price_insights.COLUMNS
+
+
+def expert_facts(t, pay="cash", nights=(), wdays=(), cabin="economy", hotel=None, end=30):
+    """expert_chat.facts over the seeded database for the next `end` days, without the committed price history."""
+    today = date.today()
+    return ex.facts(t, "ATH", "FRA", cabin, pay, list(nights), list(wdays), (today + timedelta(1), today + timedelta(end)), today, hotel,
+                    hist=NO_HISTORY)
+
+
+def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_same_trip(tmp_path):
+    import deals
+    import trip_plan as tp
+    from insights import DAYS, cash_by_day
+    t = seed(tmp_path / "t.db")
+    today = date.today()
+    start, end = today + timedelta(1), today + timedelta(30)
+    f = expert_facts(t, hotel=tp.hotels(t, "FRA")[0])
+    out, back = cash_by_day(t, "ATH", "FRA", "economy", True, start, end), cash_by_day(t, "FRA", "ATH", "economy", True, start, end + timedelta(7))
+    assert f["best"] == deals.best_trip(out, back, start, end, ex.NIGHTS, DAYS)  # the very trip the Overview's boarding pass shows
+    assert f["best"]["price"] == 210 and f["best"]["nights"] == 4 and f["best"]["depart"] == today + timedelta(10)  # €60 out, €150 back
+    assert f["ctx"] == deals.trip_context(out, back, start, end) and f["hotel"] == dict(name="Steigenberger", adults=2, price=800.0)
+    assert f["insight"]["level"] is None and f["skyexpress"] is None and f["award"] is None  # no price history, no Sky Express fares
+    week = lambda d: d - timedelta(d.weekday())
+    assert f["other"]["price"] > 210 and week(f["other"]["depart"]) != week(f["best"]["depart"])  # the alternative leaves in another week
+    a, b, c = ex.sentences(f)
+    assert a.startswith("The cheapest economy return from Athens to Frankfurt am Main with these filters is €210: leave ")
+    assert "4 nights" in a and "Steigenberger for those nights adds €800, so €1,010 in all" in a
+    assert f"leaves on a {today + timedelta(10):%A}, 10 days from today" in b and "A typical trip in this period costs €3" in b
+    assert c.startswith("If those dates do not suit, the next-cheapest week is €") and f"{f['other']['nights']} nights" in c
+    text = ex.text(f)
+    assert "Recommended trip (the one the Overview's boarding pass shows): leave" in text and "4 nights, €210." in text
+    assert f"Fares are saved up to {end:%a %d %b %Y}" in text and "Hotel: Steigenberger (2 adults) for those nights €800" in text
+    assert ex.prompt(f).startswith(f"The recommended trip is: {a} Explain it; do not propose a different one unless I ask")
+    assert "do not propose a different trip unless" in ex.SYSTEM and "I only have fares up to 29 January" in ex._system(text)  # the chat's rules
+    # the Overview's pills narrow the pass; the same filters narrow the facts the same way
+    other = [d for d in DAYS if d != f"{today + timedelta(10):%a}"][:2]
+    g = expert_facts(t, nights=[2, 3], wdays=other)
+    assert g["best"] == deals.best_trip(out, back, start, end, [2, 3], other) and g["best"]["price"] > 210 and g["hotel"] is None
+    assert g["nights"] == [2, 3] and g["wdays"] == other
+    # nothing saved for the filters: one sentence, and no question is spent on the model
+    n = expert_facts(t, pay="miles", cabin="business")
+    assert n["best"] is None and ex.text(n).endswith("Recommended trip: none, no fare is saved for these filters.")
+    assert ex.sentences(n)[0].startswith("No business award seats are saved from Athens to Frankfurt am Main")
+    assert ex.briefing(n, ("gemini", "g"), "2026-10-31") == (ex.sentences(n)[0], None)
+
+
+def test_expert_facts_in_miles_and_against_sky_express(tmp_path):
+    t = seed(tmp_path / "t.db")
+    today, now = date.today(), datetime.now().isoformat()
+    d = lambda i: (today + timedelta(i)).isoformat()
+    for o, dest, i, miles in (("ATH", "FRA", 5, 9000), ("FRA", "ATH", 8, 10000), ("FRA", "ATH", 9, 12000)):
+        t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+                  (d(i), o, dest, "economy", miles, 1, now, None))
+    t.commit()
+    f = expert_facts(t, pay="miles")
+    assert f["best"] == dict(depart=today + timedelta(5), back=today + timedelta(8), nights=3, price=19000.0)  # as the Overview's grid in miles
+    assert f["award"] == dict(cash=360.0, taxes=None) and f["cash"]["price"] == 210  # €200 + €160 on those dates; the cheapest cash trip
+    a, b, c = ex.sentences(f)
+    assert "is 19,000 miles plus taxes instead of €360 in cash: leave " in a and "3 nights" in a and "per 1,000" not in a + b + c
+    assert "Prices are flat in this period: a typical trip costs 20,000 miles" in b  # 19,000 and 21,000 are the only two trips
+    assert c.startswith("Paying cash, the cheapest trip with these filters is €210 (leave ") and c.endswith("so the miles are a good use here.")
+    assert "Same dates in cash: €360; award taxes: not collected." in ex.text(f)
+    f = expert_facts(t)  # paying cash: miles are not mentioned
+    assert f["award"] is None and "miles" not in " ".join(ex.sentences(f))
+    for i in range(1, 31):  # Sky Express undercuts AEGEAN on every day
+        for o, dest in (("ATH", "FRA"), ("FRA", "ATH")):
+            t.execute("INSERT INTO gq_prices VALUES(?,?,?,?,?,?,?,?)", (d(i), o, dest, "economy", 50.0, "calendar", now, 1))
+    t.commit()
+    f = expert_facts(t)
+    assert f["skyexpress"]["price"] == 100 and f["skyexpress"]["nights"] == 2
+    assert ex.sentences(f)[2].startswith("Sky Express is cheaper: €100 (leave ") and "€110 less than AEGEAN." in ex.sentences(f)[2]
+    assert "Sky Express (economy): cheapest leave" in ex.text(f) and "cheaper than AEGEAN by €110." in ex.text(f)
+    assert expert_facts(t, cabin="business")["skyexpress"] is None  # Sky Express sells one cabin
+
+
+def test_briefing_is_asked_once_per_search_and_day_and_falls_back_to_the_plain_sentences(tmp_path, monkeypatch):
+    t = seed(tmp_path / "t.db")
+    f, g = expert_facts(t), expert_facts(t, nights=[2, 3])
+    plain = " ".join(ex.sentences(f))
     asked = []
-    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (asked.append(history), iter(["- **Book** now"]))[1])
+    monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (asked.append((history, facts)), iter(["Fly on the 10th."]))[1])
     monkeypatch.setattr(ex, "_failed", {})
     ex._briefing.clear()
-    assert ex.briefing("data v1", ("gemini", "g"), "2026-10-30") == "- **Book** now"
-    ex.briefing("data v1", ("gemini", "g"), "2026-10-30")
-    assert len(asked) == 1 and asked[0][0]["content"] == ex.BRIEFING  # the second visitor gets the cached briefing
-    ex.briefing("data v2", ("gemini", "g"), "2026-10-30")
-    assert len(asked) == 1  # a visitor's search changes the data, not today's briefing
-    ex.briefing("data v2", ("gemini", "g"), "2026-10-31")
-    assert len(asked) == 2  # a new day, a new briefing
+    assert ex.briefing(f, ("gemini", "g"), "2026-10-30") == ("Fly on the 10th.", None)
+    ex.briefing(f, ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 1 and asked[0][0][0]["content"] == ex.prompt(f) and asked[0][1] == ex.text(f)  # the second visitor gets the cached briefing
+    ex.briefing(g, ("gemini", "g"), "2026-10-30")
+    assert len(asked) == 2  # another search, another briefing
+    ex.briefing(f, ("gemini", "g"), "2026-10-31")
+    assert len(asked) == 3  # a new day, a new briefing
+    assert ex.briefing(f, None, "2026-10-31") == (plain, "Written from the saved fares. With an AI key the expert puts it in its own words "
+                                                          "and answers questions.")
+    assert len(asked) == 3  # without a key the plain sentences cost nothing
 
     def broken(history, facts, cfg):
         asked.append(history)
         raise TimeoutError("timed out")
     monkeypatch.setattr(ex, "chat", broken)
-    assert ex.briefing("data v3", ("gemini", "g"), "2026-11-01") == ("error", "The briefing is unavailable right now (TimeoutError).")
-    ex.briefing("data v3", ("gemini", "g"), "2026-11-01")
-    assert len(asked) == 3  # remembered: the next visitor neither waits nor spends a question
+    assert ex.briefing(f, ("gemini", "g"), "2026-11-01") == (plain, "Written from the saved fares. The expert is unavailable right now (TimeoutError).")
+    ex.briefing(f, ("gemini", "g"), "2026-11-01")
+    assert len(asked) == 4  # remembered: the next visitor neither waits nor spends a question, and still reads the same trip
     now = ex.time.time()
     monkeypatch.setattr(ex.time, "time", lambda: now + 901)
-    ex.briefing("data v3", ("gemini", "g"), "2026-11-01")
-    assert len(asked) == 4  # but tried again after 15 minutes, and a success is not blocked by the old failure
+    ex.briefing(f, ("gemini", "g"), "2026-11-01")
+    assert len(asked) == 5  # but tried again after 15 minutes, and a success is not blocked by the old failure
+
+    def quota(history, facts, cfg):
+        raise RuntimeError("Gemini's free quota is used up for now. Try again later.")
+    monkeypatch.setattr(ex, "chat", quota)
+    assert ex.briefing(g, ("gemini", "g"), "2026-11-01") == (" ".join(ex.sentences(g)), "Written from the saved fares. Gemini's free quota is "
+                                                                                           "used up for now. Try again later.")
 
 
 def test_gemini_reasons_briefly_and_copes_with_a_slow_or_picky_model(monkeypatch):
@@ -211,8 +299,11 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     seed(tmp_path / "tracker.db")
     at = open_page("expert.py").run()
     assert not at.exception and "needs an AI key" in at.info[0].value and not at.chat_input
+    text = " ".join(m.value for m in at.markdown)  # no key: the briefing is still there, built in Python from the Overview's numbers
+    assert "The cheapest economy return from Athens to Frankfurt am Main with these filters is €210: leave " in text and "4 nights" in text
+    assert "Written from the saved fares. With an AI key" in at.caption[0].value
     monkeypatch.setenv("GEMINI_API_KEY", "test")
-    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** €60")
+    monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- **Book now:** €60", None))
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append([m["content"] for m in history]), iter([f"Answer {len(seen)}"]))[1])
     at = open_page("expert.py").run()
@@ -275,23 +366,33 @@ def test_months_reach_the_horizon_and_say_which_are_fetched():
     assert not any(p.fetched for p in tp.months(today, today))  # nothing saved past today: no period is fetched
 
 
-def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):
+def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_names(tmp_path, monkeypatch):
+    from insights import DAYS
     open_page = pages(tmp_path, monkeypatch, "test")
     seed(tmp_path / "tracker.db")
-    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- **Book now:** €60")
-    seen = []
+    briefed, seen = [], []
+    monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: (briefed.append(f), ("Briefing", None))[1])
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter([f"Answer {len(seen)}"]))[1])
     at = open_page("expert.py").run()
-    at.selectbox(key="plan-orig").set_value("ATH").run()
-    at.selectbox(key="plan-dest-ATH").set_value("FRA")
-    at.button[0].click().run()  # Ask the expert, with the defaults: economy, return 3 nights, cash or miles, the searched hotel
     assert not at.exception
+    # the defaults are the Overview's: economy, cash, 2 to 7 nights, any day, the pass's own window, the hotel searched in the city
+    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-nights", "plan-days")] == ["economy", "cash", ex.NIGHTS, DAYS]
+    assert at.selectbox(key="plan-when").value == 0 and at.selectbox(key="plan-when").options[0] == "Next 30 days"
+    f = briefed[-1]
+    assert f["best"]["price"] == 210 and f["best"]["nights"] == 4 and f["hotel"]["name"] == "Steigenberger"  # the Overview's pass
+    at.chat_input[0].set_value("Why those dates?").run()
     history, facts = seen[-1]
-    assert "Frankfurt (FRA)" in history[-1]["content"] and "3-night return" in history[-1]["content"]
-    assert "Steigenberger" in history[-1]["content"] and "candidate trips" in facts and "All tracked routes" in facts
-    at.chat_input[0].set_value("And with miles?").run()
-    history, facts = seen[-1]
-    assert [m["content"] for m in history][-1] == "And with miles?" and len(history) == 3 and "candidate trips" in facts  # follow-up keeps the plan
+    assert history[-1]["content"] == "Why those dates?" and facts.startswith(ex.text(f)) and "All tracked routes" in facts
+    assert "Best ATH-FRA-ATH economy trip" not in facts  # the Overview module's Frankfurt totals (with a hotel) would contradict the pass
+    at.button_group(key="plan-nights").set_value([2, 3]).run()  # a new search: new facts, and the old answers go
+    assert not at.exception and briefed[-1]["nights"] == [2, 3] and briefed[-1]["best"]["price"] > 210 and not at.chat_message
+    # the Overview's "Ask the expert about it" link names the pass the traveller saw
+    at = open_page("expert.py")
+    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3,4"})
+    at.run()
+    assert not at.exception and at.selectbox(key="plan-dest-ATH").value == "ZRH"
+    assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-nights")] == ["business", "miles", [3, 4]]
+    assert briefed[-1]["dest"] == "ZRH" and briefed[-1]["pay"] == "miles" and briefed[-1]["best"] is None  # no award seats seeded
 
 
 def test_cheapest_month_table_and_colours():
@@ -431,7 +532,6 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     assert plan.iloc[0].cash == 91 + 94  # out on day 1 (€91), back 3 nights later on day 4 (€94)
     assert "from Bilbao (BIO) to Athens (ATH)" in tp.question("ATH", "Next 30 days", "economy", "cash", 3, None, None, "BIO")
 
-    monkeypatch.setattr(ex, "briefing", lambda facts, cfg, day: "- ok")
     at = open_page("overview.py").run()
     assert not at.exception and "BIO → ATH" in list(at.dataframe[-1].value.Route)
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
@@ -439,9 +539,12 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
 
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
+    monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: (" ".join(ex.sentences(f)), None))  # the plain sentences, not the fake model
     at = open_page("expert.py")
     at.query_params["from"], at.query_params["to"] = "BIO", "ATH"  # the Overview's "Ask the expert about it" link
     at.run()
-    assert at.selectbox(key="plan-orig").value == "BIO"
-    at.button[0].click().run()
-    assert not at.exception and "from Bilbao (BIO) to Athens (ATH)" in seen[-1][0][-1]["content"] and "Bilbao (BIO) to Athens" in seen[-1][1]
+    assert not at.exception and at.selectbox(key="plan-orig").value == "BIO"
+    text = " ".join(m.value for m in at.markdown)
+    assert "The cheapest economy return from Bilbao to Athens with these filters is €184: leave " in text  # €91 out on day 1, €93 back on day 3
+    at.chat_input[0].set_value("Why?").run()
+    assert not at.exception and "Search: Bilbao (BIO) to Athens (ATH)" in seen[-1][1] and "2 nights, €184." in seen[-1][1]
