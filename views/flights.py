@@ -208,7 +208,8 @@ out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles
 
 
 view = on_weekdays(out, weekdays)  # the cards, chips and chart only look at the chosen weekdays (of departure)
-near = {c: near_cheapest(view[c], tol) for c in ("economy", "business")}
+cabins = ("economy", "business") + (("skyexpress",) if gq and "skyexpress" in view else ())  # Sky Express as a third line of the cards
+near = {c: near_cheapest(view[c], tol) for c in cabins}
 if nights:  # the way back, and every departure + stay combination
     pb = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
                      db, params=(dest, orig, int(nonstop), rstart.isoformat(), rend.isoformat()))
@@ -219,7 +220,7 @@ if nights:  # the way back, and every departure + stay combination
             back[k] = float("nan")
     if gq:
         back = back.join(sx.cash_by_day(db, dest, orig, rstart, rend).rename("skyexpress"))
-    trips = round_trips(view, back, nights)
+    trips = round_trips(view, back, nights, tuple(c for c in cabins if c in back))
 
 
 def best(col):
@@ -227,6 +228,8 @@ def best(col):
         n = len(near[col])
         return f"€{near[col].iloc[0]:.0f}", (f"{pd.Timestamp(near[col].index[0]):%a %d %b}" +
                                              (f" · {n} days within {tol:.0%} of the cheapest" if tol and n > 1 else f" · {n} days at this price" if n > 1 else ""))
+    if col == "skyexpress":
+        return "—", "No Sky Express fare saved for these days yet"
     return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
 
 
@@ -249,7 +252,16 @@ else:
     cash_col = st.container()
 with cash_col:
     st.markdown('<p class="group">Cash fares</p>', unsafe_allow_html=True)
-    kpis([(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS)])
+    rows = [(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS)]
+    if "skyexpress" in cabins:  # the same line for Sky Express, so the three read side by side
+        gv, gs = best_trip("skyexpress") if nights else best("skyexpress")
+        rows.append((f"Cheapest {kind} Sky Express (economy)".replace("  ", " "), gv, gs, sx.COLOUR))
+        a3 = min((x for x in (ev, bv) if x != "—"), default="—", key=lambda v: float(v[1:].replace(",", "")))
+        if gv != "—" and a3 != "—":
+            saving = float(a3[1:].replace(",", "")) - float(gv[1:].replace(",", ""))
+            rows.append(("Cheapest of the two" if saving else "Same price", f"{'Sky Express' if saving > 0 else 'AEGEAN'}" if saving else "—",
+                         f"€{abs(saving):,.0f} less than {'AEGEAN' if saving > 0 else 'Sky Express'}" if saving else "AEGEAN and Sky Express cost the same", MUTED))
+    kpis(rows)
 if award_col:
     with award_col:
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
@@ -266,9 +278,13 @@ if len(pick):
 if nights:
     best_trips(trips[trips.cabin == "economy"], ECONOMY, "Cheap economy returns", tol)
     best_trips(trips[trips.cabin == "business"], BUSINESS, "Cheap business returns", tol)
+    if "skyexpress" in cabins:
+        best_trips(trips[trips.cabin == "skyexpress"], sx.COLOUR, "Cheap Sky Express returns", tol)
 else:
     best_days(near["economy"], ECONOMY, "Cheap economy days")
     best_days(near["business"], BUSINESS, "Cheap business days")
+    if "skyexpress" in cabins:
+        best_days(near["skyexpress"], sx.COLOUR, "Cheap Sky Express days")
 
 if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
