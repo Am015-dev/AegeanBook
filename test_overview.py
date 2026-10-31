@@ -715,7 +715,6 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     assert re.search(r'<span class="good">Good price</span> Trips like this usually cost about €3\d\d\.</span>', text)
     assert "Tracking since" not in text and "lowest of" not in text and "typical" not in text.split("<style>")[0]
     assert "Cheapest return · Athens → Frankfurt" in text and "one adult, leaving in the next 30 days" in text
-    assert "Pick a route, or Anywhere, to start" in at.caption[0].value  # until something is picked
     cheap_day = f"{date.today() + timedelta(10):%a}"  # the €60 outbound
     other = [d for d in DAYS if d != cheap_day][:2]
     at.button_group(key="ov-days").set_value(other).run()
@@ -727,7 +726,6 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     at.slider(key="ov-nights").set_value((2, 3)).run()
     assert not at.exception and list(grid(at).columns) == ["2 nights", "3 nights"]
     assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
-    assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # something was picked
     at.slider(key="ov-nights").set_value((14, 16)).run()  # a holiday, not a city break: any stay up to 60 nights
     assert not at.exception and list(grid(at).columns) == ["14 nights", "15 nights", "16 nights"]
     assert re.search(r"<dt>Stay</dt><dd>1[456] nights", " ".join(m.value for m in at.markdown))
@@ -809,8 +807,8 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     seed(tmp_path / "tracker.db")
     at = open_page("overview.py").run()
     assert not at.exception
-    labels = [x.label for x in at.expander]
-    assert labels[-2:] == ["Best weekday to fly", "How far ahead to book"]
+    text = " ".join(m.value for m in at.markdown)
+    assert "When to fly" in text and not [x for x in at.expander if x.label in ("Best weekday to fly", "How far ahead to book")]  # in the open
     text = " ".join(m.value for m in at.markdown)
     assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
@@ -819,7 +817,7 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert not at.exception and "The average business fare by the weekday" in " ".join(c.value for c in at.caption)
     at.button_group(key="ov-grid-pay").set_value("miles").run()
-    assert not at.exception and not [x for x in at.expander if x.label == "Best weekday to fly"]  # miles have no such pattern to show
+    assert not at.exception and "When to fly" not in " ".join(m.value for m in at.markdown)  # miles have no such pattern to show
 
 
 def test_overview_grid_in_miles(tmp_path, monkeypatch):

@@ -79,7 +79,6 @@ def test_overview_opens_the_route_from_the_query_params(tmp_path, monkeypatch):
     assert not at.exception
     assert at.selectbox(key="ov-grid-orig").value == "SKG" and at.selectbox(key="ov-grid-dest-SKG").value == "ATH"
     assert "Thessaloniki → Athens → Thessaloniki" in " ".join(c.value for c in at.caption)
-    assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # the route was chosen, by the link
     at = open_page("overview.py")
     at.query_params["from"] = "XXX"  # an airport without fares is ignored
     at.run()

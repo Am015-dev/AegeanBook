@@ -81,9 +81,9 @@ def test_overview_shows_the_verdict_and_how_the_fare_moved(tmp_path, monkeypatch
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     v = pi.trip(read(tmp_path / "h.csv"), [("ATH", "FRA"), ("FRA", "ATH")], "economy", 210, today)
-    moved = lambda: [x for x in at.expander if x.label == "How this fare moved"]
+    moved = lambda: [m for m in at.markdown if "How this fare has moved" in m.value]  # the price graph, in the open
     assert v["level"] == "low" and f"Usually €{v['low']:,.0f}–€{v['high']:,.0f} return. €210 is cheap." in text  # two plain sentences
-    assert moved() and "The ring marks the lowest" in moved()[0].caption[0].value
+    assert moved() and "The ring marks the lowest" in " ".join(c.value for c in at.caption)
     use(write_history(tmp_path / "few.csv", 3))
     at = open_page("overview.py").run()
     assert not at.exception
