@@ -149,7 +149,7 @@ def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_sam
     week = lambda d: d - timedelta(d.weekday())
     assert f["other"]["price"] > 210 and week(f["other"]["depart"]) != week(f["best"]["depart"])  # the alternative leaves in another week
     a, b, c = ex.sentences(f)
-    assert a.startswith("The cheapest economy return from Athens to Frankfurt am Main with these filters is €210: leave ")
+    assert a.startswith("The cheapest economy return from Athens to Frankfurt with these filters is €210: leave ")
     assert "4 nights" in a and "Steigenberger for those nights adds €800, so €1,010 in all" in a
     assert f"leaves on a {today + timedelta(10):%A}, 10 days from today" in b and "A typical trip in this period costs €3" in b
     assert c.startswith("If those dates do not suit, the next-cheapest week is €") and f"{f['other']['nights']} nights" in c
@@ -166,7 +166,7 @@ def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_sam
     # nothing saved for the filters: one sentence, and no question is spent on the model
     n = expert_facts(t, pay="miles", cabin="business")
     assert n["best"] is None and ex.text(n).endswith("Recommended trip: none, no fare is saved for these filters.")
-    assert ex.sentences(n)[0].startswith("No business award seats are saved from Athens to Frankfurt am Main")
+    assert ex.sentences(n)[0].startswith("No business award seats are saved from Athens to Frankfurt")
     assert ex.briefing(n, ("gemini", "g"), "2026-10-31") == (ex.sentences(n)[0], None)
 
 
@@ -300,7 +300,7 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     at = open_page("expert.py").run()
     assert not at.exception and "needs an AI key" in at.info[0].value and not at.chat_input
     text = " ".join(m.value for m in at.markdown)  # no key: the briefing is still there, built in Python from the Overview's numbers
-    assert "The cheapest economy return from Athens to Frankfurt am Main with these filters is €210: leave " in text and "4 nights" in text
+    assert "The cheapest economy return from Athens to Frankfurt with these filters is €210: leave " in text and "4 nights" in text
     assert "Written from the saved fares. With an AI key" in at.caption[0].value
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- **Book now:** €60", None))
@@ -474,7 +474,7 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     # two plain sentences, no analyst words: the badge, a space, then what a trip usually costs (€210 against ~€360 return trips)
     assert re.search(r'<span class="good">Good price</span> Trips like this usually cost about €3\d\d\.</span>', text)
     assert "Tracking since" not in text and "lowest of" not in text and "typical" not in text.split("<style>")[0]
-    assert "Cheapest return · Athens → Frankfurt am Main" in text and "one adult, leaving in the next 30 days" in text
+    assert "Cheapest return · Athens → Frankfurt" in text and "one adult, leaving in the next 30 days" in text
     assert "Pick a route, or Anywhere, to start" in at.caption[0].value  # until something is picked
     cheap_day = f"{date.today() + timedelta(10):%a}"  # the €60 outbound
     other = [d for d in DAYS if d != cheap_day][:2]
@@ -529,7 +529,7 @@ def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypa
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     at = open_page("overview.py").run()
     to = at.selectbox(key="ov-grid-dest-ATH")
-    assert to.options[:3] == ["Anywhere", "Frankfurt am Main (FRA)", "Zurich (ZRH)"] and "Bilbao (BIO) · no fares yet" in to.options
+    assert to.options[:3] == ["Anywhere", "Frankfurt (FRA)", "Zurich (ZRH)"] and "Bilbao (BIO) · no fares yet" in to.options
     assert "Athens (ATH)" not in " ".join(to.options) and to.value == "FRA"  # not itself; the first saved route by default
     to.set_value("BIO").run()
     assert not at.exception and "No economy fares saved from Athens to Bilbao for the next 30 days yet" in at.info[0].value
@@ -565,7 +565,7 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     labels = [x.label for x in at.expander]
     assert labels[-2:] == ["Best weekday to fly", "How far ahead to book"]
     text = " ".join(m.value for m in at.markdown)
-    assert re.search(r"is the cheapest day to fly Athens → Frankfurt am Main|No strong weekday pattern on Athens → Frankfurt am Main", text)
+    assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
     captions = " ".join(c.value for c in at.caption)
     assert "Average economy fare by the weekday you leave, over the 30 days" in captions

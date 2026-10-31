@@ -309,7 +309,7 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     assert when.options[1] == f"{today + timedelta(1):%B %Y}" and when.options[i] == f"{p.label} · not fetched yet"  # every month, marked
     assert not [b for b in at.button if b.key.startswith("fetch-ahead")]  # the next 30 days are saved: nothing to fetch
     when.set_value(i).run()
-    assert not at.exception and f"No economy fares saved from Athens to Frankfurt am Main for {p.label} yet" in at.info[0].value
+    assert not at.exception and f"No economy fares saved from Athens to Frankfurt for {p.label} yet" in at.info[0].value
     assert not [m for m in at.markdown if 'class="pass"' in m.value]  # no answer to give for that month
     key = f"ahead|ATH|FRA|{p.start}"
     assert at.button(key=f"fetch-{key}").label == f"Search {p.label} on GitHub"
