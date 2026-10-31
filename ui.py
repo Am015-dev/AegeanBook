@@ -9,6 +9,7 @@ from datetime import timedelta
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 ECONOMY, BUSINESS, INK, MUTED, GRID = "#2563C9", "#B8741A", "#1D1D1F", "#6E6E73", "#E5E5EA"
 BOOKING = "#0E9F6E"
@@ -84,6 +85,22 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
 /* a column with nothing in it (Nights away on a one-way trip) must not leave a gap on phones */
 [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"]:empty) {{ display:none; }}
 @media (pointer: coarse) {{ [data-testid="stButtonGroup"] button, .chip {{ min-height:44px; }} .chip {{ display:inline-flex; align-items:center; }} }}
+/* the Overview's bar on a phone: From, To and Leaving between stack as they must, but Trip, Cabin, Pay with and Passengers share lines
+   and the Nights slider takes one of its own, so the answer is one screen down instead of two (Streamlit stacks every column on its own) */
+@media (max-width: 640px) {{
+  .st-key-ov-bar-route [data-testid="stHorizontalBlock"], .st-key-ov-bar-trip [data-testid="stHorizontalBlock"] {{ gap:10px 16px !important; }}
+  .st-key-ov-bar-trip [data-testid="stHorizontalBlock"] {{ flex-wrap:wrap !important; }}
+  .st-key-ov-bar-trip [data-testid="stColumn"] {{ flex:0 1 auto !important; min-width:0 !important; width:auto !important; }}
+  .st-key-ov-bar-trip [data-testid="stColumn"]:has([data-testid="stSlider"]) {{ flex:1 1 100% !important; order:9; }}
+  .st-key-ov-bar-trip [data-testid="stColumn"]:has([data-testid="stNumberInput"]) {{ flex:1 1 120px !important; max-width:200px; }}
+  /* the answer: the links under the pass share lines too, and Book on aegeanair.com stays at the bottom of the screen while the pass is on it */
+  .st-key-ov-answer [data-testid="stHorizontalBlock"] {{ flex-wrap:wrap !important; gap:2px 18px !important; }}
+  .st-key-ov-answer [data-testid="stColumn"] {{ flex:0 1 auto !important; min-width:0 !important; width:auto !important; }}
+  .st-key-ov-answer [data-testid="stElementContainer"]:has(> .stLinkButton a[href*="aegeanair"]) {{ position:sticky; bottom:10px; z-index:5; }}
+  .st-key-ov-answer [data-testid="stElementContainer"]:has(> .stLinkButton a[href*="aegeanair"]), .st-key-ov-answer .stLinkButton:has(a[href*="aegeanair"]),
+  .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ width:100% !important; }}
+  .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ box-shadow:0 6px 20px rgba(0,0,0,.18); }}
+}}
 @media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} .st-key-search {{ padding:14px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports), .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) {{ flex-wrap:nowrap !important; gap:8px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports) > [data-testid="stColumn"], .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) > [data-testid="stColumn"] {{ min-width:0 !important; width:auto !important; flex:1 1 0 !important; }} .st-key-search [data-testid="stColumn"]:has(.st-key-swap-airports) {{ flex:0 0 auto !important; }} .st-key-search [data-testid="stColumn"]:has([data-testid="stNumberInput"]) {{ min-width:0 !important; width:auto !important; flex:1 1 calc(50% - 8px) !important; }} .fare {{ padding:12px 14px; }} .fare .price {{ font-size:1.4rem; }} }}
 </style>
 """
@@ -118,6 +135,41 @@ def kpis(items):
         f'<div class="when">{e(s)}</div></div><div class="price{" none" if v == "—" else ""}">{e(v[:-6]) + "<span class=unit> miles</span>" if v.endswith(" miles") else e(v)}</div></div>'
         for l, v, s, c in items) + "</div>",
         unsafe_allow_html=True)
+
+
+def html_table(df, cls="h2h"):
+    """A DataFrame as a plain HTML table that wraps on a phone (st.dataframe clips long cells and scrolls a canvas): the index as row
+    headers, its name in the corner; every cell escaped."""
+    head = f"<tr><th>{e(str(df.index.name or ''))}</th>" + "".join(f"<th>{e(str(c))}</th>" for c in df.columns) + "</tr>"
+    body = "".join(f"<tr><th>{e(str(i))}</th>" + "".join(f"<td>{e(str(v))}</td>" for v in r) + "</tr>" for i, r in zip(df.index, df.values.tolist()))
+    st.markdown(f'<table class="{cls}">{head}{body}</table>', unsafe_allow_html=True)
+
+
+GRID_ROW, GRID_HEAD, GRID_MAX = 37, 38, 520  # a grid_frame row and header in px, and the tallest frame before it scrolls
+
+
+def grid_frame(table, rows):
+    """`table` (deals.grid_html) in a frame of its own: the header row and the day column stay put while the rest scrolls either way, and
+    the cell marked id="low" (the cheapest trip) is scrolled into the middle, so a phone shows the answer without a finger on the table.
+    The frame is as tall as its rows, up to GRID_MAX; an iframe because a script has to do the scrolling (st.markdown drops scripts)."""
+    height = min(GRID_ROW * rows + GRID_HEAD, GRID_MAX)
+    doc = f"""<!doctype html><html><head><meta charset="utf-8"><style>
+html, body {{ margin:0; padding:0; background:transparent; font-family:{FONT}; font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; color:{INK}; }}
+.wrap {{ position:relative; height:{height}px; overflow:auto; background:{SURFACE}; border:1px solid {GRID}; border-radius:14px; }}
+table.grid {{ border-collapse:separate; border-spacing:0; min-width:100%; font-size:.92rem; }}
+.grid th, .grid td {{ padding:8px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid {GRID}; }}
+.grid thead th {{ position:sticky; top:0; z-index:2; background:{SURFACE}; color:{MUTED}; font-weight:600; font-size:.85rem; }}
+.grid tbody th {{ position:sticky; left:0; z-index:1; background:{SURFACE}; color:{INK}; font-weight:500; text-align:left; }}
+.grid thead th:first-child {{ left:0; z-index:3; }}
+.grid td {{ font-weight:600; }}
+.grid tr:last-child th, .grid tr:last-child td {{ border-bottom:0; }}
+</style></head><body><div class="wrap">{table}</div><script>
+const w = document.querySelector('.wrap'), low = document.getElementById('low');
+if (low) {{ w.scrollTop = Math.max(0, low.offsetTop - w.clientHeight / 2 + low.offsetHeight / 2);
+            w.scrollLeft = Math.max(0, low.offsetLeft - w.clientWidth / 2 + low.offsetWidth / 2); }}
+</script></body></html>"""
+    frame = getattr(st, "iframe", None) or components.html  # st.iframe is Streamlit 1.51+; components.html is what it replaced
+    frame(doc, height=height + 2)
 
 
 def excel_bytes(df):

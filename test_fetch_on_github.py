@@ -326,7 +326,8 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     state["run"] = dict(status="completed", conclusion="success", url="u")
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(x.value for x in at.info)
-    assert len(at.dataframe[0].value) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
+    from test_overview import grid
+    assert len(grid(at)) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     assert "€198" in " ".join(m.value for m in at.markdown if 'class="pass"' in m.value)  # and the pass answers for that month
     # without a token nothing can be fetched from here: say so, and where to search
     monkeypatch.setattr(gh, "token", lambda: None)
@@ -392,3 +393,69 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     assert not at.exception and seen[-1][0][-1]["content"] == "Why then?"
     assert f"departures {p.start:%a %d %b %Y}" in seen[-1][1] and "Recommended trip (the one the Overview's boarding pass shows): leave" in seen[-1][1]
     assert "€176." in seen[-1][1]
+
+
+def test_plan_splits_the_refresh_into_matrix_jobs_by_airline_a_few_routes_each(tmp_path, monkeypatch):
+    """The daily run refreshes the tracked routes in matrix jobs (daily.yml), each on its own server with its own share of Google's rate
+    limit, so the number of routes is no longer bounded by what one server finishes before the timeout."""
+    import collect_daily
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    monkeypatch.setattr(fetch_route, "TRACK_MAX", 5)
+    lines = ["orig,dest,nonstop,last_requested,from,to,airline", f"ATH,FRA,1,{today},,,A3",  # a daily leg: only beyond the daily run's 90 days
+             f"OLD,ONE,1,{today - timedelta(61)},,,A3",  # not searched for over 60 days: dropped
+             f"ATH,BIO,1,{today - timedelta(60)},,,A3",  # the oldest of 6 recent routes, cap 5: skipped
+             f"ATH,HER,1,{today},,,GQ", f"ATH,HER,1,{today},,,A3", f"BIO,ATH,0,{today},,,A3", f"SKG,LCA,1,{today},,,A3",
+             f"LCA,SKG,1,{today},{today + timedelta(100)},{today + timedelta(130)},A3"]  # planned past 90 days: up to the day asked
+    (tmp_path / "tracked_routes.csv").write_text("\n".join(lines) + "\n")
+    assert ("ATH", "FRA") in collect_daily.LEGS
+    d = lambda i: (today + timedelta(i)).isoformat()
+    assert fetch_route.plan(per_job=2) == [
+        dict(airline="A3", nonstop="0", legs=f"BIO,ATH,{d(1)},{d(90)}"),
+        dict(airline="A3", nonstop="1", legs=f"ATH,HER,{d(1)},{d(90)};LCA,SKG,{d(1)},{d(130)}"),
+        dict(airline="A3", nonstop="1", legs=f"SKG,LCA,{d(1)},{d(90)}"),
+        dict(airline="GQ", nonstop="1", legs=f"ATH,HER,{d(1)},{d(90)}")]  # one airline and nonstop flag per job, at most per_job routes
+    assert not out.exists() and not (tmp_path / "history_prices.csv").exists()  # planning fetches nothing
+    assert len(fetch_route.plan()) == 3  # 8 per job by default: A3 nonstop, A3 one-stop, GQ
+    (tmp_path / "tracked_routes.csv").write_text(lines[0] + "\n")
+    assert fetch_route.plan() == [] and json.dumps(fetch_route.plan()) == "[]"  # nothing tracked: no refresh jobs (daily.yml skips them)
+    wf = open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
+    jobs = wf.index("\n  collect:"), wf.index("\n  refresh:"), wf.index("\n  finish:")
+    assert jobs[0] < jobs[1] < jobs[2]
+    collect, refresh, finish = wf[jobs[0]:jobs[1]], wf[jobs[1]:jobs[2]], wf[jobs[2]:]
+    assert "python collect_daily.py" in collect and "--daily" in collect and "fetch_route.py --plan" in collect and "git push" in collect
+    assert "include: ${{ fromJSON(needs.collect.outputs.refresh) }}" in refresh and "needs.collect.outputs.refresh != '[]'" in refresh
+    assert 'python fetch_route.py --refresh "$LEGS" "$NONSTOP"' in refresh and "--merge-refresh" in refresh and "pull --rebase" not in refresh
+    assert "LEGS: ${{ matrix.legs }}" in refresh and "AIRLINE: ${{ matrix.airline }}" in refresh and "fail-fast: false" in refresh
+    assert "git fetch -q origin main && git reset -q --hard origin/main" in refresh  # merge into the newest main, like fetch-route.yml
+    assert "needs: [collect, refresh]" in finish and "python digest.py" in finish and "python alerts.py" in finish
+    assert finish.index("python digest.py") < finish.index("python alerts.py") < finish.index("gh issue create")
+    assert "python digest.py" not in collect and "alerts.py" not in collect  # they read every job's fares, so they come after the refresh
+    assert "needs.collect.outputs.missing == 'failure'" in finish  # the run is still marked red when daily days are missing
+
+
+def test_a_refresh_job_only_writes_its_rows_and_merge_refresh_saves_them_without_tracking(tmp_path, monkeypatch):
+    out, d1, today = tmp_path / "routes.csv", (date.today() + timedelta(3)).isoformat(), date.today().isoformat()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "tracked_routes.csv").write_text(f"orig,dest,nonstop,last_requested,from,to,airline\nATH,BIO,1,2026-01-01,,,A3\n")
+    asked = []
+
+    def fake(a, b, o, d, skip=(), nonstop=True, **kw):
+        asked.append((o, d, nonstop, kw.get("airline")))
+        yield a, "economy", 120.0, "calendar", "ok", None
+    monkeypatch.setattr(fetch_route, "fetch_range", fake)
+    new = tmp_path / "new_rows.csv"
+    assert fetch_route.refresh(f"ATH,BIO,{d1},{d1};BIO,ATH,{d1},{d1}", True, new, "A3") == 0
+    assert [(o, d, n) for o, d, n, _ in asked] == [("ATH", "BIO", True), ("BIO", "ATH", True)]
+    rows = fetch_route.read(new)
+    assert [(r["orig"], r["dest"], r["price"]) for r in rows] == [("ATH", "BIO", "120.0"), ("BIO", "ATH", "120.0")]
+    assert not out.exists() and not (tmp_path / "history_prices.csv").exists()  # the save step does that, into the newest main
+    fetch_route.save(rows)  # --merge-refresh: saved and in the history, but not a request: ATH-BIO keeps its old last_requested
+    assert fetch_route.log_history(rows) == 2
+    assert {(r["orig"], r["dest"]) for r in fetch_route.read(out)} == {("ATH", "BIO"), ("BIO", "ATH")}
+    assert (tmp_path / "tracked_routes.csv").read_text().splitlines()[1:] == ["ATH,BIO,1,2026-01-01,,,A3"]
+    asked.clear()
+    assert fetch_route.refresh(f"ATH,HER,{d1},{d1}", False, new, "GQ") == 0 and asked[0][2] is False and asked[0][3].name == "GQ"
+    src = open(os.path.join(HERE, "fetch_route.py")).read()
+    block = src[src.index('elif sys.argv[1] == "--merge-refresh"'):src.index('elif sys.argv[1] == "--plan"')]
+    assert "save(rows, airline=airline)" in block and "log_history(rows, airline)" in block and "track=True" not in block

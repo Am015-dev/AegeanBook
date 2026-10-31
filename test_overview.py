@@ -151,7 +151,7 @@ def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_sam
     a, b, c = ex.sentences(f)
     assert a.startswith("The cheapest economy return from Athens to Frankfurt with these filters is €210: leave ")
     assert "4 nights" in a and "Steigenberger for those nights adds €800, so €1,010 in all" in a
-    assert f"leaves on a {today + timedelta(10):%A}, 10 days from today" in b and "A typical trip in this period costs €3" in b
+    assert f"leaves on a {today + timedelta(10):%A}, 10 days from today" in b and "Trips like this in this period usually cost about €3" in b
     assert c.startswith("If those dates do not suit, the next-cheapest week is €") and f"{f['other']['nights']} nights" in c
     text = ex.text(f)
     assert "Recommended trip (the one the Overview's boarding pass shows): leave" in text and "4 nights, €210." in text
@@ -183,7 +183,7 @@ def test_expert_facts_in_miles_and_against_sky_express(tmp_path):
     assert f["award"] == dict(cash=360.0, taxes=None) and f["cash"]["price"] == 210  # €200 + €160 on those dates; the cheapest cash trip
     a, b, c = ex.sentences(f)
     assert "is 19,000 miles plus taxes instead of €360 in cash: leave " in a and "3 nights" in a and "per 1,000" not in a + b + c
-    assert "Prices are flat in this period: a typical trip costs 20,000 miles" in b  # 19,000 and 21,000 are the only two trips
+    assert "Prices are much the same whichever day you pick in this period: most trips cost about 20,000 miles" in b  # 19,000 and 21,000 are the only two trips
     assert c.startswith("Paying cash, the cheapest trip with these filters is €210 (leave ") and c.endswith("so the miles are a good use here.")
     assert "Same dates in cash: €360; award taxes: not collected." in ex.text(f)
     f = expert_facts(t)  # paying cash: miles are not mentioned
@@ -197,6 +197,142 @@ def test_expert_facts_in_miles_and_against_sky_express(tmp_path):
     assert ex.sentences(f)[2].startswith("Sky Express is cheaper: €100 (leave ") and "€110 less than AEGEAN." in ex.sentences(f)[2]
     assert "Sky Express (economy): cheapest leave" in ex.text(f) and "cheaper than AEGEAN by €110." in ex.text(f)
     assert expert_facts(t, cabin="business")["skyexpress"] is None  # Sky Express sells one cabin
+
+
+def history_for(today, out, back):
+    """A price history (price_insights.COLUMNS) in which the ATH→FRA fare of departure day `today + 10` was `out[i]` on fetch day
+    `today - len(out) + i` (one row per change, as the daily run writes) and the FRA→ATH fare of `today + 14` was `back` throughout."""
+    rows, n = [], len(out)
+    for i, price in enumerate(out):
+        at = datetime.combine(today - timedelta(n - i), datetime.min.time()) + timedelta(hours=6)
+        if i == 0 or price != out[i - 1]:
+            rows.append([(today + timedelta(10)).isoformat(), "ATH", "FRA", "economy", float(price), "calendar", at, "1"])
+        if i == 0:
+            rows.append([(today + timedelta(14)).isoformat(), "FRA", "ATH", "economy", float(back), "calendar", at, "1"])
+    return pd.DataFrame(rows, columns=NO_HISTORY.columns)
+
+
+def test_expert_facts_for_the_suggested_questions(tmp_path):
+    """The facts the suggested questions need: the neighbouring days, a week away, both cabins on the same dates, Sky Express on the same
+    dates and the fare's trend over the saved history; and questions() offers only the ones the facts can answer."""
+    import trip_plan as tp
+    t = seed(tmp_path / "t.db")
+    today = date.today()
+    d = lambda i: today + timedelta(i)
+    f = expert_facts(t, hotel=tp.hotels(t, "FRA")[0])
+    # a day either side of the pass, the same 4 nights: €170 + €210 and €190 + €160 (the seeded fares by day)
+    assert f["near"] == dict(earlier=dict(depart=d(9), back=d(13), nights=4, price=380.0), later=dict(depart=d(11), back=d(15), nights=4, price=350.0))
+    assert f["week"] == dict(depart=d(10), back=d(17), nights=7, price=240.0)  # €60 out, €180 back a week later
+    assert f["cabins"] == dict(economy=210.0, business=410.0)  # business is €100 more each way in the seeded database
+    assert f["trend"] is None and f["skyexpress_same"] is None and f["aegean_same"] is None and f["gq_serves"]  # no history, no Sky fares
+    assert ex.questions(f) == [ex.NEAR, ex.WEEK, ex.BUSINESS, ex.SKY, ex.BOOK]
+    text = ex.text(f)
+    assert "A day earlier: leave " in text and "4 nights, €380. A day later: leave " in text and "4 nights, €350." in text
+    assert "Cheapest 7-night trip with these filters: leave " in text and "7 nights, €240." in text
+    assert "The recommended dates in each cabin: economy €210; business €410." in text
+    assert "Sky Express flies this route too, but no Sky Express fare is saved for these days." in text
+    assert "Answers to common questions:" in text and f"- {ex.WEEK} {ex.answer(f, ex.WEEK)}" in text and f"- {ex.BOOK} " in text
+    assert "typical" not in text and "median" not in text and "snapshot" not in text and "per 1,000" not in text
+    # the last days of the fares, 2 to 3 nights: a week away would end past the saved fares, so there is no 7-night trip to offer
+    g = ex.facts(t, "ATH", "FRA", "economy", "cash", [2, 3], [], (d(28), d(30)), today, None, hist=NO_HISTORY)
+    assert g["best"]["depart"] == d(28) and g["week"] is None and ex.WEEK not in ex.questions(g)
+    # one way: no nights, no week, neighbours one way
+    o = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=NO_HISTORY, oneway=True)
+    assert o["best"]["back"] is None and o["week"] is None and o["near"]["earlier"] == dict(depart=d(9), back=None, nights=None, price=170.0)
+    assert o["cabins"] == dict(economy=60.0, business=160.0) and ex.questions(o) == [ex.NEAR, ex.BUSINESS, ex.SKY, ex.BOOK]
+    # the trend of the recommended dates: the out fare fell from €100 to €60 over nine fetch days, the back fare stayed €150
+    f = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [100, 95, 90, 85, 80, 75, 70, 65, 60], 150))
+    assert f["trend"] == dict(days=9, first=250.0, last=210.0, low=210.0, high=250.0, since=d(-9), week_ago=245.0)  # a week before the newest: day -8
+    assert f["insight"]["level"] == "low" and (f["insight"]["low"], f["insight"]["high"]) == (220.0, 240.0)
+    assert "The fare of the recommended dates over the saved history: first seen €250 on " in ex.text(f) and "over 9 days; a week ago €245." in ex.text(f)
+    # miles: no award seats on the neighbouring days, no business seats, no 7-night trip, Sky Express sells no miles: nothing to suggest
+    now = datetime.now().isoformat()
+    for o_, dest, i, miles in (("ATH", "FRA", 5, 9000), ("FRA", "ATH", 8, 10000)):
+        t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+                  (d(i).isoformat(), o_, dest, "economy", miles, 1, now, None))
+    t.commit()
+    m = expert_facts(t, pay="miles")
+    assert m["near"]["earlier"]["price"] is None and m["near"]["later"]["price"] is None and m["cabins"] == dict(economy=19000.0, business=None)
+    assert m["week"] is None and not m["gq_serves"] and m["trend"] is None and ex.questions(m) == []
+    assert "Answers to common questions" not in ex.text(m)
+    # Sky Express fares: its price on AEGEAN's dates and AEGEAN's on its dates
+    for i in range(1, 31):
+        for o_, dest in (("ATH", "FRA"), ("FRA", "ATH")):
+            t.execute("INSERT INTO gq_prices VALUES(?,?,?,?,?,?,?,?)", (d(i).isoformat(), o_, dest, "economy", 50.0, "calendar", now, 1))
+    t.commit()
+    f = expert_facts(t)
+    assert f["skyexpress"]["price"] == 100 and f["skyexpress_same"] == 100.0 and f["aegean_same"] == 340.0  # €160 out on day 1, €180 back on day 3
+    assert "Sky Express on the recommended dates: €100; AEGEAN on Sky Express's dates: €340." in ex.text(f)
+
+
+def test_each_suggested_question_has_a_plain_answer_from_the_facts(tmp_path):
+    import trip_plan as tp
+    t = seed(tmp_path / "t.db")
+    today = date.today()
+    d = lambda i: today + timedelta(i)
+    when = lambda x: f"{x:%A} {x.day} {x:%B}" + (f" {x.year}" if x.year != today.year else "")
+    f = expert_facts(t, hotel=tp.hotels(t, "FRA")[0])
+    # a day earlier or later: both dearer, so no
+    assert ex.answer(f, ex.NEAR) == (f"No: a day earlier ({when(d(9))}) costs €380, €170 more, and a day later ({when(d(11))}) costs €350, "
+                                     "€140 more, for the same 4 nights.")
+    # ... but when the weekday filter left the cheap day out, the neighbour is cheaper and the answer says why the pass did not take it
+    g = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [f"{d(9):%a}", f"{d(11):%a}"], (d(8), d(30)), today, None, hist=NO_HISTORY)
+    assert g["best"] == dict(depart=d(9), back=d(14), nights=5, price=320.0)  # €170 out, €150 back
+    assert ex.answer(g, ex.NEAR) == (f"Yes: leaving a day later (leave {when(d(10))}, back {when(d(15))}, 5 nights) costs €220, €100 less for the "
+                                     f"same 5 nights, but {d(10):%A} is not among the days you can leave. The other way, a day earlier "
+                                     f"({when(d(8))}) costs €370, €50 more.")
+    # a week away
+    assert ex.answer(f, ex.WEEK) == (f"A week away costs €240: leave {when(d(10))}, back {when(d(17))}, 7 nights. That is €30 more than the "
+                                     "4-night trip, and the hotel would add 3 more nights.")
+    w = expert_facts(t, nights=[7])
+    assert w["best"]["nights"] == 7 and ex.answer(w, ex.WEEK) == f"The recommended trip is already a week: leave {when(d(10))}, back {when(d(17))}, 7 nights, €240."
+    n = dict(f, week=None)
+    assert ex.answer(n, ex.WEEK) == "No 7-night trip is saved for these days: the way back would fall after the last day with fares."
+    # business: the same dates in the other cabin, and what the gap means
+    assert ex.answer(f, ex.BUSINESS) == ("Business on the same dates costs €410, €200 more than the €210 economy fare: about double economy, "
+                                         "worth it only if the comfort matters more to you than the money.")
+    b = expert_facts(t, cabin="business")
+    assert b["best"]["price"] == 410 and ex.answer(b, ex.BUSINESS) == ("Economy on the same dates costs €210, €200 less than the €410 business fare: "
+                                                                        "about double economy, worth it only if the comfort matters more to you than the money.")
+    assert ex.answer(dict(f, cabins=dict(economy=210.0, business=300.0)), ex.BUSINESS).endswith("a small gap, so business is worth it if you value the wider seat and the lounge.")
+    assert ex.answer(dict(f, cabins=dict(economy=210.0, business=700.0)), ex.BUSINESS).endswith("3.3 times the economy fare, a steep premium that is rarely worth it.")
+    assert ex.answer(dict(f, cabins=dict(economy=210.0, business=210.0)), ex.BUSINESS) == ("Business on the same dates costs €210, the same price as the €210 "
+                                                                                          "economy fare: business costs no more here, so take it.")
+    assert ex.answer(dict(f, cabins=dict(economy=210.0, business=None)), ex.BUSINESS) == "No business fare is saved for these dates to compare with."
+    # Sky Express: none saved, cheaper, dearer, the same
+    assert ex.answer(f, ex.SKY) == "No Sky Express fare is saved for these days yet. Search the route on the Flights page and the two airlines appear side by side."
+    gq = dict(depart=d(1), back=d(3), nights=2, price=100.0)
+    assert ex.answer(dict(f, skyexpress=gq, skyexpress_same=100.0, aegean_same=340.0), ex.SKY) == (
+        f"Sky Express is cheaper: €100 (leave {when(d(1))}, back {when(d(3))}, 2 nights, economy) against AEGEAN's €210, €110 less. "
+        "On AEGEAN's dates Sky Express costs €100; on Sky Express's dates AEGEAN costs €340.")
+    assert ex.answer(dict(f, skyexpress=dict(gq, price=300.0), skyexpress_same=None, aegean_same=None), ex.SKY) == (
+        f"AEGEAN is cheaper: €210 against Sky Express's cheapest €300 (leave {when(d(1))}, back {when(d(3))}, 2 nights, economy), €90 less. "
+        "Sky Express has no flight on AEGEAN's dates; AEGEAN has no flight on Sky Express's dates.")
+    assert ex.answer(dict(f, skyexpress=dict(gq, price=210.0), skyexpress_same=250.0, aegean_same=None), ex.SKY).startswith("The same: Sky Express's cheapest trip is also €210 (")
+    # book now or wait: from the usual range and the trend of these dates' fare
+    assert ex.answer(f, ex.BOOK) == ("Hard to say yet: no price history is saved for this route yet, too few to call €210 low or high. Book when the dates "
+                                     "suit you, and set an alert on the Alerts page in case it drops.")
+    fell = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [100, 95, 90, 85, 80, 75, 70, 65, 60], 150))
+    assert ex.answer(fell, ex.BOOK) == (f"Book now: €210 is a low fare for this route, which usually costs €220–€240 return. The fare for these dates "
+                                        f"has fallen from €250 to €210 since {when(d(-9))} (9 days of prices), and lately it is falling; it is at its lowest so far.")
+    rose = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [20, 25, 30, 35, 40, 45, 50, 55, 60], 150))
+    assert ex.answer(rose, ex.BOOK) == (f"Wait if you can: €210 is high for this route, which usually costs €180–€200 return. Set an alert on the Alerts "
+                                        f"page and it tells you when it drops. The fare for these dates has risen from €170 to €210 since {when(d(-9))} "
+                                        "(9 days of prices), and lately it is rising.")
+    flat = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [50, 55, 60, 62, 65, 70, 62, 65, 62, 60], 150))
+    assert ex.answer(flat, ex.BOOK) == (f"No rush, but no reason to wait either: €210 is about what this route usually costs (€210–€214 return). The fare for "
+                                        f"these dates has risen from €200 to €210 since {when(d(-10))} (10 days of prices), and lately it has been steady.")
+    few = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [60, 65, 60], 150))
+    assert ex.answer(few, ex.BOOK) == (f"Hard to say yet: the route has only 3 days of prices saved since {when(d(-3))}, too few to call €210 low or high. "
+                                       f"Book when the dates suit you, and set an alert on the Alerts page in case it drops. The fare for these dates is back "
+                                       f"at €210 after moving between €210 and €215 since {when(d(-3))} (3 days of prices).")
+    still = dict(few, trend=dict(days=5, first=210.0, last=210.0, low=210.0, high=210.0, since=d(-5), week_ago=None))
+    assert ex.answer(still, ex.BOOK).endswith(f"The fare for these dates has not moved since {when(d(-5))} (5 days of prices).")
+    for q in ex.questions(f):  # every answer is plain: no banned words, no number the model could not have
+        a = ex.answer(f, q)
+        assert "typical" not in a and "median" not in a and "snapshot" not in a and "per 1,000" not in a
+    with pytest.raises(KeyError):
+        ex.answer(f, "What about hotels?")  # a typed question is the model's
 
 
 def test_briefing_is_asked_once_per_search_and_day_and_falls_back_to_the_plain_sentences(tmp_path, monkeypatch):
@@ -276,6 +412,34 @@ def pages(tmp_path, monkeypatch, key):
     return lambda name: AppTest.from_file(os.path.join(HERE, "views", name), default_timeout=60)
 
 
+def grid(at):
+    """The date grid (or the one-way day list) the Overview draws: deals.grid_html in its own frame (ui.grid_frame), read back from the
+    frame's HTML as a DataFrame of cell texts, the days as index. Empty when the page drew none."""
+    import re
+    frames = [f.proto.srcdoc for f in at.get("iframe") if 'class="grid"' in f.proto.srcdoc]
+    if not frames:
+        return pd.DataFrame()
+    cell = lambda row: [re.sub(r"<[^>]+>", "", c) for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row)]
+    rows = [cell(r) for r in re.findall(r"<tr>(.*?)</tr>", frames[0])]
+    return pd.DataFrame([r[1:] for r in rows[1:]], index=[r[0] for r in rows[1:]], columns=rows[0][1:])
+
+
+def routes(at):
+    """The route table that closes the Overview (ui.html_table): [(route, economy, business)]."""
+    import re
+    t = next(m.value for m in at.markdown if 'class="h2h' in m.value and "<th>Route</th>" in m.value)
+    return [tuple(re.sub(r"<[^>]+>", "", c) for c in re.findall(r"<t[hd]>(.*?)</t[hd]>", r)) for r in re.findall(r"<tr>(.*?)</tr>", t)[1:]]
+
+
+def page_links(monkeypatch):
+    """Record every page_link the page draws: [(page, label, query_params)]. The links to the app's other pages cannot render outside its
+    navigation (the page swallows that error), so the test reads what the page asked for."""
+    from streamlit.delta_generator import DeltaGenerator
+    seen = []
+    monkeypatch.setattr(DeltaGenerator, "page_link", lambda self, page, label=None, query_params=None, **kw: seen.append((page, label, query_params)))
+    return seen
+
+
 def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, monkeypatch):
     open_page = pages(tmp_path, monkeypatch, None)
     at = open_page("overview.py").run()
@@ -289,9 +453,10 @@ def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, mon
     # the boarding pass: ATH -> FRA economy, €60 out on day 10, back on the cheapest FRA -> ATH day 2 to 7 nights later (€150, day 14)
     assert "Cheapest return" in text and "€210" in text and "4 nights" in text
     assert "Steigenberger" in text  # the hotel searched in Frankfurt, for the pass's nights
-    grid, routes = at.dataframe[0].value, at.dataframe[1].value
-    assert "4 nights" in grid.columns and list(routes.Route) == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
-    assert routes.Economy[0].startswith("€60 · ")
+    g, table = grid(at), routes(at)
+    assert "4 nights" in g.columns and [r[0] for r in table] == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
+    assert table[0][1].startswith("€60 on ") and g.loc[f"{date.today() + timedelta(10):%a %d %b}", "4 nights"] == "€210"
+    assert 'id="low">€210' in at.get("iframe")[0].proto.srcdoc  # the cheapest cell is marked, so the frame scrolls it into view
 
 
 def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monkeypatch):
@@ -302,6 +467,27 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     text = " ".join(m.value for m in at.markdown)  # no key: the briefing is still there, built in Python from the Overview's numbers
     assert "The cheapest economy return from Athens to Frankfurt with these filters is €210: leave " in text and "4 nights" in text
     assert "Written from the saved fares. With an AI key" in at.caption[0].value
+    # the suggested questions are there without a key, answered from the facts the moment one is clicked, and the pill clears again
+    today = date.today()
+    pills = at.button_group(key="expert-ask")
+    assert pills.options == [ex.NEAR, ex.WEEK, ex.BUSINESS, ex.SKY, ex.BOOK] and pills.value is None
+    pills.set_value(ex.WEEK).run()
+    assert not at.exception and at.button_group(key="expert-ask").value is None
+    assert [m.markdown[0].value for m in at.chat_message] == [ex.WEEK, f"A week away costs €240: leave {today + timedelta(10):%A} "
+                                                              f"{(today + timedelta(10)).day} {today + timedelta(10):%B}, back {today + timedelta(17):%A} "
+                                                              f"{(today + timedelta(17)).day} {today + timedelta(17):%B}, 7 nights. That is €30 more than the "
+                                                              "4-night trip, and the hotel would add 3 more nights."]
+    at.button_group(key="expert-ask").set_value(ex.BUSINESS).run()
+    assert [m.markdown[0].value for m in at.chat_message][2:] == [ex.BUSINESS, "Business on the same dates costs €410, €200 more than the €210 economy "
+                                                                  "fare: about double economy, worth it only if the comfort matters more to you than the money."]
+    assert len(at.session_state["expert-chat"]) == 4 and "answered from the prices saved by the daily run" in at.caption[-1].value
+    # book it from here: the Overview's two links, for the pass's dates
+    links = [b for b in at.get("link_button")]
+    assert [b.label for b in links] == ["Book on aegeanair.com", "Check it on Google Flights"]
+    assert f"DateDeparture={today + timedelta(10):%d/%m/%Y}" in links[0].url and f"DateReturn={today + timedelta(14):%d/%m/%Y}" in links[0].url
+    assert f"{today + timedelta(10):%Y-%m-%d}" in links[1].url and "Aegean" in links[1].url
+    at.button[0].click().run()  # "New conversation" clears the answered pills too
+    assert not at.chat_message and not at.session_state["expert-chat"]
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- **Book now:** €60", None))
     seen = []
@@ -313,13 +499,17 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     assert not at.exception and seen[-1] == ["When is it cheapest?", "Answer 1", "And for 4 nights?"]  # the follow-up carries the conversation
     assert [m.markdown[0].value for m in at.chat_message] == ["When is it cheapest?", "Answer 1", "And for 4 nights?", "Answer 2"]
     assert "Google Gemini (free tier)" in at.caption[-1].value
+    at.button_group(key="expert-ask").set_value(ex.NEAR).run()  # a pill with a key: still answered in Python, and the model sees it next
+    assert len(seen) == 2 and [m.markdown[0].value for m in at.chat_message][4] == ex.NEAR and at.chat_message[5].markdown[0].value.startswith("No: a day earlier (")
+    at.chat_input[0].set_value("Why?").run()
+    assert seen[-1] == ["When is it cheapest?", "Answer 1", "And for 4 nights?", "Answer 2", ex.NEAR, at.chat_message[5].markdown[0].value, "Why?"]
 
     def busy(history, facts, cfg):
         raise RuntimeError("Gemini did not answer in time. Try again in a minute.")
     monkeypatch.setattr(ex, "chat", busy)
     at.chat_input[0].set_value("And for 7 nights?").run()
     assert "did not answer in time" in at.error[0].value
-    assert len(at.session_state["expert-chat"]) == 4  # the unanswered question is not kept, so it does not confuse the next answer
+    assert len(at.session_state["expert-chat"]) == 8  # the unanswered question is not kept, so it does not confuse the next answer
 
 
 def test_trip_planner_months_hotels_candidates_and_question(tmp_path):
@@ -384,6 +574,7 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     at.chat_input[0].set_value("Why those dates?").run()
     history, facts = seen[-1]
     assert history[-1]["content"] == "Why those dates?" and facts.startswith(ex.text(f)) and "All tracked routes" in facts
+    assert f"- {ex.BOOK} Hard to say yet:" in facts and "never\n  write a number" in ex.SYSTEM  # the ready answers, and no number outside them
     assert "Best ATH-FRA-ATH economy trip" not in facts  # the Overview module's Frankfurt totals (with a hotel) would contradict the pass
     at.slider(key="plan-nights").set_value((2, 3)).run()  # a new search: new facts, and the old answers go
     assert not at.exception and briefed[-1]["nights"] == [2, 3] and briefed[-1]["best"]["price"] > 210 and not at.chat_message
@@ -445,6 +636,52 @@ def test_trip_grid_adds_both_ways_and_marks_the_cheapest():
     assert deals.grid_colours(flat).loc["Mon 02 Nov", "3 nights"] == "background-color:#E3F4EA;color:#0E7A53"  # possible, not "cheapest"
 
 
+def test_grid_html_marks_the_cheapest_and_keeps_the_days_as_row_headers():
+    import deals
+    out = pd.Series({(date(2027, 3, 1) + timedelta(i)).isoformat(): 100.0 + i for i in range(3)})
+    back = pd.Series({(date(2027, 3, 2) + timedelta(i)).isoformat(): 50.0 for i in range(4)})
+    g = deals.trip_grid(out, back, date(2027, 3, 1), date(2027, 3, 3), [1, 2])
+    h = deals.grid_html(g, "€{:,.0f}".format)
+    assert list(g.columns) == ["1 night", "2 nights"] and h.startswith('<table class="grid"><thead><tr><th></th><th>1 night</th><th>2 nights</th></tr>')
+    assert h.count('id="low"') == 1 and 'id="low">€150</td>' in h and "<tr><th>Mon 01 Mar</th>" in h  # the first cheapest cell, once
+    assert 'background-color:#0E7A53;color:#fff;font-weight:650" id="low"' in h and "<td>—</td>" not in h.split("<tr><th>Mon 01 Mar")[1].split("</tr>")[0]
+    one = pd.DataFrame({"One way": [None, 80.0]}, index=["Mon 01 Mar", "Tue 02 Mar"])
+    assert "<td>—</td>" in deals.grid_html(one, "€{:,.0f}".format) and 'id="low">€80' in deals.grid_html(one, "€{:,.0f}".format)
+    assert "&lt;" in deals.grid_html(pd.DataFrame({"<b>": [1.0]}, index=["<i>"]), str)  # every text escaped
+
+
+def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
+    """Alert me if it gets cheaper opens the Alerts page on exactly the trip shown: route, cabin, unit, price, dates, nights and trip."""
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")
+    seen = page_links(monkeypatch)
+    at = open_page("overview.py").run()
+    assert not at.exception
+    d10, d14 = date.today() + timedelta(10), date.today() + timedelta(14)
+    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Alert me if it gets cheaper")
+    when = f"{date.today() + timedelta(1)},{date.today() + timedelta(30)}"
+    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "210", "depart": d10.isoformat(), "back": d14.isoformat(),
+                     "nights": "2-7", "trip": "return", "when": when}  # €60 out on day 10, €150 back 4 nights later, per adult; the bar's nights
+    expert = next(q for page, label, q in seen if page == "views/expert.py")
+    assert expert["from"] == "ATH" and expert["to"] == "FRA" and expert["nights"] == "2-7"
+    at.number_input(key="ov-pax").set_value(2).run()  # the alert is on the fare, which is collected for one adult
+    assert not at.exception and seen[-2][2]["price"] == "210"
+    at.button_group(key="ov-trip").set_value("oneway").run()
+    assert not at.exception
+    alert = next(q for page, label, q in seen[-2:] if page == "views/alerts.py")
+    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "60", "depart": d10.isoformat(), "trip": "oneway",
+                     "nights": "2-7", "when": when}  # no way back, so no back
+    t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+              (d10.isoformat(), "ATH", "FRA", "business", 25000, 1, datetime.now().isoformat(), None))
+    t.commit()
+    at = open_page("overview.py").run()
+    at.button_group(key="ov-grid-pay").set_value("miles").run()
+    at.button_group(key="ov-grid-cabin").set_value("business").run()
+    assert not at.exception
+    alert = next(q for page, label, q in seen[-2:] if page == "views/alerts.py")
+    assert alert["unit"] == "miles" and alert["price"] == "25000" and alert["cabin"] == "business" and alert["trip"] == "oneway"
+
+
 def test_trip_context_and_filters_on_best_trip_and_grid():
     import deals
     out = pd.Series({"2026-11-02": 100.0, "2026-11-03": 80.0, "2026-11-04": 90.0})  # Mon, Tue, Wed
@@ -486,20 +723,20 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     text = " ".join(m.value for m in at.markdown)
     leave = re.search(r"<dt>Leave</dt><dd>(\w{3})", text).group(1)
     assert leave in other and "Good price" not in text  # the pass fits the days asked for; without the €60 day it is no bargain
-    assert all(i[:3] in other for i in at.dataframe[0].value.index)
+    assert all(i[:3] in other for i in grid(at).index)
     at.slider(key="ov-nights").set_value((2, 3)).run()
-    assert not at.exception and list(at.dataframe[0].value.columns) == ["2 nights", "3 nights"]
+    assert not at.exception and list(grid(at).columns) == ["2 nights", "3 nights"]
     assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
     assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # something was picked
     at.slider(key="ov-nights").set_value((14, 16)).run()  # a holiday, not a city break: any stay up to 60 nights
-    assert not at.exception and list(at.dataframe[0].value.columns) == ["14 nights", "15 nights", "16 nights"]
+    assert not at.exception and list(grid(at).columns) == ["14 nights", "15 nights", "16 nights"]
     assert re.search(r"<dt>Stay</dt><dd>1[456] nights", " ".join(m.value for m in at.markdown))
     at.button_group(key="ov-trip").set_value("oneway").run()  # one way: no way back priced, the dates are a list of days
     assert not at.exception and not at.slider  # the nights control goes
     text = " ".join(m.value for m in at.markdown)
     assert "Cheapest one way · Athens → Frankfurt" in text and "<dt>Trip</dt><dd>One way</dd>" in text and "<dt>Stay</dt>" not in text
-    assert "Pick your day" in text and list(at.dataframe[0].value.columns) == ["One way"]
-    assert all(i[:3] in other for i in at.dataframe[0].value.index)  # the weekday filter still applies
+    assert "Pick your day" in text and list(grid(at).columns) == ["One way"]
+    assert all(i[:3] in other for i in grid(at).index)  # the weekday filter still applies
 
 
 def test_overview_bar_drives_the_pass_by_period_and_passengers(tmp_path, monkeypatch):
@@ -544,7 +781,7 @@ def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypa
     to.set_value("BIO").run()
     assert not at.exception and "No economy fares saved from Athens to Bilbao for the next 30 days yet" in at.info[0].value
     key = f"fetch-ahead|ATH|BIO|{today + timedelta(1)}"
-    assert at.button(key=key).label == "Search this route on GitHub" and not at.dataframe[:-1]  # no pass, no grid; the route table stays
+    assert at.button(key=key).label == "Search this route on GitHub" and grid(at).empty and routes(at)  # no pass, no grid; the route table stays
     at.button(key=key).click().run()
     assert not at.exception and started == [([("ATH", "BIO", today + timedelta(1), today + timedelta(30)),
                                               ("BIO", "ATH", today + timedelta(3), today + timedelta(37))], True, "A3")]
@@ -578,9 +815,9 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
     captions = " ".join(c.value for c in at.caption)
-    assert "Average economy fare by the weekday you leave, over the 30 days" in captions
+    assert "The average economy fare by the weekday you leave, over the 30 days" in captions
     at.button_group(key="ov-grid-cabin").set_value("business").run()
-    assert not at.exception and "Average business fare by the weekday" in " ".join(c.value for c in at.caption)
+    assert not at.exception and "The average business fare by the weekday" in " ".join(c.value for c in at.caption)
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception and not [x for x in at.expander if x.label == "Best weekday to fly"]  # miles have no such pattern to show
 
@@ -596,8 +833,7 @@ def test_overview_grid_in_miles(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception
-    grid = at.dataframe[0].value
-    assert grid.loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
+    assert grid(at).loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
     text = " ".join(m.value for m in at.markdown)
     assert "19,000<small> miles</small>" in text and "plus taxes and fees" in text and "3 nights" in text
 
@@ -633,7 +869,7 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     assert "from Bilbao (BIO) to Athens (ATH)" in tp.question("ATH", "Next 30 days", "economy", "cash", 3, None, None, "BIO")
 
     at = open_page("overview.py").run()
-    assert not at.exception and "BIO → ATH" in list(at.dataframe[-1].value.Route)
+    assert not at.exception and "BIO → ATH" in [r[0] for r in routes(at)]
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
     assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
     assert at.selectbox(key="ov-grid-dest-BIO").value == "ATH"  # the first saved destination from there, not Anywhere

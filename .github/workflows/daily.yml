@@ -8,9 +8,12 @@ permissions:
   issues: write  # the digest of changes is posted as an issue, so GitHub's own notifications can carry it
 concurrency: daily
 jobs:
-  collect:
+  collect:  # the daily legs, the hotel and Sky Express on the daily legs, committed first; then the refresh of the tracked routes is planned
     runs-on: ubuntu-latest
-    timeout-minutes: 150  # the refresh of up to 40 tracked routes follows the daily legs
+    timeout-minutes: 45  # measured: the four legs take seconds (Google's calendar answers a month at once), the hotel about 3 minutes
+    outputs:
+      refresh: ${{ steps.plan.outputs.jobs }}
+      missing: ${{ steps.run.outcome }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,20 +23,95 @@ jobs:
       - id: run
         run: python collect_daily.py
         continue-on-error: true  # save what was collected even if some days are still missing
-      - run: python fetch_route.py --refresh  # the routes searched from the app in the last 60 days, so they build a price history
-        continue-on-error: true  # a bonus: it must never stop the daily commit below
-      - run: AIRLINE=GQ python fetch_route.py --daily  # Sky Express economy on the daily legs it serves, for the comparison
-        continue-on-error: true  # a bonus: it must never stop the daily commit below
-      - id: digest
-        run: python digest.py
+        env:
+          DAILY_NEW_ROWS: ${{ runner.temp }}/daily_rows.csv  # today's rows on their own, for the save loop below
+      - run: AIRLINE=GQ python fetch_route.py --daily "$RUNNER_TEMP/gq_rows.csv"  # Sky Express economy on the daily legs it serves
         continue-on-error: true  # a bonus: it must never stop the daily commit below
       - name: Commit results
         run: |
           git config user.name "daily-fares"
           git config user.email "actions@users.noreply.github.com"
-          git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/routes.csv data/tracked_routes.csv data/skyexpress.csv data/history_skyexpress.csv
-          [ ! -f data/latest_changes.md ] || git add data/latest_changes.md  # only when the digest step wrote it: it must never block the data
-          git diff --cached --quiet || git commit -m "Daily fares $(date -u +%F)"
+          # Fetches from the app and other runs save to main while this job runs: take the newest main every time and re-apply today's
+          # results to it (the daily files are this job's alone and are copied over; the shared histories and the Sky Express file get
+          # today's rows merged in); never rebase a whole rewritten file (that conflicted and lost a run on 31 Oct).
+          mkdir -p "$RUNNER_TEMP/keep" && cp data/daily.csv data/daily_hotel.csv data/history_hotel.csv "$RUNNER_TEMP/keep/" 2>/dev/null || true
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            cp "$RUNNER_TEMP"/keep/* data/ 2>/dev/null || true
+            [ ! -f "$RUNNER_TEMP/daily_rows.csv" ] || python fetch_route.py --merge-history "$RUNNER_TEMP/daily_rows.csv"
+            [ ! -f "$RUNNER_TEMP/gq_rows.csv" ] || AIRLINE=GQ python fetch_route.py --merge-refresh "$RUNNER_TEMP/gq_rows.csv"
+            git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/skyexpress.csv data/history_skyexpress.csv
+            git diff --cached --quiet && break
+            git commit -q -m "Daily fares $(date -u +%F)"
+            git push -q origin HEAD:main && break
+            [ "$i" = 6 ] && exit 1
+            sleep $((i * 4))
+          done
+      - id: plan  # the routes searched from the app in the last 60 days, a few per job below (fetch_route.PER_JOB), as JSON for the matrix
+        run: echo "jobs=$(python fetch_route.py --plan)" >> "$GITHUB_OUTPUT"
+  refresh:  # one job per few tracked routes: each on its own GitHub server (its own share of Google's rate limit and its own timeout),
+    # merging its rows into whatever main is newest when it saves, like a fetch from the app, so the routes build a price history
+    needs: collect
+    if: ${{ !cancelled() && needs.collect.outputs.refresh != '' && needs.collect.outputs.refresh != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: refresh ${{ matrix.airline }} ${{ strategy.job-index }}
+    strategy:
+      fail-fast: false
+      max-parallel: 5  # fewer saves racing for main at once
+      matrix:
+        include: ${{ fromJSON(needs.collect.outputs.refresh) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flights==0.9.0
+      - run: python fetch_route.py --refresh "$LEGS" "$NONSTOP" "$RUNNER_TEMP/new_rows.csv"
+        env:  # passed as variables, never pasted into the script
+          LEGS: ${{ matrix.legs }}
+          NONSTOP: ${{ matrix.nonstop }}
+          AIRLINE: ${{ matrix.airline }}
+      - name: Commit results
+        env:
+          AIRLINE: ${{ matrix.airline }}
+        run: |
+          git config user.name "daily-fares"
+          git config user.email "actions@users.noreply.github.com"
+          # The other refresh jobs and fetches from the app save too: take the newest main every time, merge this job's rows into it and
+          # push; never rebase a whole rewritten file (that conflicted and lost a fetch on 31 Oct). --merge-refresh: not a new request.
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python fetch_route.py --merge-refresh "$RUNNER_TEMP/new_rows.csv"
+            git add data/routes.csv data/tracked_routes.csv data/history_prices.csv data/skyexpress.csv data/history_skyexpress.csv
+            git diff --cached --quiet && exit 0
+            git commit -q -m "Daily refresh $(date -u +%F)"
+            git push -q origin HEAD:main && exit 0
+            sleep $((i * 4))
+          done
+          exit 1
+  finish:  # on the newest main, with every job's fares in: the digest of what changed, the price alerts, the issue
+    needs: [collect, refresh]
+    if: ${{ !cancelled() }}  # also when there was nothing to refresh, or a refresh job failed
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}  # the branch's newest commit, not the one this run started from
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: digest
+        run: python digest.py  # standard library only: no packages to install
+        continue-on-error: true  # a bonus: it must never stop the alerts below
+      - name: Commit the digest
+        continue-on-error: true
+        run: |
+          git config user.name "daily-fares"
+          git config user.email "actions@users.noreply.github.com"
+          [ ! -f data/latest_changes.md ] || git add data/latest_changes.md  # only when the digest step wrote it
+          git diff --cached --quiet || git commit -m "Fare changes $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} && git push
       - name: Price alerts
         continue-on-error: true  # emails / phone notifications / comments for the alerts today's fares meet; never blocks the run
@@ -48,5 +126,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh issue create --title "Fare changes $(date -u +%F)" --body-file data/latest_changes.md
-      - if: steps.run.outcome == 'failure'
-        run: echo "Some days are still missing, see the collect step" && exit 1
+      - if: needs.collect.outputs.missing == 'failure'
+        run: echo "Some days are still missing, see the collect job" && exit 1

@@ -13,16 +13,21 @@ destination, and **Anywhere** at the top), Leaving between (two dates: a weekend
 Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one answer:
 
 - a **route** gives a boarding pass with the cheapest trip leaving in that period and two plain sentences on what the price means
-  ("Usually €180–€240 return. €140 is cheap."), the booking links, the cheapest month, the date grid (day you leave × nights you stay, any stay from 1 to 60 nights, or a list of days for a one-way trip, with
-  **Leave on** weekday pills), **How this fare moved**, and two expanders, **Best weekday to fly** and **How far ahead to book**, with the
-  chart and a one-line takeaway for that route and cabin;
+  ("Usually €180–€240 return. €140 is cheap."), **Book on aegeanair.com** (on a phone it stays at the bottom of the screen while the pass is
+  on it), the Google Flights link, **Alert me if it gets cheaper** (opens Alerts on exactly that trip: `route`, `cabin`, `unit`, `price`,
+  `depart`, `back`, `nights`, `trip`) and **Ask the expert about it**, the cheapest month, the date grid (day you leave × nights you stay,
+  any stay from 1 to 60 nights, or a list of days for a one-way trip, with **Leave on** weekday pills; the day column and the header stay
+  put while it scrolls, and the cheapest cell is scrolled into view), **How this fare moved**, and two expanders, **Best weekday to fly**
+  and **How far ahead to book**, with the chart and a one-line takeaway for that route and cabin;
 - **Anywhere** lists every destination with fares saved from there, cheapest first, as cards (the dates of the trip, how many days have a
   flight, what it usually costs; a route saved one way only shows its one-way); **See dates** puts that destination in To;
 - a route or month with **nothing saved** gets one button, **Search this route on GitHub** (or **Search May 2027 on GitHub**), which fetches
   both directions on GitHub's servers and shows the answer when it lands, usually in 1–3 minutes; a route AEGEAN does not fly says so and
   names the airports it does fly in that city. Without the GitHub token, a line points to the Flights page instead.
 
-On first load the page shows the first saved route (Athens → Frankfurt) and says so until you pick something. **Expert** is the other
+On first load the page shows the first saved route (Athens → Frankfurt) and says so until you pick something. On a phone the bar keeps
+From, To and Leaving between on lines of their own and puts Trip, Cabin, Pay with, Passengers and Nights on shared lines (`ui.CSS`, keyed
+containers `ov-bar-route`, `ov-bar-trip` and `ov-answer`), so the pass is one screen down. **Expert** is the other
 top-level page; Flights (search any dates by hand), Hotels, Alerts, Database, Statistics and Health are under **More**.
 
 Self-check: `python collector.py`. Scraping may break whenever Google changes its page.
@@ -67,7 +72,35 @@ Xotelo) one real question and shows which failed and why. Every update also ends
 (priced / no flight / failed) and the Flights page's **Day by day** tab shows, per day, whether a price is missing because there is no
 flight or because it was never checked.
 
-Offline tests: `pytest` (`test_core.py`). Each module also has `python <module>.py` self-checks.
+Offline tests: `pytest` (see **Checks** below). Each module also has `python <module>.py` self-checks.
+
+## Checks
+
+Nothing broken should reach main, or Streamlit Cloud: three layers of checks, all free.
+
+**Unit tests**, `python -m pytest -q` (needs `pip install -r requirements.txt pytest`). About a minute, no network, no browser: every
+module's logic, each page run with Streamlit's `AppTest` on small data of its own (`conftest.py` keeps the committed `data/*.csv` and
+GitHub out of them), the guard that each page's `importlib.reload` check matches its module's `VERSION` (Streamlit Cloud keeps old modules
+across redeploys), and `test_pages.py`, which runs every page under `views/` against the committed data in `data/`, so a page that only
+breaks on the real files is caught too. `test_award_collector.py` and the smoke test skip themselves when Playwright is not installed.
+
+**Browser smoke test**, `smoke_test.py` (marked `smoke`): the app as a visitor sees it. It starts `streamlit run app.py` on a free port with
+the committed data, opens Overview, Expert, Flights, Hotels, Alerts and Database in Chromium at 1366×900 and 390×844 and fails on a
+Streamlit exception on the page, anything wider than the screen, text under 12px, an uppercase letter-spaced label or an error in the
+browser console; on the Overview it also toggles One way, asks for a month nobody has fetched (the **Search … on GitHub** button must
+offer it) and opens Anywhere (a list of destinations). To run it:
+
+    pip install -r requirements.txt pytest playwright
+    playwright install --with-deps chromium      # once; or point PLAYWRIGHT_CHROMIUM_EXECUTABLE at a Chromium you have
+    python -m pytest -q -m smoke smoke_test.py   # about a minute
+
+It runs in the plain `pytest` too when Playwright and a Chromium are there, and is skipped otherwise. The app under test gets a GitHub
+token that is not one, so the pages offer the fetch buttons the deployed app has; nothing is pressed and nothing reaches GitHub.
+
+**CI**, `.github/workflows/ci.yml`, on every pull request and every push to main: two jobs on Python 3.12 with the pip cache, `test`
+(`pip install -r requirements.txt pytest`, then `python -m pytest -q`, like the deployed app: no browser) and `smoke` (adds Playwright
+and Chromium, then the smoke test), each a few minutes. A new push cancels the run of the one before. The daily, fetch and hotel
+workflows are the data runs and are not part of this.
 
 ## Run it on your own computer (recommended)
 
@@ -152,6 +185,18 @@ pressing Update prices. The same run also fetches Sky Express economy fares on t
 Compare with Sky Express toggle has something to show on the daily routes without a fetch. To run it by hand, open GitHub → Actions →
 Daily fares → Run workflow. To change the routes, edit `LEGS` in `collect_daily.py`.
 
+The run is three jobs. **collect** does the above and commits it, then plans the refresh (`python fetch_route.py --plan`): every route
+searched from the app in the last 60 days (`data/tracked_routes.csv`, AEGEAN and Sky Express alike), in groups of 8 routes of one airline.
+**refresh** is one job per group (a matrix, like the fetch-route workflow: at most 5 at a time), each on its own GitHub server with its own
+share of Google's rate limit and its own 30-minute timeout, fetching its routes (`python fetch_route.py --refresh "<legs>" 1 new_rows.csv`)
+and then merging its rows into whatever main is newest (`--merge-refresh`, the same conflict-proof loop as a fetch from the app, which does
+not count as a new search), so a route that fails or a server Google throttles costs only its own job. **finish** runs on the newest main
+once every job is in: the digest of what changed (`digest.py`, committed as `data/latest_changes.md` and posted as an issue), then the
+price alerts; it is marked red when the daily legs still have days missing. Measured on 31 Oct 2026: the four daily legs take about 2
+seconds (Google's calendar answers a month at once), the hotel about 2.5 minutes, and a 90-day route 1 to 10 seconds, so 40 routes on
+one server fitted the old 150-minute timeout only as long as Google kept answering; one bad morning would have lost the day. Up to 120
+routes are refreshed (`fetch_route.TRACK_MAX`; the oldest searches are skipped past that), about 15 jobs of a minute or two.
+
 ## Anywhere: where can I fly cheaply?
 
 **Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, Leaving between, Nights and Cabin in the bar it
@@ -175,34 +220,59 @@ trips like it usually cost among the dates saved, and **How this fare moved** un
 The Expert page reads the same answer as the Overview's boarding pass and explains it. Its controls are the Overview's (From, To, Leaving between,
 Cabin, Pay with, Nights, Days I can leave, plus a Hotel searched in that city), with the same defaults, and **Ask the expert about it** on the
 Overview opens it on exactly the pass shown (`?from=&to=&cabin=&pay=&nights=`). The numbers come from the very functions the pass uses, with the
-same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for the typical and lowest price,
-`price_insights` for the usual range, Sky Express's best trip when it has fares, the hotel for those nights), so the two pages cannot disagree.
-**Today's briefing** is three plain sentences: the recommended trip with dates, nights and price; why (the usual range or the typical price,
-the weekday, how far ahead); and the one alternative that matters (Sky Express when it is cheaper, the cheapest cash trip when paying with
-miles, otherwise the next-cheapest week). An AI model writes them in its own words, once a day per search, from those facts and nothing
-else; when it is busy, out of quota or there is no key, the page shows the same three sentences built in Python (`expert_chat.sentences`),
-so it never shows nothing. The chat under it answers follow-ups from the same facts plus every tracked route's one-way fares, and says when
-something is not in the data ("I only have fares up to 29 January; search that month on the Overview"). Add one key under
-**Settings → Secrets** of the app on Streamlit Cloud:
+same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for what most trips in the period cost and
+the lowest, `price_insights` for the usual range, Sky Express's best trip when it has fares, the hotel for those nights), so the two pages cannot
+disagree. **Today's briefing** is three plain sentences: the recommended trip with dates, nights and price; why (the usual range or what most
+trips cost, the weekday, how far ahead); and the one alternative that matters (Sky Express when it is cheaper, the cheapest cash trip when
+paying with miles, otherwise the next-cheapest week). An AI model writes them in its own words, once a day per search, from those facts and
+nothing else; when it is busy, out of quota or there is no key, the page shows the same three sentences built in Python
+(`expert_chat.sentences`), so it never shows nothing. Under the briefing are the Overview's two links for that very trip, **Book on
+aegeanair.com** and **Check it on Google Flights** (`booking.aegean_url`, `booking.google_url`).
+
+**Suggested questions** sit under the briefing as pills; clicking one asks it, and the answer comes instantly from the saved fares, in plain
+Python (`expert_chat.questions` and `expert_chat.answer`), with or without an AI key:
+
+- *Cheaper if I leave a day earlier or later?*: the same trip shifted a day either way (`facts()['near']`); when a neighbour is cheaper, why
+  the pass did not take it (a weekday you cannot leave on, or outside the days searched).
+- *What if I stay a week?*: the cheapest 7-night trip with the same filters (`week`), and the gap to the recommended stay.
+- *Is business worth it?*: the recommended dates in both cabins (`cabins`), and what the gap means (a small gap, about double, a steep premium).
+- *How does Sky Express compare?*, only on a route Sky Express serves: its cheapest trip, its price on AEGEAN's dates and AEGEAN's on its dates.
+- *Should I book now or wait?*, cash fares only: the fare's verdict against the route's usual range (`price_insights`), and how the fare of those
+  very dates has moved over the saved history (`trend`: first seen, now, lowest, highest, a week ago).
+
+A question is offered only when the facts can answer it. The same answers go into the model's data, and its rules forbid any number that is
+not there, so a typed question gets the same numbers in other words. The chat answers typed follow-ups from the same facts plus every tracked
+route's one-way fares, and says when something is not in the data ("I only have fares up to 29 January; search that month on the Overview").
+Add one key under **Settings → Secrets** of the app on Streamlit Cloud:
 
 - `GEMINI_API_KEY = "..."`: free. Create it at aistudio.google.com; no card needed. Uses `gemini-3.8-flash`, falling back to
   `gemini-3.5-flash-lite` when the first is busy or out of free quota.
 - `ANTHROPIC_API_KEY = "..."`: Claude Haiku 5.5, about €0.001 a question. Used only when no Gemini key is set.
 
-Without either key, the page still shows the plain briefing, and the chat is hidden. Either way the app answers at most 60 questions a day
-(`MAX_PER_DAY` in `expert_chat.py`).
+Without either key, the page still shows the plain briefing, the booking links and the suggested questions; only typed questions need a key.
+Either way the model answers at most 60 typed questions a day (`MAX_PER_DAY` in `expert_chat.py`); the suggested ones cost nothing.
 
 ## Price alerts (free, by email or phone)
 
-Anyone using the app can open **Alerts**, choose a route, cabin, cash or miles, a limit and optionally a month, and get:
-- **a phone notification** through the free ntfy app (iPhone/Android, no account): the page shows a private topic to subscribe to and
-  sends a first notification at once, so the visitor sees it works;
-- **an email**: the first email asks to confirm the address (so nobody can sign a stranger up); nothing else is sent until its link is
-  opened. Every email and notification has a link that stops the alert.
+Anyone using the app can open **Alerts**, or press **Alert me if it gets cheaper** under the Overview's boarding pass, and say in one
+form what to watch: "Tell me when Athens → Frankfurt economy drops below €150 return (2–7 nights), leaving in December 2026". From the
+pass the form is already filled in (route, cabin, cash or miles, return or one way, nights, month, and the pass's price as the limit),
+so an alert is two clicks. The link carries query params `route=ATH-FRA`, `cabin`, `unit` (`eur` or `miles`), `trip` (`return` or
+`oneway`), `nights=2-7`, `depart` and `back` (iso dates), `when=2026-12-01,2026-12-31` (the days to leave on) and `price`; any of them may
+be missing and the form falls back to sensible defaults. The alert then comes:
+- **as a phone notification** through the free ntfy app (iPhone/Android, no account): the page shows a private topic to subscribe to
+  and sends a first notification at once, so the visitor sees it works;
+- **as an email**: the first email asks to confirm the address (so nobody can sign a stranger up); nothing else is sent until its link
+  is opened. Every email and notification has a link that stops the alert.
 
-Every morning, after the daily run, `alerts.py` checks each alert and tells its owner when a fare (or award) meets it: the first time,
-and again only when it gets cheaper. Alerts are stored as issues labelled `price-alert` in this private repository (visitors' email
-addresses stay private), at most 5 per address and 300 in all.
+A return alert means what the traveller asked: it watches the cheapest return trip (the two one-way fares added up, for the nights and
+the departure days chosen) exactly as the boarding pass prices one; a one-way alert watches the one-way fare. Every morning, after the
+daily run, `alerts.py` reads the same database as the app (the daily legs, every route fetched from the app, the award miles) and tells
+the owner of each alert when it is met, in one sentence with the dates and a booking link ("Athens → Frankfurt is now €139 return in
+economy, below your €150: leave Thu 19 Nov, back Sat 21 Nov (2 nights). Book: …"): the first time, and again only when it gets
+cheaper. Alerts are stored as issues labelled `price-alert` in this private repository (visitors' email addresses stay private), at
+most 5 per address and 300 in all. The page lists a visitor's own alerts, each with a Stop button, once the visitor has shown the
+address or phone is theirs: by making an alert for it in that browser, or by opening the confirm or stop link from any of its messages.
 
 **One-time setup by the owner** (free):
 1. **Saving alerts:** on GitHub, Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: only this
@@ -215,7 +285,8 @@ addresses stay private), at most 5 per address and 300 in all.
    moment an alert is created instead of the next morning. Gmail sends up to about 500 emails a day. Phone alerts need no setup.
 
 An alert can also be written by hand as an issue labelled `price-alert`: `route: ATH-ZRH`, `cabin: business`, `below: 250` (or
-`miles below: 16000`), optional `from:` and `to:` dates. Those are answered with a comment on the issue, which GitHub notifies.
+`miles below: 16000`), optional `trip: return` with `nights: 2-7`, and optional `from:` and `to:` departure dates. Those are answered
+with a comment on the issue, which GitHub notifies.
 
 
 ## Searching from the app
@@ -228,8 +299,8 @@ usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitH
 fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
 your own computer, say), the search runs in the app as before.
 
-A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
-the next 90 days in both cabins, at most 40 routes) for 60 days after it was last searched, so the fares build a history in
+A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (the refresh jobs of
+`daily.yml`, the next 90 days in both cabins, 8 routes a job, up to 120 routes) for 60 days after it was last searched, so the fares build a history in
 `data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks. The fares a search brings back go
 into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
 keeps a row when a price changes, so the refresh seeing the same fare adds nothing.

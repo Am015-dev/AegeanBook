@@ -171,6 +171,21 @@ def test_daily_fetches_sky_express_on_the_daily_legs_it_serves(tmp_path, monkeyp
     assert "AIRLINE=GQ python fetch_route.py --daily" in open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
 
 
+def test_daily_can_write_its_rows_for_the_save_loop_and_merge_history_appends(tmp_path, monkeypatch):
+    out, today = tmp_path / "routes.csv", date.today()
+    monkeypatch.setattr(fetch_route, "OUT", out)
+    (tmp_path / "skyexpress_airports.csv").write_text("iata,city,country,seasonal\nATH,Athens,Greece,0\nFRA,Frankfurt,Germany,0\n")
+    monkeypatch.setattr(fetch_route, "fetch_range", lambda a, b, o, d, skip=(), nonstop=True, **kw: iter([(a, "economy", 66.0, "calendar", "ok", None)]))
+    new = tmp_path / "gq_rows.csv"
+    assert fetch_route.daily(new=str(new)) == 0
+    assert len(fetch_route.read(new)) == 2 and not (tmp_path / "skyexpress.csv").exists()  # the rows only: the save loop merges them
+    fetch_route.log_history(fetch_route.read(new), "GQ")  # what --merge-history / --merge-refresh do on the newest main
+    assert len(fetch_route.read(tmp_path / "history_skyexpress.csv")) == 2
+    wf = open(os.path.join(HERE, ".github", "workflows", "daily.yml")).read()
+    assert "--daily \"$RUNNER_TEMP/gq_rows.csv\"" in wf and "--merge-history" in wf and "git reset -q --hard origin/main" in wf
+    assert "git pull --rebase origin ${{ github.ref_name }} && git push" not in wf.split("refresh:")[0]  # the collect job no longer rebases
+
+
 def test_github_dispatch_carries_the_airline(monkeypatch):
     sent = []
     monkeypatch.setattr(gh, "_api", lambda tok, method, path, body=None, **k: sent.append((path, body)))
