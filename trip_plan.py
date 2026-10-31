@@ -6,6 +6,7 @@ import csv
 import os
 import unicodedata
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import NamedTuple
 
 import pandas as pd
@@ -27,13 +28,27 @@ def _plain(s):
 
 # ponytail: OurAirports names the town an airport is in, which for a few big ones is a suburb nobody books by; add more here as they turn up
 CITY = {"ATH": "Athens", "MXP": "Milan", "LIN": "Milan", "BGY": "Milan", "CIA": "Rome", "BVA": "Paris", "ORY": "Paris", "EWR": "New York"}
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+
+@lru_cache(maxsize=1)
+def _cities():
+    """{IATA: city} from the airline lists (data/aegean_airports.csv, data/skyexpress_airports.csv): the city travellers book by,
+    where OurAirports has the airport's own town (Souda for Chania, Rinas for Tirana, Zaventem for Brussels)."""
+    out = {}
+    for name in ("skyexpress_airports.csv", "aegean_airports.csv"):  # AEGEAN's spelling wins where both list an airport
+        with open(os.path.join(DATA, name), encoding="utf-8") as f:
+            out.update((r["iata"], r["city"]) for r in csv.DictReader(f))
+    return out
 
 
 def city(iata):
-    """The airport's city (FRA -> Frankfurt am Main, ATH -> Athens, CDG -> Paris), or the code itself."""
+    """The airport's city (FRA -> Frankfurt, CHQ -> Chania, CDG -> Paris), or the code itself."""
     if iata in CITY:
         return CITY[iata]
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "airports.csv"), encoding="utf-8") as f:
+    if iata in _cities():
+        return _cities()[iata]
+    with open(os.path.join(DATA, "airports.csv"), encoding="utf-8") as f:
         name = next((r["city"] for r in csv.DictReader(f) if r["iata"] == iata and r["city"]), iata)
     return name.split(" (")[0].split(",")[0]  # "Paris (Roissy-en-France, Val-d'Oise)" -> Paris, "London, Essex" -> London
 

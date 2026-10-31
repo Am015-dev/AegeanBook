@@ -15,6 +15,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DROP = ("terminated", "closed")  # notes that mean AEGEAN no longer flies there; "Begins <date>" and "Focus city" stay
 FIX = {("Tirana", "Tirana International Airport Nënë Tereza"): "TIA", ("Frankfurt", "Frankfurt Airport"): "FRA",
        ("Lemnos", "Lemnos International Airport"): "LXS", ("Basel", "EuroAirport Basel Mulhouse Freiburg"): "BSL"}  # (city, airport) -> IATA where the match below fails; add after reading the output
+# the app shows the `city` column (trip_plan.city), so it must be the city travellers book by, never the airport or its town:
+# Chania, not Souda; Athens, not Eleftherios Venizelos. Words that mean a row got the airport instead (data/build_skyexpress_airports.py checks too).
+AIRPORT_WORDS = ("airport", "international", "intl", "souda", "venizelos", "macedonia", "diagoras", "kazantzakis", "kapodistrias",
+                 "ippokratis", "democritus", "schiphol", "heathrow", "gatwick", "malpensa", "fiumicino", "de gaulle", "orly", "ben gurion")
+
+
+def airport_not_city(city):
+    """True when a city cell reads like an airport name, so the printed output says which row to fix in FIX or the source."""
+    return any(w in city.lower() for w in AIRPORT_WORDS)
 
 
 def plain(s):
@@ -105,6 +114,9 @@ def main():
     print(f"{len(out)} airports ({sum(r[3] for r in out)} seasonal), {dropped} terminated or closed dropped")
     for m in missed:
         print("not matched (add to FIX):", m)
+    for r in out:
+        if airport_not_city(r[1]):
+            print("city reads like an airport (fix the source row or FIX):", r)
 
 
 if __name__ == "__main__":

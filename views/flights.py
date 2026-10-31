@@ -74,22 +74,33 @@ with st.container(border=True, key="search"):
     orig = airport_picker(c[0], "From", "ATH", "orig")
     c[1].button("", icon=":material/swap_horiz:", key="swap-airports", on_click=swap_airports, help="Swap From and To")
     dest = airport_picker(c[2], "To", "FRA", "dest")
-    c = st.columns([1, 2])
+    c = st.columns([1, 2, 1])
     trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip")
     nights = c[1].pills("Nights away", [2, 3, 4, 5, 7, 10, 14], selection_mode="multi", default=[7], key="fl-nights",
                         help="Pick one or more stay lengths; every combination is compared.") if trip == "Return" else []
+    pay = c[2].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
+                     key="fl-pay", help="Miles adds the award seats collected for this route (Miles+Bonus) beside the cash fares.")
     start, end = window_picker(st, "fl", today, HORIZON)
+    # Sky Express beside AEGEAN, economy only, where both airports are in its network (the toggle's state is kept per route): in the card
+    # once its fares are saved for the route, under Options before that
+    gq_route = sx.serves(orig, dest)
+    gq_saved = gq_route and db.execute(f"SELECT 1 FROM {sx.TABLE} WHERE orig=? AND dest=? AND price IS NOT NULL LIMIT 1", (orig, dest)).fetchone()
+    gq_help = "Sky Express's economy fares for the same days as a dashed line; Update prices fetches them too."
     c = st.columns(2)
     fetch = c[0].button("Update prices", type="primary", width="stretch")
     with c[1].popover("Options", width="stretch"):
         nonstop = st.checkbox("Nonstop flights only", value=True)
         recheck = st.checkbox("Re-check days already saved")
+        gq = False
+        if gq_route and not gq_saved:
+            gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
+        tol, weekdays = smart_filters(st, "fl")
         st.caption(f"1 passenger, AEGEAN flights only, from Google's price calendar. A return is two one-way fares. Busy routes take seconds, quiet "
                    f"routes a few minutes. Results are kept {RETENTION_DAYS} days and reused.")
-    gq = False  # Sky Express beside AEGEAN, economy only, where both airports are in its network (the toggle's state is kept per route)
-    if sx.serves(orig, dest):
-        gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}",
-                       help="Sky Express's economy fares for the same days as a dashed line; Update prices fetches them too.")
+    if gq_saved:
+        gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
+    elif gq_route:
+        st.caption("Sky Express fares can be fetched too: Options → Compare with Sky Express")
 
 if orig == dest:
     st.error("From and To are the same airport.")
@@ -196,7 +207,6 @@ if gq:
 out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
 
 
-tol, weekdays = smart_filters(st, "fl")
 view = on_weekdays(out, weekdays)  # the cards, chips and chart only look at the chosen weekdays (of departure)
 near = {c: near_cheapest(view[c], tol) for c in ("economy", "business")}
 if nights:  # the way back, and every departure + stay combination
@@ -216,7 +226,7 @@ def best(col):
     if near[col].size:
         n = len(near[col])
         return f"€{near[col].iloc[0]:.0f}", (f"{pd.Timestamp(near[col].index[0]):%a %d %b}" +
-                                             (f" · {n} days within {tol:.0%}" if tol and n > 1 else f" · {n} days at this price" if n > 1 else ""))
+                                             (f" · {n} days within {tol:.0%} of the cheapest" if tol and n > 1 else f" · {n} days at this price" if n > 1 else ""))
     return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
 
 
@@ -232,17 +242,22 @@ def best_trip(col):
 kind = "return" if nights else ""
 collected = bool(am.size)  # any award data for this route and range: no data is not the same as no seats
 (eav, eas), (bav, bas) = best_award(view.econ_miles, collected), best_award(view.biz_miles, collected)
-cash_col, award_col = st.columns(2, gap="medium")  # side by side on a desktop, stacked on a phone
+award_col = None  # the award miles only when asked for (Pay with: Miles at the top), beside the cash fares on a desktop, under them on a phone
+if pay == "miles":
+    cash_col, award_col = st.columns(2, gap="medium")
+else:
+    cash_col = st.container()
 with cash_col:
     st.markdown('<p class="group">Cash fares</p>', unsafe_allow_html=True)
     kpis([(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS)])
-with award_col:
-    st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
-    award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
-    if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
-        award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
-                           f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
-    kpis(award_rows)
+if award_col:
+    with award_col:
+        st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
+        award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
+        if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
+            award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
+                               f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
+        kpis(award_rows)
 pick = trips[trips.cabin == "economy"] if nights else near["economy"]  # the cheapest economy fare above, ready to book
 if len(pick):
     dep, ret = (date.fromisoformat(pick.iloc[0].depart), date.fromisoformat(pick.iloc[0].back)) if nights else (date.fromisoformat(pick.index[0]), None)

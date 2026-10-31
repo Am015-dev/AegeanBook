@@ -183,8 +183,7 @@ if __name__ == "__main__":
     if sys.argv[1] == "--merge":
         rows = read(sys.argv[2])
         save(rows, track=True, airline=airline)
-        if airline != "A3":  # Sky Express: every fetch goes into its permanent history at once, so no fare it collected is ever lost
-            log_history(rows, airline)
+        log_history(rows, airline)  # every fetch from the app goes into the airline's permanent history at once, so no fare is ever lost
     elif sys.argv[1] == "--refresh":
         sys.exit(refresh())
     else:

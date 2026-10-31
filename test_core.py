@@ -315,6 +315,31 @@ def test_airport_picker_offers_only_aegean_destinations():
     assert "Athens" in names["ATH"] and "Greece" in names["ATH"] and "Bilbao" in names["BIO"]
 
 
+def test_airport_lists_name_the_city_not_the_airport():
+    """Chania showed as 'Souda (CHQ)': the app must say the city travellers book by, from the airline lists' city column, never the
+    airport's own town or name (OurAirports' municipality for CHQ is Souda, for TIA Rinas, for BRU Zaventem)."""
+    import csv
+    import importlib.util
+    import os
+    import sys
+    import trip_plan as tp
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(here, "data"))
+    build = importlib.import_module("build_aegean_airports")  # stdlib only: the words a city cell must never contain
+    assert "souda" in build.AIRPORT_WORDS and build.airport_not_city("Souda") and build.airport_not_city("Athens International Airport")
+    assert not build.airport_not_city("Chania") and not build.airport_not_city("Thessaloniki")
+    assert "airport_not_city" in open(os.path.join(here, "data", "build_skyexpress_airports.py")).read()  # a rebuild of either list checks
+    for name in ("aegean_airports.csv", "skyexpress_airports.csv"):
+        with open(os.path.join(here, "data", name), encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        assert rows and all(r["city"] and not build.airport_not_city(r["city"]) for r in rows), name
+        assert all(not build.airport_not_city(tp.city(r["iata"])) for r in rows), name  # what the pages show for each airport
+    with open(os.path.join(here, "data", "aegean_airports.csv"), encoding="utf-8") as f:
+        assert all(tp.city(r["iata"]) == r["city"] or r["iata"] in tp.CITY for r in csv.DictReader(f))  # AEGEAN's spelling (Cephalonia) wins
+    assert tp.city("CHQ") == "Chania" and tp.city("TIA") == "Tirana" and tp.city("BRU") == "Brussels" and tp.city("ATH") == "Athens"
+    assert tp.city("FRA") == "Frankfurt" and tp.city("LCY") == "London" and tp.city("XXX") == "XXX"  # airports.csv, then the code itself
+
+
 
 def test_start_date_plus_window(tmp_path, monkeypatch):
     """Pick a start date (e.g. 29 Nov) and 15 days: the route header shows 29 Nov to 13 Dec."""
@@ -465,8 +490,31 @@ def test_flights_page_keeps_value_metric_typed_only():
     at = AppTest.from_file("views/flights.py", default_timeout=60).run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
+    assert "Cheapest economy" in shown and "Lowest economy award" not in shown  # Pay with: Cash € by default: cash fares only
+    at.button_group(key="fl-pay").set_value("miles").run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
     assert "Best miles value" not in shown  # collected miles carry no taxes: they must not feed the value metric (only typed ones do)
     assert "Lowest economy award" in shown and "Lowest business award" in shown  # the miles sit in the headline, not in a hidden tab
+
+
+def test_flights_page_shows_miles_only_when_asked_and_keeps_the_filters_under_options(tmp_path, monkeypatch):
+    """The award column and chips are for Miles+Bonus members: Pay with (Cash € by default, like the Overview) shows them on request. The
+    cheap-tolerance and weekday pills are under Options, 10% by default; the headline cards stay."""
+    import os
+    from streamlit.testing.v1 import AppTest
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
+    _seed_fares(tmp_path, monkeypatch)
+    at = AppTest.from_file(page, default_timeout=90).run()
+    assert not at.exception and at.button_group(key="fl-pay").value == "cash"
+    shown = " ".join(m.value for m in at.markdown)
+    assert "Cheapest economy" in shown and "Cheap economy days" in shown and "Award miles with Miles+Bonus" not in shown
+    assert at.button_group(key="fl-tol").value == 10 and len(at.button_group(key="fl-days").value) == 7  # under Options, the old defaults
+    assert "within 10% of the cheapest" in shown  # the headline card says what the tolerance means in words
+    at.button_group(key="fl-pay").set_value("miles").run()
+    assert not at.exception
+    shown = " ".join(m.value for m in at.markdown)
+    assert "Award miles with Miles+Bonus" in shown and "Not collected yet for this route" in shown and "Cheapest economy" in shown
 
 
 def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
