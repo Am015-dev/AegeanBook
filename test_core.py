@@ -843,3 +843,18 @@ def test_rate_limit_during_day_searches_stops_asking(monkeypatch):
     rows = list(collector.fetch_range(d0, d0 + timedelta(29), "ATH", "BIO", workers=1))
     assert len(rows) == 60 and all(r[4] == "error" and "429" in r[5] for r in rows)
     assert len(asked) <= 6  # stops after a few refusals instead of asking for all 60
+
+
+def test_schedule_note_names_the_weekdays_and_the_last_flight_of_a_seasonal_route():
+    import pandas as pd
+    from datetime import date, timedelta
+    from ui import schedule_note
+    def seen(flies):
+        days = [date(2026, 11, 1) + timedelta(i) for i in range(30)]
+        return pd.DataFrame([dict(day=d.isoformat(), cabin=c, price=100.0 if flies(d) else float("nan"))
+                             for d in days for c in ("economy", "business")])
+    bio = seen(lambda d: d.weekday() in (1, 4) and d <= date(2026, 11, 20))  # ATH-BIO: Tuesdays and Fridays, last flight Fri 20 Nov
+    assert schedule_note(bio, "ATH", "BIO") == ("AEGEAN flies ATH → BIO only on Tuesdays and Fridays, and not after Fri 20 Nov in the days "
+                                               "checked (search later dates to see when it flies again).")
+    assert schedule_note(seen(lambda d: True), "ATH", "FRA") is None  # every day: nothing to say
+    assert schedule_note(seen(lambda d: d.weekday() == 0), "ATH", "XXX") == "AEGEAN flies ATH → XXX only on Mondays."  # weekly, not stopped
