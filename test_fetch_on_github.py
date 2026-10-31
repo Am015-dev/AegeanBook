@@ -326,7 +326,8 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     state["run"] = dict(status="completed", conclusion="success", url="u")
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(x.value for x in at.info)
-    assert len(at.dataframe[0].value) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
+    from test_overview import grid
+    assert len(grid(at)) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     assert "€198" in " ".join(m.value for m in at.markdown if 'class="pass"' in m.value)  # and the pass answers for that month
     # without a token nothing can be fetched from here: say so, and where to search
     monkeypatch.setattr(gh, "token", lambda: None)

@@ -276,6 +276,34 @@ def pages(tmp_path, monkeypatch, key):
     return lambda name: AppTest.from_file(os.path.join(HERE, "views", name), default_timeout=60)
 
 
+def grid(at):
+    """The date grid (or the one-way day list) the Overview draws: deals.grid_html in its own frame (ui.grid_frame), read back from the
+    frame's HTML as a DataFrame of cell texts, the days as index. Empty when the page drew none."""
+    import re
+    frames = [f.proto.srcdoc for f in at.get("iframe") if 'class="grid"' in f.proto.srcdoc]
+    if not frames:
+        return pd.DataFrame()
+    cell = lambda row: [re.sub(r"<[^>]+>", "", c) for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row)]
+    rows = [cell(r) for r in re.findall(r"<tr>(.*?)</tr>", frames[0])]
+    return pd.DataFrame([r[1:] for r in rows[1:]], index=[r[0] for r in rows[1:]], columns=rows[0][1:])
+
+
+def routes(at):
+    """The route table that closes the Overview (ui.html_table): [(route, economy, business)]."""
+    import re
+    t = next(m.value for m in at.markdown if 'class="h2h' in m.value and "<th>Route</th>" in m.value)
+    return [tuple(re.sub(r"<[^>]+>", "", c) for c in re.findall(r"<t[hd]>(.*?)</t[hd]>", r)) for r in re.findall(r"<tr>(.*?)</tr>", t)[1:]]
+
+
+def page_links(monkeypatch):
+    """Record every page_link the page draws: [(page, label, query_params)]. The links to the app's other pages cannot render outside its
+    navigation (the page swallows that error), so the test reads what the page asked for."""
+    from streamlit.delta_generator import DeltaGenerator
+    seen = []
+    monkeypatch.setattr(DeltaGenerator, "page_link", lambda self, page, label=None, query_params=None, **kw: seen.append((page, label, query_params)))
+    return seen
+
+
 def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, monkeypatch):
     open_page = pages(tmp_path, monkeypatch, None)
     at = open_page("overview.py").run()
@@ -289,9 +317,10 @@ def test_overview_page_empty_and_filled_answers_from_the_data_only(tmp_path, mon
     # the boarding pass: ATH -> FRA economy, €60 out on day 10, back on the cheapest FRA -> ATH day 2 to 7 nights later (€150, day 14)
     assert "Cheapest return" in text and "€210" in text and "4 nights" in text
     assert "Steigenberger" in text  # the hotel searched in Frankfurt, for the pass's nights
-    grid, routes = at.dataframe[0].value, at.dataframe[1].value
-    assert "4 nights" in grid.columns and list(routes.Route) == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
-    assert routes.Economy[0].startswith("€60 · ")
+    g, table = grid(at), routes(at)
+    assert "4 nights" in g.columns and [r[0] for r in table] == ["ATH → FRA", "FRA → ATH", "ATH → ZRH", "ZRH → ATH"]
+    assert table[0][1].startswith("€60 on ") and g.loc[f"{date.today() + timedelta(10):%a %d %b}", "4 nights"] == "€210"
+    assert 'id="low">€210' in at.get("iframe")[0].proto.srcdoc  # the cheapest cell is marked, so the frame scrolls it into view
 
 
 def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monkeypatch):
@@ -445,6 +474,50 @@ def test_trip_grid_adds_both_ways_and_marks_the_cheapest():
     assert deals.grid_colours(flat).loc["Mon 02 Nov", "3 nights"] == "background-color:#E3F4EA;color:#0E7A53"  # possible, not "cheapest"
 
 
+def test_grid_html_marks_the_cheapest_and_keeps_the_days_as_row_headers():
+    import deals
+    out = pd.Series({(date(2027, 3, 1) + timedelta(i)).isoformat(): 100.0 + i for i in range(3)})
+    back = pd.Series({(date(2027, 3, 2) + timedelta(i)).isoformat(): 50.0 for i in range(4)})
+    g = deals.trip_grid(out, back, date(2027, 3, 1), date(2027, 3, 3), [1, 2])
+    h = deals.grid_html(g, "€{:,.0f}".format)
+    assert list(g.columns) == ["1 night", "2 nights"] and h.startswith('<table class="grid"><thead><tr><th></th><th>1 night</th><th>2 nights</th></tr>')
+    assert h.count('id="low"') == 1 and 'id="low">€150</td>' in h and "<tr><th>Mon 01 Mar</th>" in h  # the first cheapest cell, once
+    assert 'background-color:#0E7A53;color:#fff;font-weight:650" id="low"' in h and "<td>—</td>" not in h.split("<tr><th>Mon 01 Mar")[1].split("</tr>")[0]
+    one = pd.DataFrame({"One way": [None, 80.0]}, index=["Mon 01 Mar", "Tue 02 Mar"])
+    assert "<td>—</td>" in deals.grid_html(one, "€{:,.0f}".format) and 'id="low">€80' in deals.grid_html(one, "€{:,.0f}".format)
+    assert "&lt;" in deals.grid_html(pd.DataFrame({"<b>": [1.0]}, index=["<i>"]), str)  # every text escaped
+
+
+def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
+    """Alert me if it gets cheaper opens the Alerts page on exactly the trip shown: route, cabin, unit, price, dates, nights and trip."""
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")
+    seen = page_links(monkeypatch)
+    at = open_page("overview.py").run()
+    assert not at.exception
+    d10, d14 = date.today() + timedelta(10), date.today() + timedelta(14)
+    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Alert me if it gets cheaper")
+    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "210", "depart": d10.isoformat(), "back": d14.isoformat(),
+                     "nights": "4", "trip": "return"}  # €60 out on day 10, €150 back 4 nights later, per adult
+    expert = next(q for page, label, q in seen if page == "views/expert.py")
+    assert expert["from"] == "ATH" and expert["to"] == "FRA" and expert["nights"] == "2-7"
+    at.number_input(key="ov-pax").set_value(2).run()  # the alert is on the fare, which is collected for one adult
+    assert not at.exception and seen[-2][2]["price"] == "210"
+    at.button_group(key="ov-trip").set_value("oneway").run()
+    assert not at.exception
+    alert = next(q for page, label, q in seen[-2:] if page == "views/alerts.py")
+    assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "60", "depart": d10.isoformat(), "trip": "oneway"}
+    t.execute("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched, taxes) VALUES(?,?,?,?,?,?,?,?)",
+              (d10.isoformat(), "ATH", "FRA", "business", 25000, 1, datetime.now().isoformat(), None))
+    t.commit()
+    at = open_page("overview.py").run()
+    at.button_group(key="ov-grid-pay").set_value("miles").run()
+    at.button_group(key="ov-grid-cabin").set_value("business").run()
+    assert not at.exception
+    alert = next(q for page, label, q in seen[-2:] if page == "views/alerts.py")
+    assert alert["unit"] == "miles" and alert["price"] == "25000" and alert["cabin"] == "business" and alert["trip"] == "oneway"
+
+
 def test_trip_context_and_filters_on_best_trip_and_grid():
     import deals
     out = pd.Series({"2026-11-02": 100.0, "2026-11-03": 80.0, "2026-11-04": 90.0})  # Mon, Tue, Wed
@@ -486,20 +559,20 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     text = " ".join(m.value for m in at.markdown)
     leave = re.search(r"<dt>Leave</dt><dd>(\w{3})", text).group(1)
     assert leave in other and "Good price" not in text  # the pass fits the days asked for; without the €60 day it is no bargain
-    assert all(i[:3] in other for i in at.dataframe[0].value.index)
+    assert all(i[:3] in other for i in grid(at).index)
     at.slider(key="ov-nights").set_value((2, 3)).run()
-    assert not at.exception and list(at.dataframe[0].value.columns) == ["2 nights", "3 nights"]
+    assert not at.exception and list(grid(at).columns) == ["2 nights", "3 nights"]
     assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
     assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # something was picked
     at.slider(key="ov-nights").set_value((14, 16)).run()  # a holiday, not a city break: any stay up to 60 nights
-    assert not at.exception and list(at.dataframe[0].value.columns) == ["14 nights", "15 nights", "16 nights"]
+    assert not at.exception and list(grid(at).columns) == ["14 nights", "15 nights", "16 nights"]
     assert re.search(r"<dt>Stay</dt><dd>1[456] nights", " ".join(m.value for m in at.markdown))
     at.button_group(key="ov-trip").set_value("oneway").run()  # one way: no way back priced, the dates are a list of days
     assert not at.exception and not at.slider  # the nights control goes
     text = " ".join(m.value for m in at.markdown)
     assert "Cheapest one way · Athens → Frankfurt" in text and "<dt>Trip</dt><dd>One way</dd>" in text and "<dt>Stay</dt>" not in text
-    assert "Pick your day" in text and list(at.dataframe[0].value.columns) == ["One way"]
-    assert all(i[:3] in other for i in at.dataframe[0].value.index)  # the weekday filter still applies
+    assert "Pick your day" in text and list(grid(at).columns) == ["One way"]
+    assert all(i[:3] in other for i in grid(at).index)  # the weekday filter still applies
 
 
 def test_overview_bar_drives_the_pass_by_period_and_passengers(tmp_path, monkeypatch):
@@ -544,7 +617,7 @@ def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypa
     to.set_value("BIO").run()
     assert not at.exception and "No economy fares saved from Athens to Bilbao for the next 30 days yet" in at.info[0].value
     key = f"fetch-ahead|ATH|BIO|{today + timedelta(1)}"
-    assert at.button(key=key).label == "Search this route on GitHub" and not at.dataframe[:-1]  # no pass, no grid; the route table stays
+    assert at.button(key=key).label == "Search this route on GitHub" and grid(at).empty and routes(at)  # no pass, no grid; the route table stays
     at.button(key=key).click().run()
     assert not at.exception and started == [([("ATH", "BIO", today + timedelta(1), today + timedelta(30)),
                                               ("BIO", "ATH", today + timedelta(3), today + timedelta(37))], True, "A3")]
@@ -578,9 +651,9 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
     captions = " ".join(c.value for c in at.caption)
-    assert "Average economy fare by the weekday you leave, over the 30 days" in captions
+    assert "The average economy fare by the weekday you leave, over the 30 days" in captions
     at.button_group(key="ov-grid-cabin").set_value("business").run()
-    assert not at.exception and "Average business fare by the weekday" in " ".join(c.value for c in at.caption)
+    assert not at.exception and "The average business fare by the weekday" in " ".join(c.value for c in at.caption)
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception and not [x for x in at.expander if x.label == "Best weekday to fly"]  # miles have no such pattern to show
 
@@ -596,8 +669,7 @@ def test_overview_grid_in_miles(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception
-    grid = at.dataframe[0].value
-    assert grid.loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
+    assert grid(at).loc[f"{pd.Timestamp(d(5)):%a %d %b}", "3 nights"] == "19,000"  # 9,000 out + 10,000 back three nights later
     text = " ".join(m.value for m in at.markdown)
     assert "19,000<small> miles</small>" in text and "plus taxes and fees" in text and "3 nights" in text
 
@@ -633,7 +705,7 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     assert "from Bilbao (BIO) to Athens (ATH)" in tp.question("ATH", "Next 30 days", "economy", "cash", 3, None, None, "BIO")
 
     at = open_page("overview.py").run()
-    assert not at.exception and "BIO → ATH" in list(at.dataframe[-1].value.Route)
+    assert not at.exception and "BIO → ATH" in [r[0] for r in routes(at)]
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
     assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
     assert at.selectbox(key="ov-grid-dest-BIO").value == "ATH"  # the first saved destination from there, not Anywhere

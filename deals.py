@@ -1,8 +1,10 @@
 """The cheapest month to fly (Skyscanner's month view), from the fares the daily run saves. Pure functions.
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
+import html
+
 import pandas as pd
 
-VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 6  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 
 def by_month(fares, min_days=7):
@@ -42,7 +44,7 @@ def trip_grid(out, back, start, end, nights=range(2, 8), weekdays=None):
     days = [d for d in pd.date_range(start, end) if weekdays is None or f"{d:%a}" in weekdays]
     out = pd.to_numeric(out, errors="coerce").set_axis(pd.to_datetime(out.index))  # award days without seats can come as None
     back = pd.to_numeric(back, errors="coerce").set_axis(pd.to_datetime(back.index))
-    t = pd.DataFrame({f"{n} nights": [out.get(d, float("nan")) + back.get(d + pd.Timedelta(days=n), float("nan")) for d in days]
+    t = pd.DataFrame({f"{n} night{'s' if n != 1 else ''}": [out.get(d, float("nan")) + back.get(d + pd.Timedelta(days=n), float("nan")) for d in days]
                       for n in nights}, index=[f"{d:%a %d %b}" for d in days])
     return t.dropna(how="all")
 
@@ -55,6 +57,27 @@ def grid_colours(t, near=0.10):
         return t.apply(lambda c: ["background-color:#E3F4EA;color:#0E7A53" if pd.notna(v) else "" for v in c])
     return t.apply(lambda c: ["background-color:#0E7A53;color:#fff;font-weight:650" if v == low else
                               "background-color:#E3F4EA;color:#0E7A53" if pd.notna(v) and v <= low * (1 + near) else "" for v in c])
+
+
+def grid_html(t, fmt, colours=grid_colours):
+    """trip_grid (or the one-way day list) as an HTML table a phone can scroll: the days as row headers, one column per stay, each cell
+    styled by `colours(t)` and showing fmt(v), "—" where empty; the first cheapest cell carries id="low" so ui.grid_frame can scroll it into
+    view. Every text is escaped."""
+    e = html.escape
+    css = colours(t)
+    low = t.min().min()
+    head = "<tr><th></th>" + "".join(f"<th>{e(str(c))}</th>" for c in t.columns) + "</tr>"
+    rows, marked = [], False
+    for i, (day, r) in enumerate(t.iterrows()):
+        cells = []
+        for j, c in enumerate(t.columns):
+            v = r[c]
+            attrs = f' style="{css.iat[i, j]}"' if css.iat[i, j] else ""
+            if not marked and pd.notna(v) and v == low:
+                attrs, marked = attrs + ' id="low"', True
+            cells.append(f"<td{attrs}>{e(fmt(v)) if pd.notna(v) else '—'}</td>")
+        rows.append(f"<tr><th>{e(str(day))}</th>{''.join(cells)}</tr>")
+    return f'<table class="grid"><thead>{head}</thead><tbody>{"".join(rows)}</tbody></table>'
 
 
 def styled(t, fmt, colours):

@@ -30,6 +30,6 @@ def test_overview_pass_is_priced_for_the_passengers_chosen(tmp_path, monkeypatch
     at.number_input(key="ov-pax").set_value(3).run()
     assert not at.exception
     t = text()
-    assert "€630" in t and "3 adults, leaving in" in t and "for 3 adults, from per-adult fares; the airline may price groups differently" in t
+    assert "€630" in t and "3 adults, leaving in" in t and "The price is for 3 adults, from fares collected for one adult; the airline may price a group differently" in t
     assert "so €1,430 for the whole trip" in t  # 3 × €210 flights + 4 hotel nights at €200: the hotel is not per person
     assert sum("AdultsNum=3&" in h for h in hrefs()) == 1 and sum("for%203%20adults" in h for h in hrefs()) == 1
