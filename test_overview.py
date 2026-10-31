@@ -287,7 +287,7 @@ def test_expert_page_plans_a_trip_from_the_choices(tmp_path, monkeypatch):
     at.button[0].click().run()  # Ask the expert, with the defaults: economy, return 3 nights, cash or miles, the searched hotel
     assert not at.exception
     history, facts = seen[-1]
-    assert "Frankfurt am Main (FRA)" in history[-1]["content"] and "3-night return" in history[-1]["content"]
+    assert "Frankfurt (FRA)" in history[-1]["content"] and "3-night return" in history[-1]["content"]
     assert "Steigenberger" in history[-1]["content"] and "candidate trips" in facts and "All tracked routes" in facts
     at.chat_input[0].set_value("And with miles?").run()
     history, facts = seen[-1]

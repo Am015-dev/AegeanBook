@@ -66,8 +66,11 @@ be on. Nothing is exposed to the public internet.
   AEGEAN destinations and prints any airport it could not match). Names come from `data/airports.csv`, every airport with scheduled
   flights, built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
 - **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
-- **Cheap days:** "Cheap means within" keeps every day within 0–30 % of the cheapest price (a route often has several days
-  at the same lowest fare); "Days of the week" limits cards, chips and chart to the weekdays you can travel.
+- **Pay with:** Cash € (the default) shows the cash fares; Miles adds the award seats collected for the route (Miles+Bonus, economy and
+  business) beside them, as on the Overview.
+- **Options:** nonstop only, re-check saved days, and the finer filters: "Cheap means within" keeps every day within 0–30 % of the
+  cheapest price (10 % by default; a route often has several days at the same lowest fare), and "Days of the week" limits cards, chips
+  and chart to the weekdays you can travel.
 
 ## Return trips and statistics
 
@@ -183,7 +186,9 @@ your own computer, say), the search runs in the app as before.
 
 A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
 the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
-`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks.
+`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks. The fares a search brings back go
+into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
+keeps a row when a price changes, so the refresh seeing the same fare adds nothing.
 
 **Planning months ahead.** The Overview's *Leaving*, the Expert's *When* and Explore's *When* list every month up to about 11 months
 ahead (`trip_plan.months`), not only the months with fares saved; a month nobody has fetched is marked "not fetched yet". Choose one and
