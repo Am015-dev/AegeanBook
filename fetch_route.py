@@ -4,16 +4,20 @@ pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks Gi
 
     python fetch_route.py "ATH,BIO,2026-11-01,2026-11-30;BIO,ATH,2026-11-03,2026-12-07" 1 [new_rows.csv]
     python fetch_route.py --merge new_rows.csv   # add those rows to the current data/routes.csv (the workflow's save step)
-    python fetch_route.py --refresh              # the daily run: fetch again every route searched in the last 60 days
+    python fetch_route.py --refresh              # fetch again every route searched in the last 60 days, in one process (by hand)
+    python fetch_route.py --plan                 # the daily run: those routes as matrix jobs (JSON), a few routes each, see daily.yml
+    python fetch_route.py --refresh "ATH,BIO,2026-11-01,2027-01-29;..." 1 new_rows.csv   # one of those jobs: fetch, write the rows
+    python fetch_route.py --merge-refresh new_rows.csv   # its save step: into the airline's file and history, not a new request
     AIRLINE=GQ python fetch_route.py --daily     # the daily run: Sky Express on the daily legs it serves, so both airlines are compared
 
 AIRLINE=GQ (environment, or a fourth argument) fetches Sky Express instead, economy only, into data/skyexpress.csv (same columns; the
-file is the airline). --merge and --refresh read AIRLINE too; --refresh keeps every tracked airline fresh. Each airline has its own
+file is the airline). --merge, --merge-refresh and --refresh with legs read AIRLINE too; --plan covers every tracked airline. Each airline has its own
 permanent history beside its file (data/history_prices.csv, data/history_skyexpress.csv): never trimmed, one row per fare change.
 Searched routes are recorded in data/tracked_routes.csv (orig,dest,nonstop,last_requested,from,to,airline) so the daily run can refresh
 them: from and to are the union of the days ever requested, so a summer month planned on the Overview stays fresh until it is booked.
 """
 import csv
+import json
 import os
 import sys
 import time
@@ -29,7 +33,8 @@ CABINS = {"A3": ("economy", "business"), "GQ": ("economy",)}  # Sky Express: eco
 HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA code -> its permanent history, next to OUT
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
-TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 40, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 120, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+PER_JOB = 8  # --plan: routes per daily matrix job; about 10 seconds a route when Google's calendar answers, so a job stays a few minutes
 HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
 
@@ -143,15 +148,15 @@ def main(legs, nonstop, passes=3, pause=90, new=None, airline="A3"):
     return 0 if rows or not failed else 1
 
 
-def refresh(passes=3, pause=90):
-    """The daily run: fetch again the next REFRESH_DAYS, or up to the last day ever requested (`to`) when that is further, for every tracked
-    route searched in the last TRACK_DAYS (the newest TRACK_MAX of them). The daily run's own legs get only the part beyond its DAYS, so a
-    summer planned on ATH-FRA stays fresh too. The rows go to the permanent history as well, so recent weeks can be compared."""
+def refresh_jobs(today=None):
+    """[(tracked row, airline, first day, last day)] for every route to refresh: the next REFRESH_DAYS, or up to the last day ever requested
+    (`to`) when that is further, for every tracked route searched in the last TRACK_DAYS (the newest TRACK_MAX of them). The daily run's own
+    legs get only the part beyond its DAYS, so a summer planned on ATH-FRA stays fresh too."""
     from collect_daily import DAYS, LEGS  # here: that module needs the hotel packages, which the fetch-route job does not install
     tracked = OUT.with_name("tracked_routes.csv")
-    today = date.today()
+    today = today or date.today()
     since = (today - timedelta(TRACK_DAYS)).isoformat()
-    jobs = []  # (route, airline, first day, last day) for every route with something to fetch
+    jobs = []
     for r in read(tracked) if tracked.exists() else []:
         code = r.get("airline") or "A3"
         daily = code == "A3" and (r["orig"], r["dest"]) in LEGS  # collect_daily fetches these legs' first DAYS already
@@ -162,18 +167,48 @@ def refresh(passes=3, pause=90):
         if r["last_requested"] >= since and a <= b:
             jobs.append((r, code, a, b))
     jobs.sort(key=lambda j: j[0]["last_requested"], reverse=True)
-    for r, *_ in jobs[TRACK_MAX:]:  # ponytail: a fixed cap keeps the daily run inside its timeout; split into matrix jobs if more routes are wanted
-        print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)")
+    for r, *_ in jobs[TRACK_MAX:]:  # a fixed cap keeps the daily run's Actions minutes in sight; raise it, or PER_JOB, if more routes are wanted
+        print(f"skipped {r['orig']}-{r['dest']} (last requested {r['last_requested']}, over {TRACK_MAX} routes)", file=sys.stderr)
+    return jobs[:TRACK_MAX]
+
+
+def nonstop_flag(value):
+    """"1" or "0" from a tracked row's nonstop column (or a workflow input)."""
+    return "0" if str(value) in ("0", "false", "False") else "1"
+
+
+def plan(per_job=PER_JOB, today=None):
+    """The daily run's refresh as matrix jobs for daily.yml: [{"airline", "nonstop", "legs"}], each at most per_job routes of one airline
+    and one nonstop flag. One job per group runs on its own GitHub server (its own share of Google's rate limit, its own timeout) and merges
+    its rows into the newest main like a fetch from the app, so 40 routes on one server (the old cap, which a bad morning could not finish)
+    are no longer the limit. Printed as JSON by --plan; [] when nothing is tracked."""
+    groups = {}
+    for r, code, a, b in refresh_jobs(today):
+        groups.setdefault((code, nonstop_flag(r["nonstop"])), []).append(f"{r['orig']},{r['dest']},{a},{b}")
+    return [dict(airline=code, nonstop=n, legs=";".join(sorted(legs)[i:i + per_job]))
+            for (code, n), legs in sorted(groups.items()) for i in range(0, len(legs), per_job)]
+
+
+def refresh(legs=None, nonstop=True, new=None, airline="A3", passes=3, pause=90):
+    """The daily run's refresh. With legs: one matrix job of daily.yml, fetch those legs of that airline and write the rows to `new` for the
+    save step (--merge-refresh); nothing is saved or tracked here. Without: every job of plan() in this process (by hand, or the tests),
+    saved into each airline's file and permanent history, so recent weeks can be compared."""
+    if legs is not None:
+        rows, failed = fetch(legs, nonstop, passes, pause, airline)
+        write_new(rows, new)
+        print(f"refresh {airline}: {len(rows)} fetched, {failed} failed")
+        return 0 if rows or not failed else 1
+    jobs = refresh_jobs()
     got_by, failed = {"A3": []}, 0  # rows by airline: each airline is saved in its own file, with its own permanent history
-    for r, code, a, b in jobs[:TRACK_MAX]:
-        got, f = fetch(f"{r['orig']},{r['dest']},{a},{b}", r["nonstop"] not in ("0", "false", "False"), passes, pause, code)
+    for r, code, a, b in jobs:
+        got, f = fetch(f"{r['orig']},{r['dest']},{a},{b}", nonstop_flag(r["nonstop"]) == "1", passes, pause, code)
         got_by[code], failed = got_by.get(code, []) + got, failed + f
     rows = []
     for code, got in got_by.items():
         save(got, airline=code)
         log_history(got, code)  # the permanent history next to each file: never trimmed, one row per change
         rows += got
-    print(f"refreshed {min(len(jobs), TRACK_MAX)} routes: {len(rows)} saved, {failed} failed")
+    print(f"refreshed {len(jobs)} routes: {len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
 
 
@@ -193,15 +228,22 @@ def daily(airline="GQ", passes=3, pause=90):
 
 
 if __name__ == "__main__":
-    airline = (sys.argv[4] if len(sys.argv) > 4 else os.environ.get("AIRLINE") or "A3").upper()
+    args = sys.argv[1:]
+    airline = (args[3] if len(args) > 3 and not args[0].startswith("--") else os.environ.get("AIRLINE") or "A3").upper()
     if airline not in AIRLINES:
         sys.exit(f"unknown airline {airline}: one of {', '.join(AIRLINES)}")
     if sys.argv[1] == "--merge":
         rows = read(sys.argv[2])
         save(rows, track=True, airline=airline)
         log_history(rows, airline)  # every fetch from the app goes into the airline's permanent history at once, so no fare is ever lost
+    elif sys.argv[1] == "--merge-refresh":  # a daily refresh job's save: the same, but not a request: the route is not tracked afresh
+        rows = read(sys.argv[2])
+        save(rows, airline=airline)
+        log_history(rows, airline)
+    elif sys.argv[1] == "--plan":
+        print(json.dumps(plan()))
     elif sys.argv[1] == "--refresh":
-        sys.exit(refresh())
+        sys.exit(refresh(args[1], args[2] not in ("0", "false", "False"), args[3], airline) if len(args) > 1 else refresh())
     elif sys.argv[1] == "--daily":
         sys.exit(daily(airline))
     else:

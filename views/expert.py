@@ -1,11 +1,14 @@
-"""Expert: the Overview's answer for your route (cheapest trip, dates, nights, price) explained in three plain sentences, then follow-up
-questions. The numbers come from the same functions as the Overview's boarding pass, with the same filters (expert_chat.facts), so the two
-pages never disagree; the words come from an AI model, or from plain Python when the model is unavailable."""
+"""Expert: the Overview's answer for your route (cheapest trip, dates, nights, price) explained in three plain sentences, the links to
+book it, then follow-up questions. The numbers come from the same functions as the Overview's boarding pass, with the same filters
+(expert_chat.facts), so the two pages never disagree; the words come from an AI model, or from plain Python when the model is unavailable.
+The suggested questions under the briefing (pills) are answered in plain Python, instantly and with or without a key; typed questions go to
+the model, which reads the same answers in its data."""
 import importlib
 from datetime import date, timedelta
 
 import streamlit as st
 
+import booking
 import expert_chat as ex
 import fetch_ahead as fa
 import overview as ov
@@ -14,7 +17,7 @@ from db import connect
 from insights import DAYS
 from ui import route
 
-if getattr(ex, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ex, "VERSION", 0) < 5:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 4:
     ov = importlib.reload(ov)
@@ -111,20 +114,22 @@ with st.container(border=True, key="brief"):
     st.markdown(take)
     if note:
         st.caption(note)
+    if f["best"] is not None:  # book it from here: the Overview's two links, for the very trip the briefing names
+        links = dict(depart=f["best"]["depart"], back=f["best"]["back"], cabin=cabin)
+        c = st.columns(2)
+        c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch",
+                         icon=":material/airplane_ticket:")
+        c[1].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), width="stretch", icon=":material/open_in_new:")
 
-if not cfg:
-    st.info("The expert needs an AI key, set once by the app's owner, to explain in its own words and answer questions.")
-    st.markdown("**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
-                "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
-                "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are set, "
-                f"the free Gemini key is used. Either way the app stops after {ex.MAX_PER_DAY} questions a day.")
-    st.stop()
+
+def show(role, text):
+    with st.chat_message(role, avatar=":material/person:" if role == "user" else ":material/auto_awesome:"):
+        st.markdown(text)
 
 
 def answer(q, data):
     """Show the question and the expert's answer; keep both only once answered."""
-    with st.chat_message("user", avatar=":material/person:"):
-        st.markdown(q)
+    show("user", q)
     with st.chat_message("assistant", avatar=":material/auto_awesome:"):
         try:
             with st.spinner("Thinking…"):
@@ -135,15 +140,40 @@ def answer(q, data):
             st.error(str(err) if isinstance(err, RuntimeError) else f"The expert is unavailable right now ({type(err).__name__}).")
 
 
-for m in chat:
-    with st.chat_message(m["role"], avatar=":material/person:" if m["role"] == "user" else ":material/auto_awesome:"):
-        st.markdown(m["content"])
+def picked():
+    """A suggested question was clicked: remember it for this run and clear the pill, so the same one can be asked again later."""
+    st.session_state["expert-pending"] = st.session_state.get("expert-ask")
+    st.session_state["expert-ask"] = None
 
-q = st.chat_input("Ask about these dates, or anything about fares, miles or hotels", max_chars=500)
-if q:
-    answer(q, data)
+
+asks = ex.questions(f)
+if asks:
+    st.markdown('<p class="group">Ask about it</p>', unsafe_allow_html=True)
+    st.pills("Suggested questions", asks, key="expert-ask", on_change=picked, label_visibility="collapsed")
+for m in chat:
+    show(m["role"], m["content"])
+pending = st.session_state.pop("expert-pending", None)
+if pending in asks:  # answered from the facts, instantly, with or without a key; the model reads the same answer for follow-ups
+    a = ex.answer(f, pending)
+    show("user", pending)
+    show("assistant", a)
+    chat.extend([{"role": "user", "content": pending}, {"role": "assistant", "content": a}])
+
+if cfg:
+    q = st.chat_input("Ask about these dates, or anything about fares, miles or hotels", max_chars=500)
+    if q:
+        answer(q, data)
+else:
+    st.info("The expert needs an AI key, set once by the app's owner, to explain in its own words and answer typed questions.")
+    st.markdown("**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
+                "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
+                "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are set, "
+                f"the free Gemini key is used. Either way the app stops after {ex.MAX_PER_DAY} questions a day.")
 if chat and st.button("New conversation", icon=":material/refresh:"):
     chat.clear()
     st.rerun()
-st.caption(f"Answered by {ex.label(cfg)} from the prices saved by the daily run, and it can be wrong: check the fare on aegeanair.com "
-           f"before booking. {ex.left_today()} questions left today.")
+if cfg:
+    st.caption(f"The suggested questions are answered from the prices saved by the daily run; typed ones by {ex.label(cfg)}, which can be "
+               f"wrong: check the fare on aegeanair.com before booking. {ex.left_today()} questions left today.")
+else:
+    st.caption("The suggested questions are answered from the prices saved by the daily run. Check the fare on aegeanair.com before booking.")

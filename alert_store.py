@@ -11,6 +11,9 @@ import secrets
 import urllib.error
 import urllib.request
 
+import alerts
+
+VERSION = 1  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 REPO = "Am015-dev/AegeanBook"
 LABEL, CONFIRMED = "price-alert", "confirmed"
 PER_CONTACT, TOTAL = 5, 300  # open alerts per email or phone address, and in all: a public form must not be able to flood the repository
@@ -53,8 +56,9 @@ def open_alerts(token):
         page += 1
 
 
-def create(token, orig, dest, cabin, unit, limit, start="", end="", email="", ntfy=""):
-    """Save an alert; returns (issue number, code). Raises AlertError with a message for the visitor."""
+def create(token, orig, dest, cabin, unit, limit, start="", end="", email="", ntfy="", trip="oneway", nights=(2, 7)):
+    """Save an alert; returns (issue number, code). trip "return" watches the return total for `nights` (shortest, longest), "oneway" the
+    one-way fare. Raises AlertError with a message for the visitor."""
     email, ntfy = email.strip().lower(), ntfy.strip()
     if email and not EMAIL.match(email):
         raise AlertError("That email address does not look right.")
@@ -67,14 +71,36 @@ def create(token, orig, dest, cabin, unit, limit, start="", end="", email="", nt
     if sum(_field(i["body"], contact[0]) == contact[1] for i in existing) >= PER_CONTACT:
         raise AlertError(f"You already have {PER_CONTACT} alerts. Stop one (the link is in its messages) to add another.")
     code = secrets.token_urlsafe(16)
-    what = f"{limit:,.0f} miles" if unit == "miles" else f"€{limit:,.0f}"
-    body = "\n".join([f"route: {orig}-{dest}", f"cabin: {cabin}", f"{'miles below' if unit == 'miles' else 'below'}: {limit:.0f}"]
-                     + ([f"from: {start}"] if start else []) + ([f"to: {end}"] if end else [])
+    body = "\n".join(alerts.body_lines(orig, dest, cabin, unit, limit, trip, nights, start, end)
                      + [f"{contact[0]}: {contact[1]}", f"code: {code}", "",
                         "Created on the app's Alerts page. The daily run sends it; the code lets the visitor's own links confirm or stop it."])
-    issue = _api(token, "POST", "/issues", {"title": f"Alert: {orig} → {dest} {cabin} below {what} ({contact[0]})", "body": body,
+    issue = _api(token, "POST", "/issues", {"title": f"{alerts.title(orig, dest, cabin, unit, limit, trip)} ({contact[0]})", "body": body,
                                             "labels": [LABEL] + ([CONFIRMED] if contact[0] == "ntfy" else [])})
     return issue["number"], code
+
+
+def mine(token, kind, contact):
+    """The open alerts of one visitor, newest first: [dict(number, title, body, code, confirmed)] whose body says `kind: contact`
+    (kind "email" or "ntfy"). The page shows them, with a Stop button each, only to a visitor who proved the contact is theirs (made an
+    alert for it in this browser, or opened the confirm or stop link of one of its alerts): the list carries the codes."""
+    out = []
+    for i in sorted(open_alerts(token), key=lambda i: -i["number"]):
+        if _field(i["body"], kind) == contact:
+            out.append(dict(number=i["number"], title=i["title"].removeprefix("Alert: "), body=i["body"], code=_field(i["body"], "code") or "",
+                            confirmed=CONFIRMED in [l["name"] for l in i.get("labels", [])]))
+    return out
+
+
+def owner(token, number, code):
+    """("email", address) or ("ntfy", topic) of alert `number`, for a visitor who holds its code; None when the link is not valid."""
+    try:
+        issue = _checked(token, number, code)
+    except AlertError:
+        return None
+    for kind in ("email", "ntfy"):
+        if _field(issue["body"], kind):
+            return kind, _field(issue["body"], kind)
+    return None
 
 
 def _checked(token, number, code):
