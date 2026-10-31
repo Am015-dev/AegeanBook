@@ -1,9 +1,10 @@
 name: CI
-# Nothing broken reaches main: every pull request and every push to main runs the unit tests with only requirements.txt, like the
+# Nothing broken reaches main: every pull request and every code push to main runs the unit tests with only requirements.txt, like the
 # deployed app (no browser, no network to AEGEAN or Google), and the browser smoke test (smoke_test.py) against the committed data.
 on:
   push:
     branches: [main]
+    paths-ignore: ["data/**"]  # the fetch and daily runs commit fares to main many times a day: no code changed, nothing to test
   pull_request:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +22,7 @@ jobs:
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q
   smoke:
+    if: github.event_name == 'pull_request'  # the browser pass ran on the PR already; a push to main repeats only the unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

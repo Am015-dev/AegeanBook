@@ -35,7 +35,7 @@ HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA c
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
 TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 120, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
-PER_JOB = 8  # --plan: routes per daily matrix job; about 10 seconds a route when Google's calendar answers, so a job stays a few minutes
+PER_JOB = 16  # --plan: routes per daily matrix job; a route takes seconds when Google's calendar answers, and GitHub bills each job a whole minute
 HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
 
