@@ -23,7 +23,7 @@ if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a mo
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
-if getattr(deals, "VERSION", 0) < 5:
+if getattr(deals, "VERSION", 0) < 6:
     deals = importlib.reload(deals)
 if getattr(alerts, "VERSION", 0) < 1:
     alerts = importlib.reload(alerts)

@@ -13,16 +13,21 @@ destination, and **Anywhere** at the top), Leaving between (two dates: a weekend
 Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one answer:
 
 - a **route** gives a boarding pass with the cheapest trip leaving in that period and two plain sentences on what the price means
-  ("Usually €180–€240 return. €140 is cheap."), the booking links, the cheapest month, the date grid (day you leave × nights you stay, any stay from 1 to 60 nights, or a list of days for a one-way trip, with
-  **Leave on** weekday pills), **How this fare moved**, and two expanders, **Best weekday to fly** and **How far ahead to book**, with the
-  chart and a one-line takeaway for that route and cabin;
+  ("Usually €180–€240 return. €140 is cheap."), **Book on aegeanair.com** (on a phone it stays at the bottom of the screen while the pass is
+  on it), the Google Flights link, **Alert me if it gets cheaper** (opens Alerts on exactly that trip: `route`, `cabin`, `unit`, `price`,
+  `depart`, `back`, `nights`, `trip`) and **Ask the expert about it**, the cheapest month, the date grid (day you leave × nights you stay,
+  any stay from 1 to 60 nights, or a list of days for a one-way trip, with **Leave on** weekday pills; the day column and the header stay
+  put while it scrolls, and the cheapest cell is scrolled into view), **How this fare moved**, and two expanders, **Best weekday to fly**
+  and **How far ahead to book**, with the chart and a one-line takeaway for that route and cabin;
 - **Anywhere** lists every destination with fares saved from there, cheapest first, as cards (the dates of the trip, how many days have a
   flight, what it usually costs; a route saved one way only shows its one-way); **See dates** puts that destination in To;
 - a route or month with **nothing saved** gets one button, **Search this route on GitHub** (or **Search May 2027 on GitHub**), which fetches
   both directions on GitHub's servers and shows the answer when it lands, usually in 1–3 minutes; a route AEGEAN does not fly says so and
   names the airports it does fly in that city. Without the GitHub token, a line points to the Flights page instead.
 
-On first load the page shows the first saved route (Athens → Frankfurt) and says so until you pick something. **Expert** is the other
+On first load the page shows the first saved route (Athens → Frankfurt) and says so until you pick something. On a phone the bar keeps
+From, To and Leaving between on lines of their own and puts Trip, Cabin, Pay with, Passengers and Nights on shared lines (`ui.CSS`, keyed
+containers `ov-bar-route`, `ov-bar-trip` and `ov-answer`), so the pass is one screen down. **Expert** is the other
 top-level page; Flights (search any dates by hand), Hotels, Alerts, Database, Statistics and Health are under **More**.
 
 Self-check: `python collector.py`. Scraping may break whenever Google changes its page.

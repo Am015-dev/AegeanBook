@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 
 import explore as xp
 import overview
-from test_overview import pages, seed as seed_daily
+from test_overview import pages, routes, seed as seed_daily
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -53,10 +53,10 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     rows = lambda: next(m.value for m in at.markdown if 'class="fares"' in m.value).split('<div class="fare">')[1:]  # one grouped list
     cards = rows()
     assert len(cards) == 4 and "CHQ" in cards[0] and "€46" in cards[0] and "one way" in cards[0]  # searched one way only
-    assert "Thessaloniki" in cards[1] and "SKG" in cards[1] and "€84" in cards[1] and "2 nights" in cards[1] and "30 flight days" in cards[1]
+    assert "Thessaloniki" in cards[1] and "SKG" in cards[1] and "€84" in cards[1] and "2 nights" in cards[1] and "flights on 30 of 30 days" in cards[1]
     assert "usually €" in cards[1] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
     assert not [m for m in at.markdown if 'class="pass"' in m.value] and "From Athens, the next 30 days, economy" in " ".join(m.value for m in at.markdown)
-    assert list(at.dataframe[-1].value.Route)[0] == "ATH → FRA"  # the route table still closes the page
+    assert routes(at)[0][0] == "ATH → FRA"  # the route table still closes the page
     at.slider(key="ov-nights").set_value((5, 5)).run()
     assert not at.exception and "5 nights" in rows()[1]
     at.button_group(key="ov-grid-cabin").set_value("business").run()
