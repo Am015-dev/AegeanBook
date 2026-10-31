@@ -1,0 +1,8 @@
+source,day,hotel,price,tier,fetched,query,filt,hkey,nights,adults
+google,2026-12-04,Steigenberger Frankfurter Hof,188,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+heat,2026-12-04,,,average,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+booking,2026-12-05,,208,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+google,2026-12-05,Steigenberger Frankfurter Hof,182,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+heat,2026-12-05,,,cheap,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+google,2026-12-06,Steigenberger Frankfurter Hof,198,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
+heat,2026-12-06,,,average,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
