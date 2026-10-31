@@ -4,7 +4,10 @@ primaryColor = "#2563C9"
 backgroundColor = "#F5F5F7"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#1D1D1F"
-font = "sans serif"
+# one family for everything, the platform's own (SF on Apple, Segoe on Windows, Roboto/Noto on Android and Linux): Streamlit's widgets and
+# our HTML must not render in two different faces
+font = "system-ui, -apple-system, 'Segoe UI', sans-serif"
+headingFont = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 
 [client]
 toolbarMode = "minimal"
