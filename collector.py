@@ -43,10 +43,11 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
     status: ok, none (no AEGEAN flight, confirmed by two empty answers) or error (Google did not answer, after retries).
     The date grid is fast but has holes on quiet routes, so days it leaves out (or all days if it fails) are searched
     one by one. Google sometimes answers empty or errors for real flights, so empties are asked twice and failed lookups get
-    one slower last pass."""
+    one slower last pass. When Google has no grid for the route at all, three spread-out days are probed first: all empty means
+    AEGEAN does not fly it, and every day is reported none (source "probe") without the day-by-day search."""
     days = [start + timedelta(i) for i in range((end - start).days + 1)]
     todo = [c for c in cabins if any((d.isoformat(), c) not in skip for d in days)]
-    pending, limited, grid_ok = [], False, set()
+    pending, limited, grid_ok, no_grid = [], False, set(), set()
     for cabin, grid, err in parallel(todo, lambda c: fetch_cabin(orig, dest, c, start, end, nonstop), 2):
         if err and "429" in err:  # rate-limited: do not hammer Google with 60 more lookups
             for d in days:
@@ -56,6 +57,8 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
             continue
         if not err:
             grid_ok.add(cabin)
+        elif "no date grid" in err:  # Google has no calendar for the route at all: usually AEGEAN does not fly it (ATH-LCY)
+            no_grid.add(cabin)
         grid = {} if err else grid
         for d in days:
             if (d.isoformat(), cabin) in skip:
@@ -89,6 +92,26 @@ def fetch_range(start, end, orig, dest, cabins=("economy", "business"), skip=fro
                 if a[0] in no_flight:
                     yield a[0], cabin, None, "", "none", None
             batch = [a for a in batch if a[0] not in no_flight]
+        if cabin in no_grid and len(batch) > 3:  # no calendar: 3 well-spread days settle "no such route" instead of 90 lookups, twice
+            probes = {}  # asked once each: three empty days spread over the range confirm each other
+            for item, p, err in parallel([batch[0], batch[len(batch) // 2], batch[-1]], lambda a: fetch_day(orig, dest, a[1], a[0], nonstop), workers):
+                probes[item] = (p, err)
+                gave_up = RATE_LIMITED if err and "429" in err else gave_up
+            if gave_up:
+                for item in failed + batch + [a for a in pending if a[1] in order[i + 1:]]:
+                    yield verdict(item, None, gave_up)
+                return
+            if all(p is None and not err for p, err in probes.values()):
+                for item in batch:
+                    no_flight.add(item[0])
+                    yield item[0], cabin, None, "probe", "none", None
+                continue
+            for item, (p, err) in probes.items():  # a flight after all (or Google failed): keep what the probes found, search the rest as usual
+                if not err:
+                    batch.remove(item)
+                    if p is None:
+                        no_flight.add(item[0])
+                    yield verdict(item, p, None)
         for item, p, err in parallel(batch, look, workers, give_up_after=6):
             if err and ("429" in err or err.startswith("Gave up")):
                 gave_up = RATE_LIMITED if "429" in err else err

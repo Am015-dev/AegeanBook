@@ -179,11 +179,29 @@ def airports():
                 for r in csv.DictReader(f) if r["size"] != "2"}  # only airports with scheduled flights: no airfields
 
 
+def aegean_rows():
+    """[{iata, city, country, seasonal, name}] for the airports AEGEAN flies to now or seasonally (data/aegean_airports.csv, refreshed by
+    data/build_aegean_airports.py), the name from data/airports.csv."""
+    root = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(root, "data", "airports.csv"), encoding="utf-8") as f:
+        names = {r["iata"]: r["name"] for r in csv.DictReader(f)}
+    with open(os.path.join(root, "data", "aegean_airports.csv"), encoding="utf-8") as f:
+        return [dict(r, name=names.get(r["iata"], r["city"])) for r in csv.DictReader(f)]
+
+
+@st.cache_data
+def aegean_airports():
+    """{IATA: label} for AEGEAN's destinations only, searchable by code, airport name, city or country; seasonal ones say so.
+    A route AEGEAN does not fly is the slowest search of all (no calendar, every day searched one by one), so the pickers offer no other."""
+    return {r["iata"]: f"{r['iata']} · {r['name']} — {r['city']}, {r['country']}" + (" (seasonal)" if r["seasonal"] == "1" else "")
+            for r in aegean_rows()}
+
+
 def airport_picker(where, label, default, key):
-    names = airports()
+    names = aegean_airports()
     codes = list(names)
     return where.selectbox(label, codes, index=codes.index(default), format_func=names.get, key=key,
-                           help="Type a city, airport name or code, for example Athens, Bilbao or FRA.")
+                           help="Type a city, airport name or code, for example Athens, Bilbao or FRA. Only AEGEAN's destinations are listed.")
 
 
 def window_picker(where, key, today, horizon):
@@ -259,14 +277,28 @@ def best_trips(t, colour, label, tolerance, limit=6):
                 f'{chips}{more}</div>', unsafe_allow_html=True)
 
 
-def schedule_note(seen, orig, dest):
+def no_service_note(seen, orig, dest, nonstop=True):
+    """When every checked day has no flight: say so, and name AEGEAN's airports in the destination's city (London City -> Heathrow, Gatwick)."""
+    from trip_plan import city  # ponytail: imported here, not at the top: trip_plan pulls in the award and insight modules
+    days = pd.to_datetime(sorted(seen.day.unique()))
+    when = f"{days[0]:%a %d %b}" if len(days) == 1 else f"{days[0]:%a %d %b} – {days[-1]:%a %d %b}"
+    note = f"AEGEAN has no {'nonstop ' if nonstop else ''}flights {orig} → {dest} on the days checked ({when})."
+    want = city(dest).lower()
+    near = sorted((r for r in aegean_rows() if r["city"].lower() == want and r["iata"] != dest), key=lambda r: r["seasonal"])  # year-round first
+    names = [f"{r['name'].replace(' Airport', '')} ({r['iata']}{', seasonal' if r['seasonal'] == '1' else ''})" for r in near]
+    return note + (f" Try {' or '.join(names)}." if names else "")
+
+
+def schedule_note(seen, orig, dest, nonstop=True):
     """One sentence on when AEGEAN flies a route, from the days checked: the weekdays it flies when not every day, and the last flight when
     the days checked after it are more than twice the route's usual gap (seasonal routes such as ATH-BIO, Tuesdays and Fridays, none 21 Nov to 29 Mar). None when the
     checked days show no such pattern. seen: one row per day and cabin, price NaN where the day was checked and has no flight."""
     if not len(seen):
         return None
     flies = seen.groupby("day").price.max()  # a day flies if either cabin has a fare
-    if flies.notna().sum() == 0 or len(flies) < 14:
+    if flies.notna().sum() == 0:
+        return no_service_note(seen, orig, dest, nonstop)
+    if len(flies) < 14:
         return None
     when = pd.to_datetime(flies.index)
     flown, last = when[flies.notna().values], when[flies.notna().values].max()

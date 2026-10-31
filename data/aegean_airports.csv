@@ -1,0 +1,136 @@
+iata,city,country,seasonal
+TIA,Tirana,Albania,0
+EVN,Yerevan,Armenia,0
+INN,Innsbruck,Austria,1
+VIE,Vienna,Austria,0
+GYD,Baku,Azerbaijan,1
+BRU,Brussels,Belgium,0
+BNX,Banja Luka,Bosnia and Herzegovina,1
+SJJ,Sarajevo,Bosnia and Herzegovina,1
+SOF,Sofia,Bulgaria,0
+DBV,Dubrovnik,Croatia,1
+SPU,Split,Croatia,1
+ZAG,Zagreb,Croatia,0
+LCA,Larnaca,Cyprus,0
+PFO,Paphos,Cyprus,0
+PRG,Prague,Czech Republic,0
+CPH,Copenhagen,Denmark,0
+HBE,Alexandria,Egypt,1
+CAI,Cairo,Egypt,0
+LXR,Luxor,Egypt,1
+SSH,Sharm El Sheikh,Egypt,1
+TLL,Tallinn,Estonia,0
+HEL,Helsinki,Finland,0
+OUL,Oulu,Finland,1
+BOD,Bordeaux,France,1
+BES,Brest,France,1
+DOL,Deauville,France,1
+LIL,Lille,France,1
+LYS,Lyon,France,1
+MRS,Marseille,France,1
+ETZ,Metz/Nancy,France,1
+NTE,Nantes,France,1
+NCE,Nice,France,0
+CDG,Paris,France,0
+SXB,Strasbourg,France,0
+TLS,Toulouse,France,1
+TBS,Tbilisi,Georgia,0
+BER,Berlin,Germany,0
+BRE,Bremen,Germany,1
+CGN,Cologne,Germany,0
+DUS,Düsseldorf,Germany,0
+ERF,Erfurt,Germany,1
+FRA,Frankfurt,Germany,0
+FDH,Friedrichshafen,Germany,1
+HAM,Hamburg,Germany,0
+HAJ,Hanover,Germany,1
+FMM,Memmingen,Germany,1
+MUC,Munich,Germany,0
+FMO,Münster,Germany,1
+NUE,Nuremberg,Germany,1
+STR,Stuttgart,Germany,0
+AXD,Alexandroupoli,Greece,0
+ATH,Athens,Greece,0
+EFL,Cephalonia,Greece,0
+CHQ,Chania,Greece,0
+JKH,Chios,Greece,0
+CFU,Corfu,Greece,0
+HER,Heraklion,Greece,0
+IOA,Ioannina,Greece,0
+KLX,Kalamata,Greece,0
+KVA,Kavala,Greece,0
+KGS,Kos,Greece,0
+LXS,Lemnos,Greece,0
+JMK,Mykonos,Greece,0
+MJT,Mytilene,Greece,0
+RHO,Rhodes,Greece,0
+SMI,Samos,Greece,0
+JTR,Santorini,Greece,0
+SKG,Thessaloniki,Greece,0
+ZTH,Zakynthos,Greece,1
+BUD,Budapest,Hungary,0
+BGW,Baghdad,Iraq,0
+EBL,Erbil,Iraq,0
+DUB,Dublin,Ireland,0
+TLV,Tel Aviv,Israel,0
+BRI,Bari,Italy,1
+BLQ,Bologna,Italy,0
+CTA,Catania,Italy,1
+FLR,Florence,Italy,0
+MXP,Milan,Italy,0
+NAP,Naples,Italy,0
+OLB,Olbia,Italy,1
+PMO,Palermo,Italy,1
+PSA,Pisa,Italy,1
+FCO,Rome,Italy,0
+VCE,Venice,Italy,0
+AMM,Amman,Jordan,0
+KWI,Kuwait City,Kuwait,0
+RIX,Riga,Latvia,0
+BEY,Beirut,Lebanon,0
+VNO,Vilnius,Lithuania,0
+LUX,Luxembourg City,Luxembourg,0
+MLA,Valletta,Malta,0
+RMO,Chișinău,Moldova,0
+TGD,Podgorica,Montenegro,0
+RAK,Marrakesh,Morocco,0
+AMS,Amsterdam,Netherlands,0
+EIN,Eindhoven,Netherlands,0
+SKP,Skopje,North Macedonia,0
+KRS,Kristiansand,Norway,1
+OSL,Oslo,Norway,0
+KRK,Kraków,Poland,0
+WAW,Warsaw,Poland,0
+LIS,Lisbon,Portugal,0
+OPO,Porto,Portugal,0
+GHV,Brașov,Romania,1
+OTP,Bucharest,Romania,0
+DMM,Dammam,Saudi Arabia,1
+JED,Jeddah,Saudi Arabia,0
+RUH,Riyadh,Saudi Arabia,0
+BEG,Belgrade,Serbia,0
+LJU,Ljubljana,Slovenia,1
+BCN,Barcelona,Spain,0
+BIO,Bilbao,Spain,0
+LPA,Gran Canaria,Spain,1
+IBZ,Ibiza,Spain,1
+MAD,Madrid,Spain,0
+AGP,Málaga,Spain,0
+PMI,Palma de Mallorca,Spain,1
+SVQ,Seville,Spain,1
+VLC,Valencia,Spain,1
+GOT,Gothenburg,Sweden,1
+ARN,Stockholm,Sweden,0
+BSL,Basel,Switzerland,0
+GVA,Geneva,Switzerland,0
+ZRH,Zurich,Switzerland,0
+DAM,Damascus,Syria,0
+TUN,Tunis,Tunisia,0
+IST,Istanbul,Turkey,0
+ADB,İzmir,Turkey,0
+AUH,Abu Dhabi,United Arab Emirates,0
+DXB,Dubai,United Arab Emirates,0
+EDI,Edinburgh,United Kingdom,0
+LGW,London,United Kingdom,1
+LHR,London,United Kingdom,0
+MAN,Manchester,United Kingdom,0

@@ -217,7 +217,7 @@ if len(seen) < 2 * len(days):
     st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
                f"{int(seen.price.isna().sum())} with no flight, {2 * len(days) - len(seen)} not checked or failed. "
                "Press Update prices to check the rest.")
-if note := schedule_note(seen, orig, dest):
+if note := schedule_note(seen, orig, dest, nonstop):
     st.info(note, icon=":material/event_busy:")
 st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
            "automatically every morning.")
