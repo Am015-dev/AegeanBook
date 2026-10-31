@@ -229,25 +229,22 @@ def test_overview_offers_to_fetch_sky_express_fares_on_github_when_none_are_save
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop, airline="A3": started.append((legs, nonstop, airline)) or "gq123456")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
     at = open_page("overview.py").run()
-    at.toggle(key="ov-gq-ATHFRA").set_value(True).run()
-    assert not at.exception and "Sky Express: €" not in " ".join(m.value for m in at.markdown)
-    fetch = [b for b in at.button if b.label == "Fetch Sky Express fares"]
+    assert not at.exception and not at.toggle  # nothing to compare yet, so no toggle: the fetch button sits in its place
+    fetch = [b for b in at.button if b.label == "Search Sky Express fares"]
     assert len(fetch) == 1
     fetch[0].click().run()
     assert not at.exception and len(started) == 1
     legs, nonstop, airline = started[0]
     assert airline == "GQ" and nonstop is True and [(o, d_) for o, d_, _, _ in legs] == [("ATH", "FRA"), ("FRA", "ATH")]
     assert legs[0][2] == date.today() + timedelta(1) and legs[0][3] == date.today() + timedelta(30)  # the saved AEGEAN range
-    assert "Searching on GitHub" in " ".join(i.value for i in at.info) and not [b for b in at.button if b.label == "Fetch Sky Express fares"]
+    assert "Searching on GitHub" in " ".join(i.value for i in at.info) and not [b for b in at.button if b.label == "Search Sky Express fares"]
     state["run"] = dict(status="completed", conclusion="success", url="u")
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(i.value for i in at.info)
-    # without a token: a caption instead of the button
+    # without a token the fares cannot be fetched from here (the Flights page does it on your own computer): neither button nor toggle
     monkeypatch.setattr(gh, "token", lambda: None)
     at = open_page("overview.py").run()
-    at.toggle(key="ov-gq-ATHFRA").set_value(True).run()
-    assert not at.exception and not [b for b in at.button if b.label == "Fetch Sky Express fares"]
-    assert "needs the GitHub token" in " ".join(c.value for c in at.caption)
+    assert not at.exception and not [b for b in at.button if b.label == "Search Sky Express fares"] and not at.toggle
     at.selectbox(key=f"ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle at all
     assert not at.exception and not at.toggle
 

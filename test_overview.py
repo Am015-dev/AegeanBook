@@ -471,18 +471,108 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
-    assert "Good price" in text and re.search(r"a typical trip costs €3\d\d · lowest of \d+ days", text)  # €210 against ~€360 return trips
+    # two plain sentences, no analyst words: the badge, a space, then what a trip usually costs (€210 against ~€360 return trips)
+    assert re.search(r'<span class="good">Good price</span> Trips like this usually cost about €3\d\d\.</span>', text)
+    assert "Tracking since" not in text and "lowest of" not in text and "typical" not in text.split("<style>")[0]
+    assert "Cheapest return · Athens → Frankfurt am Main" in text and "one adult, leaving in the next 30 days" in text
+    assert "Pick a route, or Anywhere, to start" in at.caption[0].value  # until something is picked
     cheap_day = f"{date.today() + timedelta(10):%a}"  # the €60 outbound
     other = [d for d in DAYS if d != cheap_day][:2]
-    at.button_group(key="ov-grid-days-ATHFRAeconomycash").set_value(other).run()
+    at.button_group(key="ov-days").set_value(other).run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     leave = re.search(r"<dt>Leave</dt><dd>(\w{3})", text).group(1)
-    assert leave in other and "lowest is €210" in text  # the pass fits the days asked for, and still knows the real low
+    assert leave in other and "Good price" not in text  # the pass fits the days asked for; without the €60 day it is no bargain
     assert all(i[:3] in other for i in at.dataframe[0].value.index)
-    at.button_group(key="ov-grid-nights-ATHFRAeconomycash").set_value([2, 3]).run()
+    at.button_group(key="ov-nights").set_value([2, 3]).run()
     assert not at.exception and list(at.dataframe[0].value.columns) == ["2 nights", "3 nights"]
     assert re.search(r"<dt>Stay</dt><dd>[23] nights", " ".join(m.value for m in at.markdown))
+    assert "Pick a route, or Anywhere" not in " ".join(c.value for c in at.caption)  # something was picked
+
+
+def test_overview_bar_drives_the_pass_by_period_and_passengers(tmp_path, monkeypatch):
+    """When in the bar is a filter: the pass is the cheapest trip leaving in that period, not the cheapest ever saved."""
+    import re
+    import trip_plan as tp
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")
+    today, now = date.today(), datetime.now().isoformat()
+    m = date(today.year + (today.month > 9), (today.month + 2) % 12 + 1, 1)  # the month three months ahead: €50 each way, every day
+    nxt = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+    for i in range((nxt - m).days + 7):
+        for o, d in (("ATH", "FRA"), ("FRA", "ATH")):
+            t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((m + timedelta(i)).isoformat(), o, d, "economy", 50.0, "calendar", now, 1))
+    t.commit()
+    at = open_page("overview.py").run()
+    assert not at.exception and "€210" in " ".join(x.value for x in at.markdown)  # the next 30 days by default
+    when = at.selectbox(key="ov-when")
+    i = next(i for i, p in enumerate(tp.months(today, nxt)) if p.label == f"{m:%B %Y}")
+    assert when.options[0] == "Next 30 days" and when.options[i] == f"{m:%B %Y}"
+    when.set_value(i).run()
+    assert not at.exception
+    text = " ".join(x.value for x in at.markdown)
+    assert "€100" in text and f"leaving in {m:%B %Y}" in text and re.search(rf"<dt>Leave</dt><dd>\w{{3}} 0\d {m:%b}", text)
+    assert "Prices are much the same whichever day you pick" in text  # €100 against €100
+    at.number_input(key="ov-pax").set_value(2).run()
+    assert not at.exception and "€200" in " ".join(x.value for x in at.markdown) and "for 2 adults" in " ".join(c.value for c in at.caption)
+
+
+def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypatch):
+    """To lists every AEGEAN airport, saved ones first; one with nothing saved gets one button that fetches both ways on GitHub."""
+    import gh
+    open_page = pages(tmp_path, monkeypatch, None)
+    t = seed(tmp_path / "tracker.db")
+    today, now = date.today(), datetime.now().isoformat()
+    started = []
+    monkeypatch.setattr(gh, "token", lambda: "tok")
+    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop, airline="A3": started.append((legs, nonstop, airline)) or "abcd1234")
+    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
+    at = open_page("overview.py").run()
+    to = at.selectbox(key="ov-grid-dest-ATH")
+    assert to.options[:3] == ["Anywhere", "Frankfurt am Main (FRA)", "Zurich (ZRH)"] and "Bilbao (BIO) · no fares yet" in to.options
+    assert "Athens (ATH)" not in " ".join(to.options) and to.value == "FRA"  # not itself; the first saved route by default
+    to.set_value("BIO").run()
+    assert not at.exception and "No economy fares saved from Athens to Bilbao for the next 30 days yet" in at.info[0].value
+    key = f"fetch-ahead|ATH|BIO|{today + timedelta(1)}"
+    assert at.button(key=key).label == "Search this route on GitHub" and not at.dataframe[:-1]  # no pass, no grid; the route table stays
+    at.button(key=key).click().run()
+    assert not at.exception and started == [([("ATH", "BIO", today + timedelta(1), today + timedelta(30)),
+                                              ("BIO", "ATH", today + timedelta(3), today + timedelta(37))], True, "A3")]
+    assert "Searching on GitHub" in " ".join(x.value for x in at.info) and not [b for b in at.button if b.key == key]
+    # a route AEGEAN does not fly: every day checked has no flight, so no button, but the nearest airports it does fly
+    for i in range(1, 31):
+        t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((today + timedelta(i)).isoformat(), "ATH", "LGW", "economy", None, "calendar", now, 1))
+    t.commit()
+    at = open_page("overview.py").run()
+    at.selectbox(key="ov-grid-dest-ATH").set_value("LGW").run()
+    assert not at.exception and "AEGEAN has no nonstop flights ATH → LGW on the days checked" in at.info[0].value
+    assert "Try London Heathrow (LHR)" in at.info[0].value and not [b for b in at.button if b.label.startswith(("Search", "Fetch"))]
+    # without a token nothing can be fetched from here: one line pointing to the Flights page
+    monkeypatch.setattr(gh, "token", lambda: None)
+    at = open_page("overview.py").run()
+    at.selectbox(key="ov-grid-dest-ATH").set_value("BIO").run()
+    assert not at.exception and not [b for b in at.button if b.label.startswith(("Search", "Fetch"))]
+    assert "The next 30 days from Athens to Bilbao is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
+
+
+def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
+    """The former Insights page's two charts, as expanders under the grid, for the route and cabin in the bar."""
+    import re
+    open_page = pages(tmp_path, monkeypatch, None)
+    seed(tmp_path / "tracker.db")
+    at = open_page("overview.py").run()
+    assert not at.exception
+    labels = [x.label for x in at.expander]
+    assert labels[-2:] == ["Best weekday to fly", "How far ahead to book"]
+    text = " ".join(m.value for m in at.markdown)
+    assert re.search(r"is the cheapest day to fly Athens → Frankfurt am Main|No strong weekday pattern on Athens → Frankfurt am Main", text)
+    assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
+    captions = " ".join(c.value for c in at.caption)
+    assert "Average economy fare by the weekday you leave, over the 30 days" in captions
+    at.button_group(key="ov-grid-cabin").set_value("business").run()
+    assert not at.exception and "Average business fare by the weekday" in " ".join(c.value for c in at.caption)
+    at.button_group(key="ov-grid-pay").set_value("miles").run()
+    assert not at.exception and not [x for x in at.expander if x.label == "Best weekday to fly"]  # miles have no such pattern to show
 
 
 def test_overview_grid_in_miles(tmp_path, monkeypatch):
@@ -536,6 +626,7 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     assert not at.exception and "BIO → ATH" in list(at.dataframe[-1].value.Route)
     at.selectbox(key="ov-grid-orig").set_value("BIO").run()
     assert not at.exception and "Bilbao → Athens → Bilbao" in " ".join(c.value for c in at.caption)
+    assert at.selectbox(key="ov-grid-dest-BIO").value == "ATH"  # the first saved destination from there, not Anywhere
 
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])

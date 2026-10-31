@@ -81,16 +81,17 @@ def test_overview_shows_the_verdict_and_how_the_fare_moved(tmp_path, monkeypatch
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     v = pi.trip(read(tmp_path / "h.csv"), [("ATH", "FRA"), ("FRA", "ATH")], "economy", 210, today)
-    assert v["level"] == "low" and f"Low fare · usually €{v['low']:,.0f}–€{v['high']:,.0f} return" in text and "#0E7A53" in text
-    assert at.expander[0].label == "How this fare moved" and "The ring marks the lowest" in at.expander[0].caption[0].value
+    moved = lambda: [x for x in at.expander if x.label == "How this fare moved"]
+    assert v["level"] == "low" and f"Usually €{v['low']:,.0f}–€{v['high']:,.0f} return. €210 is cheap." in text  # two plain sentences
+    assert moved() and "The ring marks the lowest" in moved()[0].caption[0].value
     use(write_history(tmp_path / "few.csv", 3))
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
-    assert f"Tracking since {today - timedelta(2):%d %b} · 3 days of prices" in text and "fare · usually" not in text
-    assert at.expander[0].label == "How this fare moved"  # three snapshots are enough for a line
+    assert "Tracking since" not in text and "Usually €" not in text and "usually cost about €" in text  # too little history: no verdict, no jargon
+    assert moved()  # three snapshots are enough for a line
     use(write_history(tmp_path / "two.csv", 2))
     at = open_page("overview.py").run()
-    assert not at.exception and "2 days of prices" in " ".join(m.value for m in at.markdown) and not at.expander  # two points are not a line
+    assert not at.exception and "days of prices" not in " ".join(m.value for m in at.markdown) and not moved()  # two points are not a line
     at.selectbox(key="ov-grid-orig").set_value("ZRH").run()  # a route the history has never seen: nothing is claimed about it
-    assert not at.exception and "Tracking since" not in " ".join(m.value for m in at.markdown) and not at.expander
+    assert not at.exception and "Usually €" not in " ".join(m.value for m in at.markdown) and not moved()
