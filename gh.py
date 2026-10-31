@@ -103,6 +103,15 @@ def fetch_hotel(tok, query, filt, hkey, nights, adults, ranges, booking):
     return request
 
 
+def fetch_details(tok, legs, cabin):
+    """Start fetching the flights of some days on GitHub (.github/workflows/fetch-details.yml). legs: [(orig, dest, day)]. Returns
+    the request id that names the run."""
+    request = secrets.token_hex(4)
+    _api(tok, "POST", "/actions/workflows/fetch-details.yml/dispatches", {"ref": "main", "inputs": {
+        "legs": ";".join(f"{o},{d},{a.isoformat()}" for o, d, a in legs), "cabin": cabin, "request": request}})
+    return request
+
+
 def run(tok, request, workflow=WORKFLOW):
     """The fetch's run as dict(status, conclusion, url), or None while GitHub has not listed it yet. status: queued, in_progress or
     completed; conclusion (when completed): success, failure, cancelled..."""
