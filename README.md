@@ -130,6 +130,10 @@ usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitH
 fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
 your own computer, say), the search runs in the app as before.
 
+A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
+the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
+`data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks.
+
 Hotels work the same way: **Update prices** on the Hotels page starts `.github/workflows/fetch-hotel.yml` (`fetch_hotel.py`: Google
 Hotels for every check-in not saved yet, plus the TripAdvisor cheap-day calendar and Booking.com on the cheap days when a key is given),
 which saves to `data/hotel_searches.csv`. **Show flight times** under the Overview's boarding pass starts `.github/workflows/fetch-details.yml`
