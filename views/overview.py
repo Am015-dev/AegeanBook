@@ -23,7 +23,7 @@ import trip_plan as tp
 from db import connect
 from insights import DAYS, ahead_chart, ahead_stats, ahead_takeaway, weekday_chart, weekday_stats, weekday_takeaway
 from trip_cost import night_prices
-from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aegean_rows, github_note, github_progress, no_service_note,
+from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aegean_rows, github_note, github_progress, kpis, no_service_note,
                 price_chart, route)
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
@@ -54,47 +54,37 @@ st.markdown(f"""<style>
 .pass {{ display:flex; background:{SURFACE}; border-radius:18px; box-shadow:{SHADOW}; margin:6px 0 10px; overflow:hidden; }}
 .pass-main {{ flex:1; padding:22px 26px; min-width:0; }}
 .pass-codes {{ display:flex; align-items:center; gap:14px; font:650 clamp(2rem,6vw,2.8rem)/1 {FONT}; letter-spacing:-.035em; color:{INK}; }}
-.pass-codes .line {{ flex:1; height:2px; background:{GRID}; position:relative; min-width:30px; }}
-.pass-codes .line::after {{ content:'✈'; position:absolute; left:50%; top:-.62em; transform:translateX(-50%); font-size:.42em;
-  color:{MUTED}; background:{SURFACE}; padding:0 6px; letter-spacing:0; }}
+.pass-codes .line {{ flex:1; height:2px; background:{GRID}; min-width:30px; }}
 .pass-cities {{ display:flex; justify-content:space-between; color:{MUTED}; font-size:.85rem; margin-top:6px; }}
 .pass-fields {{ display:flex; gap:28px; flex-wrap:wrap; margin:18px 0 0; }}
-.pass-fields dt {{ font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:{MUTED}; margin:0; }}
+.pass-fields dt {{ font-size:.85rem; color:{MUTED}; margin:0; }}
 .pass-fields dd {{ font-size:1.02rem; font-weight:600; color:{INK}; margin:2px 0 0; }}
 .pass-stub {{ position:relative; width:240px; padding:22px 24px; border-left:2px dashed {GRID}; display:flex; flex-direction:column;
   justify-content:center; }}
 .pass-stub::before, .pass-stub::after {{ content:''; position:absolute; left:-11px; width:20px; height:20px; border-radius:50%;
   background:var(--background-color, #F5F5F7); }}
 .pass-stub::before {{ top:-10px; }} .pass-stub::after {{ bottom:-10px; }}
-.pass-stub .k {{ font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:{MUTED}; }}
+.pass-stub .k {{ font-size:.85rem; color:{MUTED}; line-height:1.35; }}
 .pass-stub .price {{ font:700 2.6rem/1.05 {FONT}; letter-spacing:-.04em; color:{ECONOMY}; margin:6px 0 4px; }}
 .pass-stub .price small {{ font-size:.42em; font-weight:600; letter-spacing:0; }}
 .pass-stub .note {{ font-size:.82rem; color:{MUTED}; }}
 .pass-stub .ctx {{ font-size:.82rem; color:{INK}; margin-top:8px; line-height:1.4; }}
-.pass-stub .good {{ display:inline-block; font-size:.68rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
-  padding:1px 6px; margin-right:6px; vertical-align:1px; }}
+.pass-stub .good {{ display:inline-block; font-size:.8rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
+  padding:1px 7px; margin-right:6px; }}
 .airlines {{ display:flex; gap:12px; flex-wrap:wrap; margin:4px 0 6px; }}
 .airlines > div {{ flex:1; min-width:220px; background:{SURFACE}; border-radius:14px; padding:14px 18px; box-shadow:{SHADOW}; }}
-.airlines .a {{ font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }}
+.airlines .a {{ font-size:.85rem; font-weight:700; }}
 .airlines .p {{ display:block; font:700 1.9rem/1.1 {FONT}; letter-spacing:-.03em; color:{INK}; margin:4px 0 2px; }}
 .airlines .d {{ display:block; font-size:.82rem; color:{MUTED}; }}
 .airlines .win {{ outline:2px solid var(--c); }} .airlines .win .p {{ color:var(--c); }}
-.airlines .tag {{ float:right; font-size:.68rem; font-weight:650; color:var(--c); border:1px solid var(--c); border-radius:6px; padding:1px 6px; }}
+.airlines .tag {{ float:right; font-size:.8rem; font-weight:650; color:var(--c); border:1px solid var(--c); border-radius:6px; padding:1px 7px; }}
 .months {{ display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 18px; }}
 .months > div {{ background:{SURFACE}; border-radius:12px; padding:10px 14px; min-width:92px; box-shadow:{SHADOW}; }}
-.months .m {{ display:block; font-size:.75rem; color:{MUTED}; }} .months .v {{ display:block; font-weight:650; font-size:1.05rem; color:{INK}; }}
+.months .m {{ display:block; font-size:.82rem; color:{MUTED}; }} .months .v {{ display:block; font-weight:650; font-size:1.05rem; color:{INK}; }}
 .months .low {{ outline:2px solid {ECONOMY}; }} .months .low .v {{ color:{ECONOMY}; }}
-[class*="st-key-xp-card-"] {{ background:{SURFACE}; border-radius:14px; box-shadow:{SHADOW}; padding:14px 18px 6px; margin:0 0 10px; }}
-[class*="st-key-xp-card-"] .stButton > button {{ padding-left:0; min-height:36px; }}
-.xp {{ display:flex; justify-content:space-between; align-items:center; gap:16px; }}
-.xp .city {{ font-weight:600; font-size:1.05rem; color:{INK}; }}
-.xp .code {{ color:{MUTED}; font-weight:500; font-size:.9rem; margin-left:6px; }}
-.xp .when {{ color:{MUTED}; font-size:.85rem; margin-top:2px; text-wrap:pretty; }}
-.xp .price {{ font:650 1.7rem/1 {FONT}; letter-spacing:-.02em; white-space:nowrap; text-align:right; }}
-.xp .price small {{ display:block; font-size:.72rem; font-weight:500; color:{MUTED}; letter-spacing:0; margin-top:5px; }}
 @media (max-width: 640px) {{ .pass {{ flex-direction:column; }} .pass-stub {{ width:auto; border-left:0; border-top:2px dashed {GRID}; }}
   .pass-stub::before, .pass-stub::after {{ top:-11px; left:auto; }} .pass-stub::before {{ left:-10px; }} .pass-stub::after {{ right:-10px; }}
-  .pass-main {{ padding:18px; }} .pass-fields {{ gap:18px; }} [class*="st-key-xp-card-"] {{ padding:12px 14px 4px; }} .xp .price {{ font-size:1.45rem; }} }}
+  .pass-main {{ padding:18px; }} .pass-fields {{ gap:18px; }} }}
 </style>""", unsafe_allow_html=True)
 
 # --- the search bar: everything below follows it ----------------------------------------------------------------------------------------
@@ -139,7 +129,7 @@ farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.
 periods = tp.months(today, farday)  # the next 30 days, then every month up to the horizon: a month with no fares yet can be fetched below
 when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="ov-when", on_change=touched)
 p = periods[when]
-c = st.columns([2.4, 1, 1, 0.7])
+c = st.columns([2, 1.2, 1.1, 0.7])
 nights = c[0].pills("Nights", NIGHTS, selection_mode="multi", default=NIGHTS, key="ov-nights", on_change=touched,
                     help="How long to stay. Pick none to allow any of 2 to 7 nights.")
 gcab = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin",
@@ -160,10 +150,11 @@ who = "one adult" if pax == 1 else f"{pax} adults"
 colour = ECONOMY if gcab == "economy" else BUSINESS
 
 # --- Anywhere: every destination from here, cheapest first (Google Flights' Explore) -----------------------------------------------------
-def see(d):
-    """A card's See dates: the same page, with that destination in To."""
-    st.session_state[dkey] = d
-    touched()
+def see():
+    """See dates for a destination in the Anywhere list: the same page, with that destination in To."""
+    if st.session_state.get("xp-see"):
+        st.session_state[dkey] = st.session_state["xp-see"]
+        touched()
 
 
 if dest == ANY:
@@ -175,16 +166,12 @@ if dest == ANY:
         if pay == "cash":  # nothing saved for the period: one request fetches every route from here, both ways where the way back is known
             todo, blank = fa.missing(db, [(orig, d, p.start, p.end) for d in saved] + [(d, orig, p.start, p.end) for d in saved if (d, orig) in far], today)
             if todo:
-                fa.button(f"ahead|{orig}|all|{p.start}", f"Fetch {p.name} for all routes from {tp.city(orig)}", todo, f"{p.name.capitalize()} from {tp.city(orig)}")
-    for r in rows.itertuples():
-        dates = f"{r.depart:%a %d %b} → {r.back:%a %d %b} · {int(r.nights)} nights" if pd.notna(r.back) else f"{r.depart:%a %d %b} · one way"
-        with st.container(key=f"xp-card-{r.dest}"):  # the key names the class the CSS styles
-            st.markdown(f'<div class="xp"><div><div class="city">{e(tp.city(r.dest))}<span class="code">{e(r.dest)}</span></div>'
-                        f'<div class="when">{e(dates)} · {r.days} flight days</div></div>'
-                        f'<div class="price" style="color:{colour}">{e(money(r.price * pax))}<small>usually {e(money(r.typical * pax))}</small></div></div>',
-                        unsafe_allow_html=True)
-            st.button("See dates", key=f"xp-see-{r.dest}", type="tertiary", icon=":material/calendar_month:", on_click=see, args=(r.dest,))
-    if not rows.empty:
+                fa.button(f"ahead|{orig}|all|{p.start}", f"Search all routes from {tp.city(orig)} on GitHub", todo, f"{p.name.capitalize()} from {tp.city(orig)}")
+    else:  # one grouped list, the price trailing (ui.kpis), then one pill row to open a destination's dates
+        when_ = lambda r: (f"{r.depart:%a %d %b} → {r.back:%a %d %b} · {int(r.nights)} nights" if pd.notna(r.back) else f"{r.depart:%a %d %b} · one way")
+        kpis([(f"{tp.city(r.dest)} · {r.dest}", money(r.price * pax), f"{when_(r)} · {r.days} flight days · usually {money(r.typical * pax)}", colour)
+              for r in rows.itertuples()])
+        st.pills("See dates for", list(rows.dest), format_func=tp.city, key="xp-see", on_change=see)
         st.caption(f"The cheapest trip to each place {p.name}, {'for ' + who + ', ' if pax > 1 else ''}one way where only that way is saved; "
                    "usually is the middle price of the same kind of trip. AEGEAN nonstop, from Google Flights.")
     every_route()
@@ -210,7 +197,7 @@ if best is not None and gcab == "economy" and pay == "cash" and sx.serves(orig, 
             gq_back = sx.cash_by_day(db, dest, orig, p.start, p.end + timedelta(max(stays))) if back_s is not None else None
             gq_best = deals.best_trip(gq_out, gq_back, p.start, p.end, stays, wdays)
     elif (tok := gh.token()) and not st.session_state.get(f"gh-{gqkey}"):
-        if st.button("Fetch Sky Express fares", type="tertiary", icon=":material/cloud_download:", key=f"gq-fetch-{orig}{dest}",
+        if st.button("Search Sky Express fares", type="tertiary", icon=":material/cloud_download:", key=f"gq-fetch-{orig}{dest}",
                      help=f"Sky Express's economy fares both ways for {p.name}, on GitHub's servers like AEGEAN's, to compare them here."):
             try:
                 legs = [(orig, dest, p.start, p.end), (dest, orig, p.start, p.end + timedelta(max(stays)))]
@@ -236,8 +223,8 @@ elif best is None:
         st.info(f"No {gcab} fares saved from {tp.city(orig)} to {tp.city(dest)} for {p.name} yet.")
         todo, _ = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
         if todo:
-            fa.button(f"ahead|{orig}|{dest}|{p.start}", "Search this route on GitHub" if (orig, dest) not in far else
-                      f"Fetch {p.label} fares" if when else "Fetch the next 30 days", todo, f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
+            fa.button(f"ahead|{orig}|{dest}|{p.start}", "Search this route on GitHub" if (orig, dest) not in far else f"Search {p.name} on GitHub",
+                      todo, f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 else:
     ret = best["back"] is not None
     fields = [("Leave", f"{best['depart']:%a %d %b}")] + ([("Return", f"{best['back']:%a %d %b}"), ("Stay", f"{best['nights']} nights")]
@@ -250,10 +237,10 @@ else:
     ins = pi.trip(hist, [(orig, dest)] + ([(dest, orig)] if ret else []), gcab, best["price"], today) if hist is not None else None
     if ins and ins["level"]:
         said = [f"Usually €{ins['low'] * pax:,.0f}–€{ins['high'] * pax:,.0f} {kind}.",
-                f"{money(best['price'] * pax)} is {dict(low='cheap', typical='typical', high='high')[ins['level']]}."]
+                f"{money(best['price'] * pax)} is {dict(low='cheap', typical='about average', high='high')[ins['level']]}."]
     elif ctx and ctx["typical"] > 0:
         said = ["Prices are much the same whichever day you pick." if abs(best["price"] - ctx["typical"]) <= ctx["typical"] * 0.05 else
-                f"A typical {'trip' if ret else 'one way'} costs {money(ctx['typical'] * pax)}."]
+                f"{'Trips like this' if ret else 'This flight'} usually cost{'' if ret else 's'} about {money(ctx['typical'] * pax)}."]
     if ctx and ctx["typical"] > 0 and best["price"] <= ctx["typical"] * 0.75:
         good = '<span class="good">Good price</span> '
     st.markdown(
@@ -266,14 +253,15 @@ else:
     if pax > 1:
         st.caption(f"for {pax} adults, from per-adult fares; the airline may price groups differently")
     links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
-    c = st.columns([1, 1, 1, 1])
+    c = st.columns(2)
     c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch",
                      icon=":material/airplane_ticket:")
     c[1].link_button("Check it on Google Flights", booking.google_url(orig, dest, **links), width="stretch", icon=":material/open_in_new:")
+    c = st.columns(2)
     for col, page, label, icon, params in (
-            (c[2], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
+            (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
              {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"}),
-            (c[3], "views/expert.py", "Ask the expert about it", ":material/forum:", {"from": orig, "to": dest})):
+            (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:", {"from": orig, "to": dest})):
         try:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation
@@ -341,7 +329,7 @@ if best is not None and back_s is not None and len(back_s.dropna()):
     # the way back not saved for this period (the pass fell back to a one-way): one button fetches what is missing, both directions
     todo, blank = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
     if blank and pay == "cash":
-        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Fetch {p.label} fares" if when else "Fetch the next 30 days", todo,
+        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Search the way back for {p.name} on GitHub", todo,
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 elif best is not None:
     st.caption(f"Only {orig} → {dest} is saved, so return trips can't be priced. Search {dest} → {orig} on the Flights page to add them.")
@@ -364,13 +352,13 @@ if pay == "cash" and len(out_s):
     label, config = f"{tp.city(orig)} → {tp.city(dest)}", {"displayModeBar": False}
     wd = weekday_stats(out_s)
     with st.expander("Best weekday to fly"):
-        st.markdown(f"**{e(weekday_takeaway(wd, label))}**")
+        st.markdown(f'<p class="card-title">{e(weekday_takeaway(wd, label))}</p>', unsafe_allow_html=True)
         if len(wd) >= 3:
             st.plotly_chart(weekday_chart(wd, colour), width="stretch", config=config)
         st.caption(f"Average {gcab} fare by the weekday you leave, over the {len(out_s)} days with a fare saved.")
     ah = ahead_stats(out_s, today)
     with st.expander("How far ahead to book"):
-        st.markdown(f"**{e(ahead_takeaway(ah, label))}**")
+        st.markdown(f'<p class="card-title">{e(ahead_takeaway(ah, label))}</p>', unsafe_allow_html=True)
         if len(ah) >= 2:
             st.plotly_chart(ahead_chart(ah, colour), width="stretch", config=config)
         st.caption("The middle fare by how many weeks away the flight is, from today's prices for different dates. It shows how fares differ with "

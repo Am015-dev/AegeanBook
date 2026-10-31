@@ -88,7 +88,7 @@ def test_overview_shows_the_verdict_and_how_the_fare_moved(tmp_path, monkeypatch
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
-    assert "Tracking since" not in text and "Usually €" not in text and "A typical trip costs €" in text  # too little history: no verdict, no jargon
+    assert "Tracking since" not in text and "Usually €" not in text and "usually cost about €" in text  # too little history: no verdict, no jargon
     assert moved()  # three snapshots are enough for a line
     use(write_history(tmp_path / "two.csv", 2))
     at = open_page("overview.py").run()

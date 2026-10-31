@@ -50,23 +50,24 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     at = open_page("overview.py").run()
     at.selectbox(key="ov-grid-dest-ATH").set_value("ANY").run()
     assert not at.exception
-    cards = [m.value for m in at.markdown if 'class="xp"' in m.value]
+    rows = lambda: next(m.value for m in at.markdown if 'class="fares"' in m.value).split('<div class="fare">')[1:]  # one grouped list
+    cards = rows()
     assert len(cards) == 4 and "CHQ" in cards[0] and "€46" in cards[0] and "one way" in cards[0]  # searched one way only
     assert "Thessaloniki" in cards[1] and "SKG" in cards[1] and "€84" in cards[1] and "2 nights" in cards[1] and "30 flight days" in cards[1]
     assert "usually €" in cards[1] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
     assert not [m for m in at.markdown if 'class="pass"' in m.value] and "From Athens, the next 30 days, economy" in " ".join(m.value for m in at.markdown)
     assert list(at.dataframe[-1].value.Route)[0] == "ATH → FRA"  # the route table still closes the page
     at.button_group(key="ov-nights").set_value([5]).run()
-    assert not at.exception and "5 nights" in [m.value for m in at.markdown if 'class="xp"' in m.value][1]
+    assert not at.exception and "5 nights" in rows()[1]
     at.button_group(key="ov-grid-cabin").set_value("business").run()
-    assert len([m for m in at.markdown if 'class="xp"' in m.value]) == 2  # business fares are saved to FRA and ZRH only
+    assert len(rows()) == 2  # business fares are saved to FRA and ZRH only
     at.button_group(key="ov-grid-cabin").set_value("economy").run()
-    at.button(key="xp-see-SKG").click().run()  # See dates: the same page, Thessaloniki in To
+    at.button_group(key="xp-see").set_value("SKG").run()  # See dates for Thessaloniki: the same page, Thessaloniki in To
     assert not at.exception and at.selectbox(key="ov-grid-dest-ATH").value == "SKG"
     assert "Athens → Thessaloniki → Athens" in " ".join(c.value for c in at.caption)
     at.selectbox(key="ov-grid-orig").set_value("SKG").run()
     at.selectbox(key="ov-grid-dest-SKG").set_value("ANY").run()
-    assert not at.exception and "Athens" in [m.value for m in at.markdown if 'class="xp"' in m.value][0]
+    assert not at.exception and "Athens" in rows()[0]
 
 
 def test_overview_opens_the_route_from_the_query_params(tmp_path, monkeypatch):

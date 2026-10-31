@@ -18,7 +18,7 @@ Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one 
   chart and a one-line takeaway for that route and cabin;
 - **Anywhere** lists every destination with fares saved from there, cheapest first, as cards (the dates of the trip, how many days have a
   flight, what it usually costs; a route saved one way only shows its one-way); **See dates** puts that destination in To;
-- a route or month with **nothing saved** gets one button, **Search this route on GitHub** (or **Fetch May 2027 fares**), which fetches
+- a route or month with **nothing saved** gets one button, **Search this route on GitHub** (or **Search May 2027 on GitHub**), which fetches
   both directions on GitHub's servers and shows the answer when it lands, usually in 1–3 minutes; a route AEGEAN does not fly says so and
   names the airports it does fly in that city. Without the GitHub token, a line points to the Flights page instead.
 
@@ -115,7 +115,7 @@ Sky Express** toggle (its state is kept per route). On the Overview it adds **Ch
 the same days and nights picked, the cheaper one marked, a line saying how much cheaper, plus a day-by-day table of both fares and the
 difference under the grid; on the Flights page Sky Express's
 economy fare is a dashed line on the price charts, and **Update prices** fetches it for the same days (its own run on GitHub, or in the app
-without a token). With no Sky Express fares saved yet, the Overview shows **Fetch Sky Express fares** in the toggle's place (GitHub token
+without a token). With no Sky Express fares saved yet, the Overview shows **Search Sky Express fares** in the toggle's place (GitHub token
 needed, as for AEGEAN's fetches; without one, nothing). The fares are fetched by `fetch_route.py` with `AIRLINE=GQ` (the workflow's `airline` input), nonstop, economy only, into
 `data/skyexpress.csv`, which the app loads into its own table (`gq_prices`) beside AEGEAN's, so nothing about the AEGEAN data changes; a
 Sky Express route searched from the app is tracked in `data/tracked_routes.csv` (column `airline`) and refreshed by the daily run like the
@@ -141,15 +141,16 @@ edit `LEGS` in `collect_daily.py`.
 **Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, When, Nights and Cabin in the bar it
 lists every destination with fares saved, cheapest first (the price, the dates of that trip, how many days have a flight, and what it
 usually costs). **See dates** opens the date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the
-daily run tracks; a month nobody has fetched offers **Fetch May 2027 for all routes from Athens**.
+daily run tracks; a month nobody has fetched offers **Search all routes from Athens on GitHub**. The list is one grouped list, the price
+trailing, with a **See dates for** pill row under it.
 
 ## Price insights (Overview)
 
 Like Google Flights, the Overview says whether the boarding pass's fare is cheap, typical or high for that route, from our own history:
 `data/history_prices.csv` keeps every fare change the daily run and the Flights page have seen since 29 Oct 2026. The pass says "Usually
 €180–€240 return. €140 is cheap.": the range is the 25th to 75th percentile of every one-way fare seen on the route, on any departure day, in
-any snapshot of the last 60 days (the two legs added up for a return). Until a route has seven days of prices the pass says instead what a
-typical trip costs among the dates saved, and **How this fare moved** under the date grid charts the pass's own days across the snapshots
+any snapshot of the last 60 days (the two legs added up for a return). Until a route has seven days of prices the pass says instead what
+trips like it usually cost among the dates saved, and **How this fare moved** under the date grid charts the pass's own days across the snapshots
 (`price_insights.py`, tests in `test_price_insights.py`). **Best weekday to fly** and **How far ahead to book** (the former Insights page,
 `insights.py`) are expanders under the grid for the route and cabin picked.
 
@@ -206,9 +207,9 @@ the next 90 days in both cabins, at most 20 routes) for 60 days after it was las
 
 **Planning months ahead.** The Overview's *When* and the Expert's *When* list every month up to about 11 months
 ahead (`trip_plan.months`), not only the months with fares saved; a month nobody has fetched is marked "not fetched yet". Choose one and
-the Overview and the Expert offer one button, **Fetch May 2027 fares**, which fetches both directions for that month on GitHub's servers
-(only the days still missing, like Update prices on Flights) and reloads the page with the fares; with To set to Anywhere the button fetches
-the month for every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
+the Overview offers **Search May 2027 on GitHub** and the Expert **Fetch May 2027 fares**, which fetch both directions for that month on
+GitHub's servers (only the days still missing, like Update prices on Flights) and reload the page with the fares; with To set to Anywhere
+the Overview's button fetches the month for every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
 Flights page. A month fetched this way is tracked with its dates (`from,to` in `data/tracked_routes.csv`, the union of every range asked
 for, at most today + 330 days), and the daily refresh fetches each tracked route up to that day instead of stopping at 90 days; the
 daily routes (ATH–FRA, ATH–ZRH) get only the part beyond the daily run's own 90 days. *Actions minutes:* a one-way leg costs about

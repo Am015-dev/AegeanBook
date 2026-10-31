@@ -312,10 +312,10 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     assert not at.exception and f"No economy fares saved from Athens to Frankfurt am Main for {p.label} yet" in at.info[0].value
     assert not [m for m in at.markdown if 'class="pass"' in m.value]  # no answer to give for that month
     key = f"ahead|ATH|FRA|{p.start}"
-    assert at.button(key=f"fetch-{key}").label == f"Fetch {p.label} fares"
+    assert at.button(key=f"fetch-{key}").label == f"Search {p.label} on GitHub"
     at.button(key=f"fetch-{key}").click().run()
     assert not at.exception and started == [([("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(2), p.end + timedelta(7))], True)]
-    assert "Searching on GitHub" in " ".join(x.value for x in at.info) and not [b for b in at.button if b.label.startswith("Fetch")]
+    assert "Searching on GitHub" in " ".join(x.value for x in at.info) and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     # GitHub finished: the fares are in the database, the grid shows them and the button is gone
     now = datetime.now().isoformat()
     for o, d in (("ATH", "FRA"), ("FRA", "ATH")):
@@ -333,7 +333,7 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     at = open_page("overview.py").run()
     at.selectbox(key="ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich has nothing that far either
     at.selectbox(key="ov-when").set_value(i).run()
-    assert not at.exception and not [b for b in at.button if b.label.startswith("Fetch")]
+    assert not at.exception and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     assert f"{p.label} from Athens to Zurich is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
 
 
@@ -364,7 +364,7 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     at.selectbox(key="ov-grid-dest-ATH").set_value("ANY").run()
     at.selectbox(key="ov-when").set_value(i).run()
     assert not at.exception and f"No economy fares saved from Athens for {p.label}" in at.info[0].value
-    assert at.button(key=f"fetch-ahead|ATH|all|{p.start}").label == f"Fetch {p.label} for all routes from Athens"
+    assert at.button(key=f"fetch-ahead|ATH|all|{p.start}").label == "Search all routes from Athens on GitHub"
     at.button(key=f"fetch-ahead|ATH|all|{p.start}").click().run()  # one request: every route from Athens, both ways
     assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("ATH", "ZRH", p.start, p.end),
                                              ("FRA", "ATH", p.start, p.end), ("ZRH", "ATH", p.start, p.end)]]
@@ -379,8 +379,8 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     at.session_state["ov-grid-dest-ATH"], at.session_state["ov-when"] = "ANY", i
     at.run()
     assert not at.exception and at.selectbox(key="ov-when").options[i] == p.label
-    cards = [m.value for m in at.markdown if 'class="xp"' in m.value]
-    assert len(cards) == 1 and "Frankfurt" in cards[0] and "€176" in cards[0] and not [b for b in at.button if b.label.startswith("Fetch")]
+    cards = next(m.value for m in at.markdown if 'class="fares"' in m.value).split('<div class="fare">')[1:]
+    assert len(cards) == 1 and "Frankfurt" in cards[0] and "€176" in cards[0] and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
     at = open_page("expert.py")

@@ -371,8 +371,8 @@ def test_overview_pass_says_whether_the_price_is_good_and_honours_the_filters(tm
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     # two plain sentences, no analyst words: the badge, a space, then what a trip usually costs (€210 against ~€360 return trips)
-    assert re.search(r'<span class="good">Good price</span> A typical trip costs €3\d\d\.</span>', text)
-    assert "Tracking since" not in text and "lowest of" not in text and "typical trip costs" in text
+    assert re.search(r'<span class="good">Good price</span> Trips like this usually cost about €3\d\d\.</span>', text)
+    assert "Tracking since" not in text and "lowest of" not in text and "typical" not in text.split("<style>")[0]
     assert "Cheapest return · Athens → Frankfurt am Main" in text and "one adult, leaving in the next 30 days" in text
     assert "Pick a route, or Anywhere, to start" in at.caption[0].value  # until something is picked
     cheap_day = f"{date.today() + timedelta(10):%a}"  # the €60 outbound
