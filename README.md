@@ -62,7 +62,35 @@ Xotelo) one real question and shows which failed and why. Every update also ends
 (priced / no flight / failed) and the Table tab shows, per day, whether a price is missing because there is no flight or
 because it was never checked.
 
-Offline tests: `pytest` (`test_core.py`). Each module also has `python <module>.py` self-checks.
+Offline tests: `pytest` (see **Checks** below). Each module also has `python <module>.py` self-checks.
+
+## Checks
+
+Nothing broken should reach main, or Streamlit Cloud: three layers of checks, all free.
+
+**Unit tests**, `python -m pytest -q` (needs `pip install -r requirements.txt pytest`). About a minute, no network, no browser: every
+module's logic, each page run with Streamlit's `AppTest` on small data of its own (`conftest.py` keeps the committed `data/*.csv` and
+GitHub out of them), the guard that each page's `importlib.reload` check matches its module's `VERSION` (Streamlit Cloud keeps old modules
+across redeploys), and `test_pages.py`, which runs every page under `views/` against the committed data in `data/`, so a page that only
+breaks on the real files is caught too. `test_award_collector.py` and the smoke test skip themselves when Playwright is not installed.
+
+**Browser smoke test**, `smoke_test.py` (marked `smoke`): the app as a visitor sees it. It starts `streamlit run app.py` on a free port with
+the committed data, opens Overview, Expert, Flights, Hotels, Alerts and Database in Chromium at 1366×900 and 390×844 and fails on a
+Streamlit exception on the page, anything wider than the screen, text under 12px, an uppercase letter-spaced label or an error in the
+browser console; on the Overview it also toggles One way, asks for a month nobody has fetched (the **Search … on GitHub** button must
+offer it) and opens Anywhere (a list of destinations). To run it:
+
+    pip install -r requirements.txt pytest playwright
+    playwright install --with-deps chromium      # once; or point PLAYWRIGHT_CHROMIUM_EXECUTABLE at a Chromium you have
+    python -m pytest -q -m smoke smoke_test.py   # about a minute
+
+It runs in the plain `pytest` too when Playwright and a Chromium are there, and is skipped otherwise. The app under test gets a GitHub
+token that is not one, so the pages offer the fetch buttons the deployed app has; nothing is pressed and nothing reaches GitHub.
+
+**CI**, `.github/workflows/ci.yml`, on every pull request and every push to main: two jobs on Python 3.12 with the pip cache, `test`
+(`pip install -r requirements.txt pytest`, then `python -m pytest -q`, like the deployed app: no browser) and `smoke` (adds Playwright
+and Chromium, then the smoke test), each a few minutes. A new push cancels the run of the one before. The daily, fetch and hotel
+workflows are the data runs and are not part of this.
 
 ## Run it on your own computer (recommended)
 
