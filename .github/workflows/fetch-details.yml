@@ -1,0 +1,48 @@
+name: Fetch flight details
+run-name: fetch ${{ inputs.request }}  # the app finds its run by this name
+on:
+  workflow_dispatch:
+    inputs:
+      legs:
+        description: "orig,dest,day;... e.g. ATH,IST,2026-12-08;IST,ATH,2026-12-14"
+        required: true
+      cabin:
+        description: "economy or business"
+        default: "economy"
+      request:
+        description: "An id the app uses to find this run"
+        required: true
+permissions:
+  contents: write
+jobs:
+  fetch:  # one job: a details lookup is 2-4 searches
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flights==0.9.0
+      - run: python fetch_details.py "$RUNNER_TEMP/new_rows.csv"
+        env:  # passed as variables, never pasted into the script, so the inputs cannot run commands
+          LEGS: ${{ inputs.legs }}
+          CABIN: ${{ inputs.cabin }}
+      - name: Commit results
+        env:
+          REQUEST: ${{ inputs.request }}
+        run: |
+          git config user.name "fetch-details"
+          git config user.email "actions@users.noreply.github.com"
+          # Other fetches and the daily run save too: take the newest main every time, merge this job's rows into it and push; never
+          # rebase a whole rewritten file (see fetch-route.yml).
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python fetch_details.py --merge "$RUNNER_TEMP/new_rows.csv"
+            git add data/flight_details.csv
+            git diff --cached --quiet && exit 0
+            git commit -q -m "Fetched $REQUEST"
+            git push -q origin HEAD:main && exit 0
+            sleep $((i * 4))
+          done
+          exit 1
