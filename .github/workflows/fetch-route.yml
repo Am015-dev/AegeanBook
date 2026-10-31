@@ -14,20 +14,33 @@ on:
         required: true
 permissions:
   contents: write
-concurrency: fetch-route  # one at a time, so two fetches never push over each other
 jobs:
+  plan:  # one job per leg below: each runs on its own GitHub server, so each has its own share of Google's rate limit
+    runs-on: ubuntu-latest
+    outputs:
+      legs: ${{ steps.split.outputs.legs }}
+    steps:
+      - id: split
+        env:
+          LEGS: ${{ inputs.legs }}
+        run: python3 -c 'import json, os; print("legs=" + json.dumps([l for l in os.environ["LEGS"].split(";") if l]))' >> "$GITHUB_OUTPUT"
   fetch:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJSON(needs.plan.outputs.legs) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install flights==0.9.0
-      - run: python fetch_route.py "$LEGS" "$NONSTOP"
+      - run: python fetch_route.py "$LEG" "$NONSTOP" "$RUNNER_TEMP/new_rows.csv"
         env:  # passed as variables, never pasted into the script, so the inputs cannot run commands
-          LEGS: ${{ inputs.legs }}
+          LEG: ${{ matrix.leg }}
           NONSTOP: ${{ inputs.nonstop }}
       - name: Commit results
         env:
@@ -35,8 +48,15 @@ jobs:
         run: |
           git config user.name "fetch-route"
           git config user.email "actions@users.noreply.github.com"
-          git add data/routes.csv
-          git diff --cached --quiet && exit 0
-          git commit -m "Fetched $REQUEST"
-          for i in 1 2 3 4; do git pull --rebase origin ${{ github.ref_name }} && git push && exit 0; sleep $((i * 5)); done
+          # The other legs' jobs, other fetches and the daily run save too: take the newest main every time, merge this job's rows into
+          # it and push; never rebase a whole rewritten file (that conflicted and lost a fetch on 31 Oct).
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python fetch_route.py --merge "$RUNNER_TEMP/new_rows.csv"
+            git add data/routes.csv
+            git diff --cached --quiet && exit 0
+            git commit -q -m "Fetched $REQUEST"
+            git push -q origin HEAD:main && exit 0
+            sleep $((i * 4))
+          done
           exit 1

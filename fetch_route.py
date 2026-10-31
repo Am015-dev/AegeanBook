@@ -2,7 +2,8 @@
 pressed). Google rate-limits Streamlit Cloud's shared server, so the app asks GitHub to do the searching. Writes data/routes.csv
 (the same columns as data/daily.csv), which the app reads from GitHub.
 
-    python fetch_route.py "ATH,BIO,2026-11-01,2026-11-30;BIO,ATH,2026-11-03,2026-12-07" 1
+    python fetch_route.py "ATH,BIO,2026-11-01,2026-11-30;BIO,ATH,2026-11-03,2026-12-07" 1 [new_rows.csv]
+    python fetch_route.py --merge new_rows.csv   # add those rows to the current data/routes.csv (the workflow's save step)
 """
 import csv
 import sys
@@ -46,7 +47,20 @@ def save(rows, path=None):
         w.writerows(sorted(newest.values(), key=lambda r: (r["orig"], r["dest"], r["day"], r["cabin"])))
 
 
-def main(legs, nonstop, passes=3, pause=90):
+def read(path):
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def write_new(rows, path):
+    """This fetch's rows on their own, so the save step can merge them into whatever data/routes.csv is newest when it saves."""
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, FIELDS)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def main(legs, nonstop, passes=3, pause=90, new=None):
     """Fetch every leg; days that failed (usually a Google rate limit) are retried after a pause, like the daily run does."""
     now = datetime.now().isoformat(timespec="seconds")
     rows, failed = [], 0
@@ -66,9 +80,14 @@ def main(legs, nonstop, passes=3, pause=90):
                 break
             time.sleep(pause)  # lets a Google rate limit cool down
     save(rows)
+    if new:
+        write_new(rows, new)
     print(f"{len(rows)} saved, {failed} failed")
     return 0 if rows or not failed else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], sys.argv[2] not in ("0", "false", "False")))
+    if sys.argv[1] == "--merge":
+        save(read(sys.argv[2]))
+    else:
+        sys.exit(main(sys.argv[1], sys.argv[2] not in ("0", "false", "False"), new=sys.argv[3] if len(sys.argv) > 3 else None))

@@ -149,10 +149,12 @@ def github_fetch(key):
         return
     if r and r["status"] == "completed":
         del st.session_state[f"gh-{key}"]
+        gh.forget("data/routes.csv")  # each direction saves on its own: what was found is there even if one direction failed
         if r["conclusion"] == "success":
-            gh.forget("data/routes.csv")
             st.rerun()
-        st.error(f"The search on GitHub did not finish ({r['conclusion']}). Its log: {r['url']}")
+        st.session_state[f"gh-note-{key}"] = (f"Part of the search on GitHub did not finish ({r['conclusion']}): what was found is saved, "
+                                              f"press Update prices to fetch the rest. Its log: {r['url']}")
+        st.rerun()
     elif waited > 1500:
         del st.session_state[f"gh-{key}"]
         st.error("The search on GitHub is taking too long. Press Update prices to try again." + (f" Its log: {r['url']}" if r else ""))
@@ -162,6 +164,8 @@ def github_fetch(key):
 
 
 github_fetch(key)
+if note := st.session_state.pop(f"gh-note-{key}", None):
+    st.warning(note, icon=":material/warning:")
 
 scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
     "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",
