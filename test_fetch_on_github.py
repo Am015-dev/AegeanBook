@@ -10,6 +10,7 @@ import collector
 import db
 import fetch_route
 import gh
+import trip_plan as tp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -298,6 +299,7 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     t = seed(tmp_path / "tracker.db")  # the daily legs, 30 days
     today = date.today()
     p, i = far_month(today)
+    p = tp.period(p.start, p.end, today, today)  # picked as two dates in "Leaving between": labelled "1–30 Jun"
     started, state = [], {"run": None}
     monkeypatch.setattr(gh, "token", lambda: "tok")
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append((legs, nonstop)) or "abcd1234")
@@ -305,10 +307,9 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = open_page("overview.py").run()
     assert not at.exception
-    when = at.selectbox(key="ov-when")
-    assert when.options[1] == f"{today + timedelta(1):%B %Y}" and when.options[i] == f"{p.label} · not fetched yet"  # every month, marked
+    assert at.date_input(key="ov-when").value == (today + timedelta(1), today + timedelta(30))  # the next 30 days by default
     assert not [b for b in at.button if b.key.startswith("fetch-ahead")]  # the next 30 days are saved: nothing to fetch
-    when.set_value(i).run()
+    at.date_input(key="ov-when").set_value((p.start, p.end)).run()  # a month nobody has fetched yet
     assert not at.exception and f"No economy fares saved from Athens to Frankfurt for {p.label} yet" in at.info[0].value
     assert not [m for m in at.markdown if 'class="pass"' in m.value]  # no answer to give for that month
     key = f"ahead|ATH|FRA|{p.start}"
@@ -326,15 +327,14 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     at.run()
     assert not at.exception and "Searching on GitHub" not in " ".join(x.value for x in at.info)
     assert len(at.dataframe[0].value) >= 28 and not [b for b in at.button if b.key.startswith("fetch-ahead")]
-    assert at.selectbox(key="ov-when").options[i] == p.label  # fetched now
     assert "€198" in " ".join(m.value for m in at.markdown if 'class="pass"' in m.value)  # and the pass answers for that month
     # without a token nothing can be fetched from here: say so, and where to search
     monkeypatch.setattr(gh, "token", lambda: None)
     at = open_page("overview.py").run()
     at.selectbox(key="ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich has nothing that far either
-    at.selectbox(key="ov-when").set_value(i).run()
+    at.date_input(key="ov-when").set_value((p.start, p.end)).run()
     assert not at.exception and not [b for b in at.button if b.key.startswith("fetch-ahead")]
-    assert f"{p.label} from Athens to Zurich is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
+    assert f"{p.name.capitalize()} from Athens to Zurich is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
 
 
 def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, monkeypatch):
@@ -344,6 +344,7 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     t = seed(tmp_path / "tracker.db")
     today = date.today()
     p, i = far_month(today)
+    p = tp.period(p.start, p.end, today, today)  # picked as two dates in "Leaving between"
     started = []
     monkeypatch.setattr(gh, "token", lambda: "tok")
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
@@ -352,9 +353,9 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- ok", None))
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: pytest.fail("nothing to plan with"))
     at = open_page("expert.py").run()
-    assert not at.exception and at.selectbox(key="plan-when").options[i] == f"{p.label} · not fetched yet"
-    assert not [b for b in at.button if b.label.startswith("Fetch")]  # the window on screen is saved: nothing to fetch
-    at.selectbox(key="plan-when").set_value(i).run()
+    assert not at.exception and at.date_input(key="plan-when").value == (today + timedelta(1), today + timedelta(30))
+    assert not [b for b in at.button if b.label.startswith("Search")]  # the window on screen is saved: nothing to fetch
+    at.date_input(key="plan-when").set_value((p.start, p.end)).run()
     assert not at.exception
     at.button(key=f"fetch-ahead|ATH|FRA|{p.start}").click().run()  # 2 to 7 nights by default, as on the Overview: the way back 2 to 7 days later
     assert not at.exception and started == [[("ATH", "FRA", p.start, p.end), ("FRA", "ATH", p.start + timedelta(2), p.end + timedelta(7))]]
@@ -362,7 +363,7 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     started.clear()
     at = open_page("overview.py").run()  # Anywhere: one button fetches the month for every route from here
     at.selectbox(key="ov-grid-dest-ATH").set_value("ANY").run()
-    at.selectbox(key="ov-when").set_value(i).run()
+    at.date_input(key="ov-when").set_value((p.start, p.end)).run()
     assert not at.exception and f"No economy fares saved from Athens for {p.label}" in at.info[0].value
     assert at.button(key=f"fetch-ahead|ATH|all|{p.start}").label == "Search all routes from Athens on GitHub"
     at.button(key=f"fetch-ahead|ATH|all|{p.start}").click().run()  # one request: every route from Athens, both ways
@@ -376,17 +377,17 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
             t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((p.start + timedelta(j)).isoformat(), o, d, "economy", 88.0, "calendar", now, 1))
     t.commit()
     at = open_page("overview.py")
-    at.session_state["ov-grid-dest-ATH"], at.session_state["ov-when"] = "ANY", i
+    at.session_state["ov-grid-dest-ATH"], at.session_state["ov-when"] = "ANY", (p.start, p.end)
     at.run()
-    assert not at.exception and at.selectbox(key="ov-when").options[i] == p.label
+    assert not at.exception
     cards = next(m.value for m in at.markdown if 'class="fares"' in m.value).split('<div class="fare">')[1:]
     assert len(cards) == 1 and "Frankfurt" in cards[0] and "€176" in cards[0] and not [b for b in at.button if b.key.startswith("fetch-ahead")]
     seen = []
     monkeypatch.setattr(ex, "chat", lambda history, facts, cfg: (seen.append((history, facts)), iter(["Answer"]))[1])
     at = open_page("expert.py")
-    at.session_state["plan-when"] = i
+    at.session_state["plan-when"] = (p.start, p.end)
     at.run()
-    assert not at.exception and not [b for b in at.button if b.label.startswith("Fetch")]
+    assert not at.exception and not [b for b in at.button if b.label.startswith("Search")]
     at.chat_input[0].set_value("Why then?").run()  # the chat reads that month's facts: the recommended trip is €88 out and €88 back
     assert not at.exception and seen[-1][0][-1]["content"] == "Why then?"
     assert f"departures {p.start:%a %d %b %Y}" in seen[-1][1] and "Recommended trip (the one the Overview's boarding pass shows): leave" in seen[-1][1]
