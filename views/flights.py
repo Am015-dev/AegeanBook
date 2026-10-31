@@ -1,11 +1,13 @@
 import os
 import subprocess
 import sys
+import time
 from datetime import date, datetime, timedelta
 
 import pandas as pd
 import streamlit as st
 
+import gh
 from collector import fetch_range
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options
@@ -114,13 +116,50 @@ if fetch:
                     tdb.commit()
                 record(j, status, err)
 
-    if total > 0:
+    tok = gh.token()
+    if total > 0 and tok:  # Google rate-limits Streamlit Cloud's shared server: let GitHub's servers do the searching
+        try:
+            st.session_state[f"gh-{key}"] = (gh.fetch(tok, legs, nonstop), time.time())
+        except gh.GitHubError as err:
+            st.warning(f"{err} Searching from this server instead.", icon=":material/warning:")
+            tok = None
+    if total > 0 and not tok:
         start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
                   "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved (Options) if you "
                   "expect more.", "with no flight", f"{orig}–{dest} {start:%d %b}–{end:%d %b}" + (" return" if nights else ""))
     else:
         st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
+
+
+@st.fragment(run_every=8)
+def github_fetch(key):
+    """While GitHub fetches this search: say so, and reload the page when the results are in."""
+    pending = st.session_state.get(f"gh-{key}")
+    if not pending:
+        return
+    request, since = pending
+    waited = int(time.time() - since)
+    try:
+        r = gh.run(gh.token(), request)
+    except gh.GitHubError as err:
+        st.error(str(err))
+        return
+    if r and r["status"] == "completed":
+        del st.session_state[f"gh-{key}"]
+        if r["conclusion"] == "success":
+            gh.forget("data/routes.csv")
+            st.rerun()
+        st.error(f"The search on GitHub did not finish ({r['conclusion']}). Its log: {r['url']}")
+    elif waited > 1500:
+        del st.session_state[f"gh-{key}"]
+        st.error("The search on GitHub is taking too long. Press Update prices to try again." + (f" Its log: {r['url']}" if r else ""))
+    else:
+        st.info(f"Searching on GitHub's servers (Google limits this app's own server): {waited // 60}:{waited % 60:02d} so far, "
+                "usually 1–3 minutes. The prices appear here when it is done.", icon=":material/cloud_sync:")
+
+
+github_fetch(key)
 
 scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
     "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",

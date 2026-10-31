@@ -1,0 +1,42 @@
+name: Fetch route
+run-name: fetch ${{ inputs.request }}  # the app finds its run by this name
+on:
+  workflow_dispatch:
+    inputs:
+      legs:
+        description: "orig,dest,start,end;... e.g. ATH,BIO,2026-11-01,2026-11-30;BIO,ATH,2026-11-03,2026-12-07"
+        required: true
+      nonstop:
+        description: "1 for nonstop flights only"
+        default: "1"
+      request:
+        description: "An id the app uses to find this run"
+        required: true
+permissions:
+  contents: write
+concurrency: fetch-route  # one at a time, so two fetches never push over each other
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flights==0.9.0
+      - run: python fetch_route.py "$LEGS" "$NONSTOP"
+        env:  # passed as variables, never pasted into the script, so the inputs cannot run commands
+          LEGS: ${{ inputs.legs }}
+          NONSTOP: ${{ inputs.nonstop }}
+      - name: Commit results
+        env:
+          REQUEST: ${{ inputs.request }}
+        run: |
+          git config user.name "fetch-route"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/routes.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "Fetched $REQUEST"
+          for i in 1 2 3 4; do git pull --rebase origin ${{ github.ref_name }} && git push && exit 0; sleep $((i * 5)); done
+          exit 1
