@@ -9,7 +9,7 @@ Compares Economy cash, Business cash (Google Flights date grid via `fli` (packag
 ## The pages
 
 **Overview** is the one place to find a trip. One search bar: From, To (every airport with fares saved first, then every other AEGEAN
-destination, and **Anywhere** at the top), When (the next 30 days, or any month up to about 11 months ahead), Nights (2 to 7, pick any),
+destination, and **Anywhere** at the top), Leaving between (two dates: a weekend, mid-December, the whole summer; the next 30 days by default, up to 11 months ahead), Trip (return or one way), Nights (any stay from 1 to 60),
 Cabin, Pay with (cash or Miles+Bonus award miles) and Passengers. Under it, one answer:
 
 - a **route** gives a boarding pass with the cheapest trip leaving in that period and two plain sentences on what the price means
@@ -143,7 +143,7 @@ Daily fares → Run workflow. To change the routes, edit `LEGS` in `collect_dail
 
 ## Anywhere: where can I fly cheaply?
 
-**Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, When, Nights and Cabin in the bar it
+**Anywhere** in the Overview's To box is Google Flights' Explore for AEGEAN (`explore.py`): for the From, Leaving between, Nights and Cabin in the bar it
 lists every destination with fares saved, cheapest first (the price, the dates of that trip, how many days have a flight, and what it
 usually costs). **See dates** opens the date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the
 daily run tracks; a month nobody has fetched offers **Search all routes from Athens on GitHub**. The list is one grouped list, the price
@@ -161,7 +161,7 @@ trips like it usually cost among the dates saved, and **How this fare moved** un
 
 ## The expert (Expert page)
 
-The Expert page reads the same answer as the Overview's boarding pass and explains it. Its controls are the Overview's (From, To, When,
+The Expert page reads the same answer as the Overview's boarding pass and explains it. Its controls are the Overview's (From, To, Leaving between,
 Cabin, Pay with, Nights, Days I can leave, plus a Hotel searched in that city), with the same defaults, and **Ask the expert about it** on the
 Overview opens it on exactly the pass shown (`?from=&to=&cabin=&pay=&nights=`). The numbers come from the very functions the pass uses, with the
 same filters (`expert_chat.facts`: `deals.best_trip` for the recommended trip, `deals.trip_context` for the typical and lowest price,
@@ -223,9 +223,9 @@ the next 90 days in both cabins, at most 20 routes) for 60 days after it was las
 into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
 keeps a row when a price changes, so the refresh seeing the same fare adds nothing.
 
-**Planning months ahead.** The Overview's *When* and the Expert's *When* list every month up to about 11 months
-ahead (`trip_plan.months`), not only the months with fares saved; a month nobody has fetched is marked "not fetched yet". Choose one and
-the Overview offers **Search May 2027 on GitHub** and the Expert **Fetch May 2027 fares**, which fetch both directions for that month on
+**Planning months ahead.** The Overview's and the Expert's *Leaving between* accept any two dates up to about 11 months
+ahead (`trip_plan.period`), not only the days with fares saved. Pick days nobody has fetched and
+the Overview and the Expert offer **Search 12–18 Dec on GitHub**, which fetches both directions for those days on
 GitHub's servers (only the days still missing, like Update prices on Flights) and reload the page with the fares; with To set to Anywhere
 the Overview's button fetches the month for every route from the chosen airport in one request. Without the GitHub token the pages say the month is not fetched yet and point to the
 Flights page. A month fetched this way is tracked with its dates (`from,to` in `data/tracked_routes.csv`, the union of every range asked

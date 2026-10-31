@@ -28,7 +28,7 @@ from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aege
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 5:
+if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 5:
     deals = importlib.reload(deals)
@@ -123,9 +123,12 @@ dest = c[1].selectbox("To", options, format_func=names.get, key=dkey, on_change=
                       help="Anywhere lists every destination with fares saved, cheapest first. An airport with no fares yet can be searched "
                            "from here. Only AEGEAN's destinations are listed.")
 farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.values() if len(s))  # the last day with fares, any route
-periods = tp.months(today, farday)  # the next 30 days, then every month up to the horizon: a month with no fares yet can be fetched below
-when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="ov-when", on_change=touched)
-p = periods[when]
+when = c[2].date_input("Leaving between", (today + timedelta(1), today + timedelta(30)), min_value=today + timedelta(1),
+                       max_value=today + timedelta(tp.HORIZON), key="ov-when", on_change=touched, format="DD/MM/YYYY",
+                       help="The days you could leave on: a weekend, mid-December, the whole summer. Dates with no fares saved yet can be "
+                            "searched below.")
+when = tuple(when) if isinstance(when, (tuple, list)) else (when,)
+p = tp.period(when[0], when[-1], farday, today)  # one date while the second is being picked: that single day
 c = st.columns([1.2, 1.35, 1.3, 1.05, 0.7])
 trip = c[0].pills("Trip", ["return", "oneway"], default="return", format_func={"return": "Return", "oneway": "One way"}.get, required=True,
                   key="ov-trip", on_change=touched)
@@ -265,7 +268,7 @@ else:
             (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:",
              {"route": f"{orig}-{dest}", "cabin": gcab, "unit": "eur" if pay == "cash" else "miles"}),
             (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
-             {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": p.name})):
+             {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": f"{p.start},{p.end}"})):
         try:
             col.page_link(page, label=label, icon=icon, query_params=params)
         except Exception:  # the page runs on its own (tests), outside the app's navigation

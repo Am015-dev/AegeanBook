@@ -15,7 +15,7 @@ from award_view import load_award
 from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 
-VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 6  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 HOME = "ATH"
 HORIZON = 330  # days ahead a month can be planned and fetched: Google's calendar reaches about 11 months (views/flights.py uses the same)
 PAY = {"cash": "Cash", "miles": "Miles", "both": "Cash or miles"}
@@ -83,6 +83,21 @@ class Period(NamedTuple):
     def name(self):
         """The period in a sentence: "May 2027", or "the next 30 days"."""
         return "the next 30 days" if self.label == "Next 30 days" else self.label
+
+
+def period(start, end, last, today=None):
+    """The Period for any two departure days the traveller picks ("Leaving between"): labelled "12–18 Dec" (or "28 Nov–2 Dec", or
+    "Next 30 days" when it is exactly that), fetched when fares are saved that far."""
+    today = today or date.today()
+    if (start, end) == (today + timedelta(1), today + timedelta(30)):
+        label = "Next 30 days"
+    elif start == end:
+        label = f"{start:%a %-d %b}"
+    elif (start.year, start.month) == (end.year, end.month):
+        label = f"{start:%-d}–{end:%-d %b}"
+    else:
+        label = f"{start:%-d %b}–{end:%-d %b}"
+    return Period(label, start, end, start <= last)
 
 
 def months(today, last, horizon=HORIZON):

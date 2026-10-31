@@ -378,7 +378,7 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     # the defaults are the Overview's: economy, cash, 2 to 7 nights, any day, the pass's own window, the hotel searched in the city
     assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay", "plan-trip", "plan-days")] == ["economy", "cash", "return", DAYS]
     assert at.slider(key="plan-nights").value == (2, 7)  # the Overview's default stay
-    assert at.selectbox(key="plan-when").value == 0 and at.selectbox(key="plan-when").options[0] == "Next 30 days"
+    assert at.date_input(key="plan-when").value == (date.today() + timedelta(1), date.today() + timedelta(30))  # the Overview's default window
     f = briefed[-1]
     assert f["best"]["price"] == 210 and f["best"]["nights"] == 4 and f["hotel"]["name"] == "Steigenberger"  # the Overview's pass
     at.chat_input[0].set_value("Why those dates?").run()
@@ -389,13 +389,12 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     assert not at.exception and briefed[-1]["nights"] == [2, 3] and briefed[-1]["best"]["price"] > 210 and not at.chat_message
     # the Overview's "Ask the expert about it" link names the pass the traveller saw
     at = open_page("expert.py")
-    month = f"{(date.today() + timedelta(45)).replace(day=1):%B %Y}"  # a period the Overview offers, by its name
-    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3-4", "trip": "return", "when": month})
+    a, b = date.today() + timedelta(40), date.today() + timedelta(46)  # the days the pass was for, e.g. mid-December
+    at.query_params.update({"from": "ATH", "to": "ZRH", "cabin": "business", "pay": "miles", "nights": "3-4", "trip": "return", "when": f"{a},{b}"})
     at.run()
     assert not at.exception and at.selectbox(key="plan-dest-ATH").value == "ZRH"
     assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay")] == ["business", "miles"] and at.slider(key="plan-nights").value == (3, 4)
-    assert at.selectbox(key="plan-when").format_func(at.selectbox(key="plan-when").value).startswith(month)  # the same period as the pass
-    assert at.selectbox(key="plan-when").format_func(0) == "Next 30 days"  # the same list as the Overview, same first entry
+    assert at.date_input(key="plan-when").value == (a, b)  # the same days as the pass
     assert briefed[-1]["dest"] == "ZRH" and briefed[-1]["pay"] == "miles" and briefed[-1]["best"] is None  # no award seats seeded
 
 
@@ -518,13 +517,11 @@ def test_overview_bar_drives_the_pass_by_period_and_passengers(tmp_path, monkeyp
     t.commit()
     at = open_page("overview.py").run()
     assert not at.exception and "€210" in " ".join(x.value for x in at.markdown)  # the next 30 days by default
-    when = at.selectbox(key="ov-when")
-    i = next(i for i, p in enumerate(tp.months(today, nxt)) if p.label == f"{m:%B %Y}")
-    assert when.options[0] == "Next 30 days" and when.options[i] == f"{m:%B %Y}"
-    when.set_value(i).run()
+    assert at.date_input(key="ov-when").value == (today + timedelta(1), today + timedelta(30))  # the next 30 days by default
+    at.date_input(key="ov-when").set_value((m, nxt - timedelta(1))).run()  # that whole month, picked as two dates
     assert not at.exception
     text = " ".join(x.value for x in at.markdown)
-    assert "€100" in text and f"leaving in {m:%B %Y}" in text and re.search(rf"<dt>Leave</dt><dd>\w{{3}} 0\d {m:%b}", text)
+    assert "€100" in text and f"leaving in 1–{(nxt - timedelta(1)).day} {m:%b}" in text and re.search(rf"<dt>Leave</dt><dd>\w{{3}} 0\d {m:%b}", text)
     assert "Prices are much the same whichever day you pick" in text  # €100 against €100
     at.number_input(key="ov-pax").set_value(2).run()
     assert not at.exception and "€200" in " ".join(x.value for x in at.markdown) and "for 2 adults" in " ".join(c.value for c in at.caption)
