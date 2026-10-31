@@ -350,8 +350,7 @@ def test_start_date_plus_window(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
     first = _date.today() + timedelta(31)
-    at.date_input(key="fl-from").set_value(first).run()
-    at.button_group(key="fl-win").set_value("15 days").run()
+    at.date_input(key="fl-when").set_value((first, first + timedelta(14))).run()  # 15 days, as two dates
     sub = " ".join(m.value for m in at.markdown if 'class="sub"' in m.value)
     assert f"{first:%a %d %b}" in sub and f"{first + timedelta(14):%a %d %b %Y}" in sub and "15 days" in sub, sub
     assert not at.exception
@@ -383,7 +382,9 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
     monkeypatch.setattr(collector, "fetch_cabin", grid)
     at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
     at.button_group(key="fl-trip").set_value("Return").run()
-    at.button_group(key="fl-win").set_value("15 days").run()
+    at.slider(key="fl-nights").set_value((7, 7)).run()  # a week away, as the old default
+    first = _date.today() + timedelta(1)
+    at.date_input(key="fl-when").set_value((first, first + timedelta(14))).run()  # 15 days, as two dates
     next(b for b in at.button if b.label == "Update prices").click().run()   # by label: the position moves when buttons are added
     deadline = time.time() + 20
     while any(v["running"] for v in jobs.JOBS.values()) and time.time() < deadline:

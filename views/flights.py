@@ -75,9 +75,12 @@ with st.container(border=True, key="search"):
     c[1].button("", icon=":material/swap_horiz:", key="swap-airports", on_click=swap_airports, help="Swap From and To")
     dest = airport_picker(c[2], "To", "FRA", "dest")
     c = st.columns([1, 2, 1])
-    trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip")
-    nights = c[1].pills("Nights away", [2, 3, 4, 5, 7, 10, 14], selection_mode="multi", default=[7], key="fl-nights",
-                        help="Pick one or more stay lengths; every combination is compared.") if trip == "Return" else []
+    trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip",
+                      format_func={"One-way": "One way", "Return": "Return"}.get)
+    nights = []
+    if trip == "Return":  # the Overview's control: any stay from 1 to 60 nights, every length in the range is compared
+        lo, hi = c[1].slider("Nights", 1, 60, (2, 7), key="fl-nights", help="How long to stay, shortest to longest you would accept.")
+        nights = list(range(lo, hi + 1))
     pay = c[2].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                      key="fl-pay", help="Miles adds the award seats collected for this route (Miles+Bonus) beside the cash fares.")
     start, end = window_picker(st, "fl", today, HORIZON)
@@ -115,7 +118,7 @@ if rend and rend > today + timedelta(HORIZON):
              "Choose an earlier start, a shorter window or fewer nights.")
     st.stop()
 
-stay = f"return, {', '.join(map(str, sorted(nights)))} nights" if nights else "one-way"
+stay = (f"return, {min(nights)}–{max(nights)} nights" if len(nights) > 1 else f"return, {nights[0]} nights") if nights else "one way"
 route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
 # both directions, always: Bilbao -> Athens also fetches Athens -> Bilbao (the way back of a return, or the same days for a one-way)
