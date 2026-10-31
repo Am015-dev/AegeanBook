@@ -9,7 +9,8 @@ import streamlit as st
 
 import booking
 import gh
-from collector import fetch_range, gaps
+import skyexpress as sx
+from collector import Airline, fetch_range, gaps
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
 from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options
 from best_days import best_miles_days, best_miles_pairs, cheapest_days, cheapest_pairs
@@ -21,6 +22,9 @@ from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker, github_progress, github_note)
 
+if getattr(sx, "VERSION", 0) < 1:  # Streamlit Cloud keeps an older copy of a module across redeploys
+    import importlib
+    sx = importlib.reload(sx)
 db = connect()
 today = date.today()
 HORIZON = 330  # Google's calendar reaches about 11 months ahead; later days would look like "no flight"
@@ -82,6 +86,10 @@ with st.container(border=True, key="search"):
         recheck = st.checkbox("Re-check days already saved")
         st.caption(f"1 passenger, AEGEAN flights only, from Google's price calendar. A return is two one-way fares. Busy routes take seconds, quiet "
                    f"routes a few minutes. Results are kept {RETENTION_DAYS} days and reused.")
+    gq = False  # Sky Express beside AEGEAN, economy only, where both airports are in its network (the toggle's state is kept per route)
+    if sx.serves(orig, dest):
+        gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}",
+                       help="Sky Express's economy fares for the same days as a dashed line; Update prices fetches them too.")
 
 if orig == dest:
     st.error("From and To are the same airport.")
@@ -105,6 +113,9 @@ key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}|{rend}"
 if fetch:
     skips = [set() if recheck else saved_flight_days(db, o, d, nonstop, a, b) for o, d, a, b in legs]
     total = sum(2 * ((b - a).days + 1) for _, _, a, b in legs) - sum(map(len, skips))
+    # Sky Express, economy only, the same days (nonstop: its fares are kept nonstop-only): (iso day, "economy") pairs already saved
+    gq_skips = [{(s, "economy") for s in sx.saved_days(db, o, d, a, b)} if gq and nonstop and not recheck else set() for o, d, a, b in legs]
+    gq_total = sum((b - a).days + 1 for _, _, a, b in legs) - sum(map(len, gq_skips)) if gq and nonstop else 0
 
     def work(j):
         tdb = connect()
@@ -117,6 +128,15 @@ if fetch:
                                 (d.isoformat(), o, d_, cabin, price, source, datetime.now().isoformat(), int(nonstop)))
                     tdb.commit()
                 record(j, status, err)
+        for (o, d_, a, b), skip in zip(legs, gq_skips) if gq_total else []:  # then Sky Express, into its own table
+            for d, cabin, price, source, status, err in fetch_range(a, b, o, d_, cabins=("economy",), skip=skip, nonstop=True, airline=Airline.GQ):
+                if j["cancel"]:
+                    return
+                if status != "error":
+                    tdb.execute(f"INSERT INTO {sx.TABLE} VALUES(?,?,?,?,?,?,?,?)",
+                                (d.isoformat(), o, d_, cabin, price, source, datetime.now().isoformat(), 1))
+                    tdb.commit()
+                record(j, status, err)
 
     tok = gh.token()
     if total > 0 and tok:  # Google rate-limits Streamlit Cloud's shared server: let GitHub's servers do the searching
@@ -126,16 +146,26 @@ if fetch:
         except gh.GitHubError as err:
             st.warning(f"{err} Searching from this server instead.", icon=":material/warning:")
             tok = None
-    if total > 0 and not tok:
-        start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
-                  "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved (Options) if you "
-                  "expect more.", "with no flight", f"{orig}–{dest} {start:%d %b}–{end:%d %b}" + (" return" if nights else ""))
-    elif total <= 0:
+    if gq_total > 0 and tok:  # Sky Express as its own run: the workflow fetches one airline per dispatch, one job per leg
+        try:
+            missing = [(o, d, x, y) for (o, d, a, b), skip in zip(legs, gq_skips) for x, y in gaps(a, b, skip, ("economy",))]
+            st.session_state[f"gh-{key}|GQ"] = (gh.fetch(tok, missing, True, airline="GQ"), time.time())
+        except gh.GitHubError as err:
+            st.warning(f"{err} Sky Express's fares were not fetched.", icon=":material/warning:")
+    if total + gq_total > 0 and not tok:
+        start_job(key, total + gq_total, work, "{n} day and cabin combinations have no " + ("AEGEAN or Sky Express" if gq_total else "AEGEAN")
+                  + " flight. The airline may not fly this route on those days, or only in some seasons. Google occasionally misses a day: "
+                  "tick Re-check days already saved (Options) if you expect more.", "with no flight",
+                  f"{orig}–{dest} {start:%d %b}–{end:%d %b}" + (" return" if nights else ""))
+    elif total + gq_total <= 0:
         st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
 
 github_progress(key, "fetch-route.yml", "data/routes.csv")
 github_note(key)
+if gq:
+    github_progress(f"{key}|GQ", "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
+    github_note(f"{key}|GQ")
 
 scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
     "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",
@@ -157,6 +187,10 @@ out = out.join(am.rename(columns={"economy": "econ_miles", "business": "biz_mile
 for k in ("econ_miles", "biz_miles", "econ_taxes", "biz_taxes"):
     if k not in out:
         out[k] = float("nan")
+extra = None  # Sky Express economy, a dashed line on the charts when the toggle is on
+if gq:
+    out = out.join(sx.cash_by_day(db, orig, dest, start, end).rename("skyexpress"))
+    extra = {"skyexpress": (f"{sx.NAME} economy", sx.COLOUR)}
 # ponytail: collected miles stay in their own columns. Filling `miles` with them would make the 'best miles value' metric use zero
 # taxes (collected rows have none) and overstate it, so that metric stays typed-awards-only.
 out["value"] = ((out.business - out.taxes.fillna(0)) / out.miles.where(out.miles > 0) * 1000).round(1)
@@ -173,6 +207,8 @@ if nights:  # the way back, and every departure + stay combination
     for k in ("economy", "business"):
         if k not in back:
             back[k] = float("nan")
+    if gq:
+        back = back.join(sx.cash_by_day(db, dest, orig, rstart, rend).rename("skyexpress"))
     trips = round_trips(view, back, nights)
 
 
@@ -233,15 +269,21 @@ with t1:
         st.markdown(f'<p class="card-title">{orig} → {dest}, cheap days ringed</p>' if nights else
                     '<p class="card-title">Daily AEGEAN fare, cheap days ringed</p>', unsafe_allow_html=True)
         st.plotly_chart(price_chart(view, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)},
-                                    near={c: list(near[c].index) for c in near}),
+                                    near={c: list(near[c].index) for c in near}, extra=extra),
                         width="stretch", config={"displayModeBar": False})
+        if gq and "skyexpress" in view and view.skyexpress.notna().any():
+            i = view.skyexpress.idxmin()
+            st.caption(f"Dashed: Sky Express economy, cheapest €{view.skyexpress.min():,.0f} on {pd.Timestamp(i):%a %d %b}, "
+                       f"{int(view.skyexpress.notna().sum())} days with a fare.")
+        elif gq:
+            st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
     else:
         st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop flights only in Options."
                 if len(p) else "No fares yet. Pick the route and dates above, then press **Update prices**.")
     if nights and back[["economy", "business"]].notna().any().any():
         bnear = {c: list(near_cheapest(back[c], tol).index) for c in ("economy", "business")}
         st.markdown(f'<p class="card-title">{dest} → {orig} (the way back), cheap days ringed</p>', unsafe_allow_html=True)
-        st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear),
+        st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear, extra=extra),
                         width="stretch", config={"displayModeBar": False})
 with t2:
     seen_aw = am.index.size if len(am) else 0

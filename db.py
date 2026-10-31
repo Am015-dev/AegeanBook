@@ -10,6 +10,7 @@ RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", 30))  # fetched days are k
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
+CREATE TABLE IF NOT EXISTS gq_prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT, price REAL, airlines TEXT, fetched TEXT, nonstop INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
 CREATE TABLE IF NOT EXISTS award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT, taxes REAL);
 CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
@@ -67,18 +68,19 @@ DAILY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily.
 
 
 ROUTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "routes.csv")  # fetched on GitHub on request (fetch_route.py)
+SKYEXPRESS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "skyexpress.csv")  # Sky Express economy, fetch_route.py AIRLINE=GQ
 
 
-def load_daily(db, path=None, label="Daily"):
+def load_daily(db, path=None, label="Daily", table="prices"):
     """Load the prices the daily GitHub job saved (collect_daily.py), or the routes fetched on GitHub (fetch_route.py, label "Fetched"),
-    once per file version."""
+    once per file version. table: prices (AEGEAN) or gq_prices (Sky Express, the same columns, from data/skyexpress.csv)."""
     path = path or DAILY
     if not os.path.exists(path):
         return
     with open(path) as f:
         rows = list(csv.DictReader(f))
-    for fetched in {r["fetched"] for r in rows} - {r[0] for r in db.execute("SELECT DISTINCT fetched FROM prices")}:
-        db.executemany("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)",
+    for fetched in {r["fetched"] for r in rows} - {r[0] for r in db.execute(f"SELECT DISTINCT fetched FROM {table}")}:
+        db.executemany(f"INSERT INTO {table} VALUES(?,?,?,?,?,?,?,?)",
                        [(r["day"], r["orig"], r["dest"], r["cabin"], float(r["price"]) if r["price"] else None, r["source"],
                          r["fetched"], int(r["nonstop"])) for r in rows if r["fetched"] == fetched])
         got = [r for r in rows if r["fetched"] == fetched]
@@ -163,13 +165,15 @@ def connect(path="tracker.db"):
     load_daily_hotel(db)
     load_daily_award(db)
     load_daily(db, ROUTES, "Fetched")
+    load_daily(db, SKYEXPRESS, "Sky Express", "gq_prices")
     load_daily_hotel(db, HOTEL_SEARCHES)
     # the repository's newest copies, so data committed since this deploy shows without Streamlit redeploying (loading is idempotent)
     for name, load in (("daily.csv", load_daily), ("daily_hotel.csv", load_daily_hotel), ("daily_award.csv", load_daily_award),
-                       ("routes.csv", lambda d, p: load_daily(d, p, "Fetched")), ("hotel_searches.csv", load_daily_hotel)):
+                       ("routes.csv", lambda d, p: load_daily(d, p, "Fetched")), ("hotel_searches.csv", load_daily_hotel),
+                       ("skyexpress.csv", lambda d, p: load_daily(d, p, "Sky Express", "gq_prices"))):
         if path := gh.data_file(f"data/{name}"):
             load(db, path)
-    for t in ("prices", "hotel", "heat", "booking"):
+    for t in ("prices", "gq_prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
     # award miles live as long as the flight day is ahead: they come from the repo's CSV, so the 5-day fetch retention would make
     # them vanish from the deployed app whenever the owner's computer skips a few days

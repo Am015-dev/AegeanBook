@@ -125,11 +125,16 @@ def excel_bytes(df):
     return buf.getvalue()
 
 
-def price_chart(df, series, unit="€", near=None):
+def price_chart(df, series, unit="€", near=None, extra=None):
     """df indexed by ISO date string; series {column: (label, colour)}. Days in near[column] (the near-cheapest days) are
-    ringed; the cheapest of them is also labelled. Without `near`, only the cheapest point is ringed."""
+    ringed; the cheapest of them is also labelled. Without `near`, only the cheapest point is ringed. extra: more {column: (label,
+    colour)} drawn as dashed lines for comparison (another airline's fare), without rings or labels."""
     x = pd.to_datetime(df.index)
     fig = go.Figure()
+    for col, (label, colour) in (extra or {}).items():
+        if col in df and df[col].notna().any():
+            fig.add_scatter(x=x, y=df[col], name=label, mode="lines+markers", connectgaps=False, line=dict(color=colour, width=2, dash="dash"),
+                            marker=dict(size=5, color=colour), hovertemplate=f"{label}: {unit}%{{y:.0f}}<extra></extra>")
     for col, (label, colour) in series.items():
         y = df[col]
         fig.add_scatter(x=x, y=y, name=label, mode="lines+markers", connectgaps=False,
