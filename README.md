@@ -45,18 +45,23 @@ Self-check: `python collector.py`. Scraping may break whenever Google changes it
 
 The award search needs your AEGEAN login, so it only runs on your own computer (close every Chrome window using `.aegean_profile`
 first). It writes `data/daily_award.csv`; the deployed app loads that file, so pushing it is what updates the live app. On your
-own computer the Awards tab also has a **Collect award miles now** button. A day with empty miles was checked and has no award
+own computer the Flights page's **Award seats** tab (shown when Pay with is Miles) also has a **Collect award miles now** button. A day with empty miles was checked and has no award
 seats; "nonstop" rows only count nonstop AEGEAN flights, the other rows any all-AEGEAN itinerary.
 
 Send/inspect `award_recording.json` (review for personal data first) to build the automatic daily search.
 The hotel page also uses Xotelo (free, unofficial) for a cheap-day calendar and Booking.com prices (`xotelo.py`, self-check `python xotelo.py`).
 Saved prices are kept 5 days (`db.RETENTION_DAYS`) and reused; older rows are deleted on start.
-Self-checks: `python db.py`, `python collector.py`, `python hotels.py`.
+Self-checks: `python db.py`, `python collector.py`, `python hotels.py`, `python plain.py`.
 Test: `pytest` (set `CHROME_PATH` if Playwright's own Chromium isn't installed).
 
 ## Hotel page
 
-`pages/hotel.py` (auto-listed in the Streamlit sidebar): flexible check-in range → cheapest night + price chart + Excel.
+`views/hotel.py` (under More): Hotel, Hotel name contains, Nights, Adults and Check-in between, then **Update prices**. Under the title
+one sentence says when the prices were checked ("Prices checked Sat 31 Oct 10:25 for all 30 nights on Google Hotels and Booking.com"),
+and the cards say "Cheapest night €143 · Sat 14 Nov (Google Hotels) · Booking.com €160", the average and the dearest night, with the
+cheapest nights as chips and a chart where the cheapest nights are circled. The page prices the hotel only; flights plus hotel is the
+Overview's job. A hotel with nothing saved shows one sentence and the Update prices button. Options holds the TripAdvisor key,
+Booking.com on the cheap days, re-checking saved days, "Cheap means within …" and "Days of the week", each with a one-line help.
 Source is Google Hotels via `stays` (lowest rate across the sites it compares, Booking.com usually among them).
 Booking.com's own API is partner-only. Self-check: `python hotels.py`.
 
@@ -64,8 +69,8 @@ Booking.com's own API is partner-only. Self-check: `python hotels.py`.
 
 Open the app's **Health** page: it asks each data source (Google Flights calendar, Google Flights day search, Google Hotels,
 Xotelo) one real question and shows which failed and why. Every update also ends with an honest summary
-(priced / no flight / failed) and the Table tab shows, per day, whether a price is missing because there is no flight or
-because it was never checked.
+(priced / no flight / failed) and the Flights page's **Day by day** tab shows, per day, whether a price is missing because there is no
+flight or because it was never checked.
 
 Offline tests: `pytest` (see **Checks** below). Each module also has `python <module>.py` self-checks.
 
@@ -117,17 +122,23 @@ be on. Nothing is exposed to the public internet.
   so every day would be searched one by one. Refresh the list with `python data/build_aegean_airports.py` (reads Wikipedia's list of
   AEGEAN destinations and prints any airport it could not match). Names come from `data/airports.csv`, every airport with scheduled
   flights, built from [OurAirports](https://ourairports.com/data/) (public domain) by `data/build_airports.py`.
-- **Dates:** tap 15, 30, 60 or 90 days (starting tomorrow), or Custom for exact dates.
+- **Dates:** Leaving between, two dates (the next 30 days by default, up to 11 months ahead).
 - **Pay with:** Cash € (the default) shows the cash fares; Miles adds the award seats collected for the route (Miles+Bonus, economy and
-  business) beside them, as on the Overview.
-- **Options:** nonstop only, re-check saved days, and the finer filters: "Cheap means within" keeps every day within 0–30 % of the
-  cheapest price (10 % by default; a route often has several days at the same lowest fare), and "Days of the week" limits cards, chips
-  and chart to the weekdays you can travel.
+  business) beside them, as on the Overview, with one line saying where they come from ("Miles+Bonus award seats, collected on the
+  owner's computer; taxes not included"), and an **Award seats** tab with the month calendar.
+- **Options** (an expander under Update prices): "Nonstop only", "Re-check days already saved", the Sky Express toggle until its fares
+  are saved, "Cheap means within …" (every day within 0–30 % of the cheapest price counts as cheap, 10 % by default; a route often has
+  several days at the same lowest fare) and "Days of the week" (only the weekdays you can travel count), each with a one-line help.
+- **What the page says:** one sentence under the title on when the prices were checked ("Prices checked Sat 31 Oct 10:22 for all 30 days,
+  both ways"), the cards ("Cheapest economy €75 · Thu 19 Nov · one of 3 days within 10% of this price"), the chips as a sentence
+  ("Economy is cheapest on Thu 19 Nov €75 …"), then the tabs that apply: **Price chart** (the cheapest days are circled), **Award seats**
+  only when paying with miles, **Day by day**, and **Trip cost** only for a return once a hotel has one-night prices saved. A route with
+  nothing saved shows one sentence and the Update prices button, nothing else.
 
 ## Return trips and statistics
 
 - **Return:** choose Return and one or more stay lengths (Nights away). The app also fetches the way back and ranks every
-  departure + return pair by total price (two one-way fares, as Aegean prices them). See the Table tab for all pairs.
+  departure + return pair by total price (two one-way fares, as Aegean prices them). See the Day by day tab for all pairs.
 - **Statistics page:** every price update of the last 30 days (priced / nothing found / failed, time taken, first problem),
   plus what is saved now per route: days checked, how many came from Google's calendar vs. day-by-day search, and
   cheapest / median / dearest prices.

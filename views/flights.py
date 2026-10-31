@@ -19,14 +19,20 @@ from award_view import best_award, load_award, miles_table, one_way_plan, return
 from jobs import record, start_job, track
 from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass
 from trip_cost import hotel_options, night_prices, trip_costs
+from plain import checked_sentence, nearly, options_filters
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
-                price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker, github_progress, github_note)
+                price_chart, round_trips, route, schedule_note, window_picker, github_progress, github_note)
 
 if getattr(sx, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
     import importlib
     sx = importlib.reload(sx)
 db = connect()
 today = date.today()
+STYLE = """<style>
+.st-key-search [data-testid="stExpander"] { box-shadow:none; background:#F5F5F7; border-radius:10px; }
+.st-key-search [data-testid="stExpander"] summary { padding:10px 14px; }
+</style>"""
+st.markdown(STYLE, unsafe_allow_html=True)
 HORIZON = 330  # Google's calendar reaches about 11 months ahead; later days would look like "no flight"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AWARD_PROFILE = os.path.join(ROOT, ".aegean_profile")  # exists only after the one-time `python award_collector.py login`
@@ -89,21 +95,22 @@ with st.container(border=True, key="search"):
     gq_route = sx.serves(orig, dest)
     gq_saved = gq_route and db.execute(f"SELECT 1 FROM {sx.TABLE} WHERE orig=? AND dest=? AND price IS NOT NULL LIMIT 1", (orig, dest)).fetchone()
     gq_help = "Sky Express's economy fares for the same days as a dashed line; Update prices fetches them too."
-    c = st.columns(2)
-    fetch = c[0].button("Update prices", type="primary", width="stretch")
-    with c[1].popover("Options", width="stretch"):
-        nonstop = st.checkbox("Nonstop flights only", value=True)
-        recheck = st.checkbox("Re-check days already saved")
-        gq = False
-        if gq_route and not gq_saved:
-            gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
-        tol, weekdays = smart_filters(st, "fl")
-        st.caption(f"1 passenger, AEGEAN flights only, from Google's price calendar. A return is two one-way fares. Busy routes take seconds, quiet "
-                   f"routes a few minutes. Results are kept {RETENTION_DAYS} days and reused.")
+    fetch = st.button("Update prices", type="primary", width="stretch",
+                      help="Fetches the fares for every day shown, both ways, and saves them. Days already saved are skipped.")
+    gq = False
     if gq_saved:
         gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
     elif gq_route:
         st.caption("Sky Express fares can be fetched too: Options → Compare with Sky Express")
+    with st.expander("Options"):
+        c = st.columns(2)
+        nonstop = c[0].checkbox("Nonstop only", value=True, help="Direct flights only. Turn it off to include flights with a stop.")
+        recheck = c[1].checkbox("Re-check days already saved", help="Fetch again the days that already have a saved price.")
+        if gq_route and not gq_saved:
+            gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
+        tol, weekdays = options_filters(st, "fl")
+        st.caption(f"Fares are for one adult on AEGEAN, from Google Flights; a return is two one-way fares. Saved fares are kept "
+                   f"{RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, the next 90 days) are refreshed every morning.")
 
 if orig == dest:
     st.error("From and To are the same airport.")
@@ -181,13 +188,19 @@ if gq:
     github_progress(f"{key}|GQ", "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
     github_note(f"{key}|GQ")
 
-scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
+checked = checked_sentence([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
     "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",
-    (o, d_, int(nonstop), a.isoformat(), b.isoformat()))], dtype=object), (b - a).days + 1) for o, d_, a, b in legs])
+    (o, d_, int(nonstop), a.isoformat(), b.isoformat()))], dtype=object), (b - a).days + 1) for o, d_, a, b in legs], both_ways=True)
+if checked:
+    st.caption(checked)
 q, args = "WHERE orig=? AND dest=? AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat())
 p = pd.read_sql("SELECT * FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(orig, dest, int(nonstop), start.isoformat(), end.isoformat()))
 seen = p.drop_duplicates(["day", "cabin"], keep="last")  # one row per day and cabin: priced, or checked with no flight
+if not len(p) and not st.session_state.get(f"gh-{key}"):  # nothing saved: one sentence, and Update prices above is the one button
+    st.info(f"No prices saved yet for {orig} → {dest} between {start:%a %d %b} and {end:%a %d %b}. Press Update prices to fetch them, "
+            "both ways.", icon=":material/flight_takeoff:")
+    st.stop()
 latest = seen.pivot(index="day", columns="cabin", values="price") if len(p) else pd.DataFrame()
 days = pd.DataFrame(index=pd.date_range(start, end).strftime("%Y-%m-%d").rename("day"))
 for k in ("economy", "business"):
@@ -229,8 +242,7 @@ if nights:  # the way back, and every departure + stay combination
 def best(col):
     if near[col].size:
         n = len(near[col])
-        return f"€{near[col].iloc[0]:.0f}", (f"{pd.Timestamp(near[col].index[0]):%a %d %b}" +
-                                             (f" · {n} days within {tol:.0%} of the cheapest" if tol and n > 1 else f" · {n} days at this price" if n > 1 else ""))
+        return f"€{near[col].iloc[0]:.0f}", f"{pd.Timestamp(near[col].index[0]):%a %d %b}{nearly(n, tol)}"
     if col == "skyexpress":
         return "—", "No Sky Express fare saved for these days yet"
     return "—", "No AEGEAN flight found" if (seen.cabin == col).any() else "No data yet"
@@ -239,7 +251,7 @@ def best(col):
 def best_trip(col):
     t = trips[trips.cabin == col]
     if t.empty:
-        return "—", "Press Update prices to fetch the way back" if not len(pb) else "No return pair with flights both ways"
+        return "—", "Press Update prices to fetch the way back" if not len(pb) else "No pair of days with a flight both ways"
     r = t.iloc[0]
     return f"€{r.total:.0f}", f"{pd.Timestamp(r.depart):%a %d %b} → {pd.Timestamp(r.back):%a %d %b} · {r.nights} nights"
 
@@ -268,6 +280,7 @@ with cash_col:
 if award_col:
     with award_col:
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
+        st.caption("Miles+Bonus award seats, collected on the owner's computer; taxes not included.")
         award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
         if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
             award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
@@ -279,85 +292,83 @@ if len(pick):
     st.link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, dep, ret), type="primary", icon=":material/airplane_ticket:",
                    help=f"AEGEAN's own search, filled in for {dep:%a %d %b}" + (f" to {ret:%a %d %b}" if ret else "") + ", one adult.")
 if nights:
-    best_trips(trips[trips.cabin == "economy"], ECONOMY, "Cheap economy returns", tol)
-    best_trips(trips[trips.cabin == "business"], BUSINESS, "Cheap business returns", tol)
+    best_trips(trips[trips.cabin == "economy"], ECONOMY, "The cheapest economy returns are", tol)
+    best_trips(trips[trips.cabin == "business"], BUSINESS, "The cheapest business returns are", tol)
     if "skyexpress" in cabins:
-        best_trips(trips[trips.cabin == "skyexpress"], sx.COLOUR, "Cheap Sky Express returns", tol)
+        best_trips(trips[trips.cabin == "skyexpress"], sx.COLOUR, "The cheapest Sky Express returns are", tol)
 else:
-    best_days(near["economy"], ECONOMY, "Cheap economy days")
-    best_days(near["business"], BUSINESS, "Cheap business days")
+    best_days(near["economy"], ECONOMY, "Economy is cheapest on")
+    best_days(near["business"], BUSINESS, "Business is cheapest on")
     if "skyexpress" in cabins:
-        best_days(near["skyexpress"], sx.COLOUR, "Cheap Sky Express days")
+        best_days(near["skyexpress"], sx.COLOUR, "Sky Express is cheapest on")
 
-if len(seen) < 2 * len(days):
-    st.caption(f"Checked {len(seen)} of {2 * len(days)} day and cabin combinations: {int(seen.price.notna().sum())} priced, "
-               f"{int(seen.price.isna().sum())} with no flight, {2 * len(days) - len(seen)} not checked or failed. "
-               "Press Update prices to check the rest.")
+days_checked = seen.day.nunique()
+if days_checked < len(days):
+    st.caption(f"Prices are saved for {days_checked} of the {len(days)} days; press Update prices for the other {len(days) - days_checked}.")
 if note := schedule_note(seen, orig, dest, nonstop):
     st.info(note, icon=":material/event_busy:")
-st.caption(f"Saved results are kept {RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, next 90 days) are fetched "
-           "automatically every morning.")
-t1, t2, t3, t4 = st.tabs(["Prices", "Award miles", "Table", "Trip cost"])
-with t1:
+# only the tabs that apply: the award seats when paying with miles, the trip cost for a return once a hotel has prices saved
+saved_hotels = hotel_options(db) if nights else []
+names = ["Price chart"] + (["Award seats"] if pay == "miles" else []) + ["Day by day"] + (["Trip cost"] if saved_hotels else [])
+tabs = dict(zip(names, st.tabs(names)))
+with tabs["Price chart"]:
     if view[["economy", "business"]].notna().any().any():
-        st.markdown(f'<p class="card-title">{orig} → {dest}, cheap days ringed</p>' if nights else
-                    '<p class="card-title">Daily AEGEAN fare, cheap days ringed</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="card-title">{orig} → {dest}: the fare each day, the cheapest days are circled</p>' if nights else
+                    '<p class="card-title">The AEGEAN fare each day; the cheapest days are circled</p>', unsafe_allow_html=True)
         st.plotly_chart(price_chart(view, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)},
                                     near={c: list(near[c].index) for c in near}, extra=extra),
                         width="stretch", config={"displayModeBar": False})
         if gq and "skyexpress" in view and view.skyexpress.notna().any():
             i = view.skyexpress.idxmin()
-            st.caption(f"Dashed: Sky Express economy, cheapest €{view.skyexpress.min():,.0f} on {pd.Timestamp(i):%a %d %b}, "
-                       f"{int(view.skyexpress.notna().sum())} days with a fare.")
+            st.caption(f"The dashed line is Sky Express economy: cheapest €{view.skyexpress.min():,.0f} on {pd.Timestamp(i):%a %d %b}, "
+                       f"with a fare on {int(view.skyexpress.notna().sum())} days.")
         elif gq:
             st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
     else:
-        st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop flights only in Options."
-                if len(p) else "No fares yet. Pick the route and dates above, then press **Update prices**.")
+        st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop only under Options.")
     if nights and back[["economy", "business"]].notna().any().any():
         bnear = {c: list(near_cheapest(back[c], tol).index) for c in ("economy", "business")}
-        st.markdown(f'<p class="card-title">{dest} → {orig} (the way back), cheap days ringed</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="card-title">{dest} → {orig}, the way back: the fare each day, the cheapest days are circled</p>', unsafe_allow_html=True)
         st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear, extra=extra),
                         width="stretch", config={"displayModeBar": False})
-with t2:
-    seen_aw = am.index.size if len(am) else 0
-    if not seen_aw or not last_aw:
-        st.info(f"No AEGEAN award miles collected yet for {orig} → {dest} in this range. They are collected daily on the owner's computer. "
-                "No data here does not mean there are no seats.")
-    else:
-        st.caption(f"{'Nonstop' if nonstop else 'Any-stops'} AEGEAN-operated flights. {seen_aw} of {len(days)} days collected "
-                   f"for {orig} → {dest}, last on {last_aw[:10]}.")
-        if date.fromisoformat(last_aw[:10]) < today - timedelta(3):
-            st.warning(f"These award miles were last collected on {last_aw[:10]}, so they may be out of date.")
-        cal_cabin = st.radio("Cabin", ["economy", "business"], format_func=str.capitalize, horizontal=True, key="cal-cabin")
-        cal_cash, cal_miles = ("economy", "econ_miles") if cal_cabin == "economy" else ("business", "biz_miles")
-        if out[cal_miles].notna().any():
-            st.markdown(CAL_STYLE + calendar_html(cal_cells(out[cal_cash], out[cal_miles], set(am.index), start, end)), unsafe_allow_html=True)
-            seat_miles = out[cal_miles].dropna()
-            price = (f"{seat_miles.min():,.0f} miles" if seat_miles.min() == seat_miles.max()
-                     else f"{seat_miles.min():,.0f} to {seat_miles.max():,.0f} miles")
-            st.caption(f"An award seat costs {price}, the same on every day that has one. What changes from day to day is whether a seat exists "
-                       "and what cash costs, so the best days to spend miles are the darker green ones: a seat exists and cash is dear.")
-            with st.expander("Show as a table"):
-                st.dataframe(miles_table(view.econ_miles, view.biz_miles), hide_index=True, width="stretch")
+if pay == "miles":
+    with tabs["Award seats"]:
+        seen_aw = am.index.size if len(am) else 0
+        if not seen_aw or not last_aw:
+            st.info(f"No award seats collected yet for {orig} → {dest} on these days. No data here does not mean there are no seats.")
         else:
-            st.info("No award seats on these days. Try a longer window.")
-    hist = os.path.join(ROOT, "data", "award_history.csv")
-    xl = award_history_xlsx(hist, os.path.getmtime(hist)) if os.path.exists(hist) else None
-    if xl:  # every daily snapshot, all four legs, as one sheet
-        st.download_button("Download award history (Excel, all routes)", xl[0], "aegean_award_history.xlsx",
-                           help=f"{xl[1]} daily snapshots, last {xl[2]}")
-    if os.path.isdir(AWARD_PROFILE):  # only where the AEGEAN login lives: your own computer
-        award_job()
-    with st.expander("Enter award miles and taxes by hand"):
-        st.caption("Type the miles and taxes you see after logging in to AEGEAN. They feed the 'Best miles value' figure, which compares "
-                   "the cash fare, minus these taxes, with the miles.")
-        ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
-                            column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
-                                           "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
-                            key=f"{orig}{dest}{start}{end}")
-        save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
-with t3:
+            old = ", so they may be out of date" if date.fromisoformat(last_aw[:10]) < today - timedelta(3) else ""
+            st.caption(f"Award seats checked on {seen_aw} of the {len(days)} days for {orig} → {dest}, last on "
+                       f"{pd.Timestamp(last_aw[:10]):%a %d %b}{old}. {'Nonstop' if nonstop else 'Any'} AEGEAN flights.")
+            cal_cabin = st.radio("Cabin", ["economy", "business"], format_func=str.capitalize, horizontal=True, key="cal-cabin")
+            cal_cash, cal_miles = ("economy", "econ_miles") if cal_cabin == "economy" else ("business", "biz_miles")
+            if out[cal_miles].notna().any():
+                st.markdown(CAL_STYLE + calendar_html(cal_cells(out[cal_cash], out[cal_miles], set(am.index), start, end)), unsafe_allow_html=True)
+                seat_miles = out[cal_miles].dropna()
+                price = (f"{seat_miles.min():,.0f} miles" if seat_miles.min() == seat_miles.max()
+                         else f"{seat_miles.min():,.0f} to {seat_miles.max():,.0f} miles")
+                st.caption(f"An award seat costs {price}, the same on every day that has one. What changes from day to day is whether a seat exists "
+                           "and what cash costs, so the best days to spend miles are the darker green ones: a seat exists and cash is dear.")
+                with st.expander("Show as a table"):
+                    st.dataframe(miles_table(view.econ_miles, view.biz_miles), hide_index=True, width="stretch")
+            else:
+                st.info("No award seats on these days. Try a longer window.")
+        hist = os.path.join(ROOT, "data", "award_history.csv")
+        xl = award_history_xlsx(hist, os.path.getmtime(hist)) if os.path.exists(hist) else None
+        if xl:  # every daily snapshot, all four legs, as one sheet
+            st.download_button("Download award history (Excel, all routes)", xl[0], "aegean_award_history.xlsx",
+                               help=f"The award seats seen on each of {xl[1]} days of collecting, the last on {xl[2]}.")
+        if os.path.isdir(AWARD_PROFILE):  # only where the AEGEAN login lives: your own computer
+            award_job()
+        with st.expander("Enter award miles and taxes by hand"):
+            st.caption("Type the miles and taxes you see after logging in to AEGEAN. They feed the 'Best miles value' figure, which compares "
+                       "the cash fare, minus these taxes, with the miles.")
+            ed = st.data_editor(days.join(a).reset_index(), hide_index=True, disabled=["day"], width="stretch",
+                                column_config={"day": "Date", "miles": st.column_config.NumberColumn("Miles", format="%d"),
+                                               "taxes": st.column_config.NumberColumn("Taxes €", format="€%.0f")},
+                                key=f"{orig}{dest}{start}{end}")
+            save_awards(db, ed[["day", "miles", "taxes"]].itertuples(index=False), orig, dest)
+with tabs["Day by day"]:
     typed = out.miles.notna().any()  # the typed-in columns only appear when something was typed
     table = (out if typed else out.drop(columns=["miles", "taxes", "value"])).rename(columns={"economy": "Economy €", "business": "Business €", "miles": "Miles",
                                 "taxes": "Taxes €", "value": "€ per 1,000 mi",
@@ -375,12 +386,8 @@ with t3:
         st.markdown(f'<p class="card-title">{orig} → {dest} by day</p>', unsafe_allow_html=True)
     st.dataframe(table, width="stretch")
     st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")
-with t4:
-    if not nights:
-        st.info("Set Trip to Return at the top to price a whole trip: the return flights plus the hotel for every night of the stay.")
-    elif not (saved_hotels := hotel_options(db)):
-        st.info("No one-night hotel prices are saved yet. Open Hotels and press Update prices, or wait for the daily run.")
-    else:
+if saved_hotels:
+    with tabs["Trip cost"]:
         pick = st.selectbox("Hotel", range(len(saved_hotels)), key="trip-hotel", help="Only hotels with one-night prices saved are listed.",
                             format_func=lambda i: f"{saved_hotels[i]['filt'] or saved_hotels[i]['query']} · {saved_hotels[i]['days']} nights priced")
         trip_cabin = st.radio("Cabin", ["economy", "business"], format_func=str.capitalize, horizontal=True, key="trip-cabin")

@@ -279,7 +279,7 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
     at.run()
     cards = " ".join(m.value for m in at.markdown)
     cheapest = min(100 + (first + timedelta(i)).day for i in range(days))
-    assert f"€{cheapest}" in cards and "Booking.com via Xotelo" in cards
+    assert f"€{cheapest}" in cards and "(Booking.com)" in cards
     assert any("HTTP 429" in m.value and "Booking.com" in m.value for m in at.success)
     assert not at.warning  # no "press Update again" advice that cannot help while Google blocks the server
     assert not at.exception
@@ -509,13 +509,14 @@ def test_flights_page_shows_miles_only_when_asked_and_keeps_the_filters_under_op
     at = AppTest.from_file(page, default_timeout=90).run()
     assert not at.exception and at.button_group(key="fl-pay").value == "cash"
     shown = " ".join(m.value for m in at.markdown)
-    assert "Cheapest economy" in shown and "Cheap economy days" in shown and "Award miles with Miles+Bonus" not in shown
+    assert "Cheapest economy" in shown and "Economy is cheapest on" in shown and "Award miles with Miles+Bonus" not in shown
     assert at.button_group(key="fl-tol").value == 10 and len(at.button_group(key="fl-days").value) == 7  # under Options, the old defaults
-    assert "within 10% of the cheapest" in shown  # the headline card says what the tolerance means in words
+    assert "within 10% of this price" in shown  # the headline card says in words how close to the cheapest still counts
     at.button_group(key="fl-pay").set_value("miles").run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
     assert "Award miles with Miles+Bonus" in shown and "Not collected yet for this route" in shown and "Cheapest economy" in shown
+    assert "collected on the owner's computer; taxes not included" in " ".join(c.value for c in at.caption)  # the award section explains itself
 
 
 def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
