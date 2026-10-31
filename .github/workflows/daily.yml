@@ -10,7 +10,7 @@ concurrency: daily
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150  # the refresh of up to 40 tracked routes follows the daily legs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

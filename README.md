@@ -218,7 +218,7 @@ fetched routes show without waiting for Streamlit to redeploy, and a fetched rou
 your own computer, say), the search runs in the app as before.
 
 A searched route is remembered in `data/tracked_routes.csv` and refreshed every morning by the daily run (`fetch_route.py --refresh`,
-the next 90 days in both cabins, at most 20 routes) for 60 days after it was last searched, so the fares build a history in
+the next 90 days in both cabins, at most 40 routes) for 60 days after it was last searched, so the fares build a history in
 `data/history_prices.csv` and the app can later say whether a fare is low compared with recent weeks. The fares a search brings back go
 into that history at once (the workflow's save step, like Sky Express's), so no fare is lost before the next refresh; the history only
 keeps a row when a price changes, so the refresh seeing the same fare adds nothing.
