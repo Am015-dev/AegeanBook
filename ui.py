@@ -279,3 +279,40 @@ def schedule_note(seen, orig, dest):
     if (when.max() - last).days >= max(7, 2 * (gaps.max() if len(gaps) else 0)):  # twice the route's usual gap: it has stopped
         parts.append(f"not after {last:%a %d %b} in the days checked (search later dates to see when it flies again)")
     return f"AEGEAN flies {orig} → {dest} " + ", and ".join(parts) + "." if parts else None
+
+
+@st.fragment(run_every=8)
+def github_progress(key, workflow, path, what="prices"):
+    """While GitHub fetches a search (st.session_state[f"gh-{key}"] = (request, started)): say so, and reload the page when the
+    results are in. path: the data file the fetch writes, read again from GitHub when it is done."""
+    import time
+    import gh
+    pending = st.session_state.get(f"gh-{key}")
+    if not pending:
+        return
+    request, since = pending
+    waited = int(time.time() - since)
+    try:
+        r = gh.run(gh.token(), request, workflow)
+    except gh.GitHubError as err:
+        st.error(str(err))
+        return
+    if r and r["status"] == "completed":
+        del st.session_state[f"gh-{key}"]
+        gh.forget(path)  # what was found is saved even if part of the search failed
+        if r["conclusion"] != "success":
+            st.session_state[f"gh-note-{key}"] = (f"Part of the search on GitHub did not finish ({r['conclusion']}): what was found is "
+                                                  f"saved, press Update prices to fetch the rest. Its log: {r['url']}")
+        st.rerun()
+    elif waited > 1500:
+        del st.session_state[f"gh-{key}"]
+        st.error("The search on GitHub is taking too long. Press Update prices to try again." + (f" Its log: {r['url']}" if r else ""))
+    else:
+        st.info(f"Searching on GitHub's servers (Google limits this app's own server): {waited // 60}:{waited % 60:02d} so far, "
+                f"usually 1–3 minutes. The {what} appear here when it is done.", icon=":material/cloud_sync:")
+
+
+def github_note(key):
+    """The note github_progress left when part of a search failed, once."""
+    if note := st.session_state.pop(f"gh-note-{key}", None):
+        st.warning(note, icon=":material/warning:")

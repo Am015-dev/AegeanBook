@@ -118,7 +118,7 @@ def test_update_prices_fetches_on_github_and_shows_the_results(tmp_path, monkeyp
     started, state = [], {"run": None}
     monkeypatch.setattr(gh, "token", lambda: "tok")
     monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
-    monkeypatch.setattr(gh, "run", lambda tok, request: state["run"])
+    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = AppTest.from_file(os.path.join(HERE, "views", "flights.py"), default_timeout=60).run()
     at.button[1].click().run()  # Update prices (the first button swaps the airports)
@@ -126,6 +126,7 @@ def test_update_prices_fetches_on_github_and_shows_the_results(tmp_path, monkeyp
     d = lambda i: date.today() + timedelta(i)
     assert started[0] == [("ATH", "FRA", d(11), d(30)), ("FRA", "ATH", d(1), d(30))]  # only the missing days, and the way back too
     assert "Searching on GitHub" in " ".join(i.value for i in at.info)
+    assert "already saved" not in " ".join(i.value for i in at.info)  # it said so next to a search that had just started
     # GitHub finished: the fetched fares are in the database and the page shows them
     t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", (d(12).isoformat(), "ATH", "FRA", "economy", 77.0, "calendar",
                                                              datetime.now().isoformat(), 1))
@@ -150,3 +151,60 @@ def test_save_step_merges_into_the_newest_file_so_parallel_fetches_never_conflic
     assert {(r["orig"], r["dest"], r["price"]) for r in rows} == {("ATH", "BIO", "97.0"), ("BIO", "ATH", "91.0")}
     wf = open(os.path.join(HERE, ".github", "workflows", "fetch-route.yml")).read()
     assert "--merge" in wf and "pull --rebase" not in wf and "fromJSON(needs.plan.outputs.legs)" in wf  # one job per leg, merged saves
+
+
+def test_fetch_hotel_checks_the_search_and_fetches_calendar_booking_and_google(monkeypatch, tmp_path):
+    import fetch_hotel
+    with pytest.raises(ValueError):
+        fetch_hotel.search({"QUERY": "x", "FILT": "y", "NIGHTS": "99", "RANGES": "2026-11-01,2026-11-02"})
+    d1 = date.today() + timedelta(1)
+    s = fetch_hotel.search({"QUERY": "Hotel Zurich", "FILT": "Baur au Lac", "HKEY": "https://www.tripadvisor.com/x-g188113-d228996-y",
+                            "NIGHTS": "1", "ADULTS": "2", "RANGES": f"{d1},{d1 + timedelta(1)}", "BOOKING": "1"})
+    assert s["hkey"] == "g188113-d228996" and s["ranges"] == [(d1, d1 + timedelta(1))]
+    asked = []
+
+    def google(a, b, q, f, n, ad, skip=()):
+        asked.append(sorted(skip))
+        for i in range(2):
+            d = a + timedelta(i)
+            if d.isoformat() in skip:
+                continue
+            ok = i == 0 or len(asked) > 1  # day 2 fails the first time (a rate limit), then works
+            yield d, "Baur au Lac", 600.0 + i if ok else None, "ok" if ok else "error", None if ok else "HTTP 429"
+    heat = lambda k, a, b: {d1.isoformat(): "cheap", (d1 + timedelta(1)).isoformat(): "high"}
+    rate = lambda k, d, n: 550.0
+    monkeypatch.setattr(fetch_hotel.time, "sleep", lambda s: None)
+    rows = fetch_hotel.fetch(s, google=google, rate=rate, heat=heat)
+    got = {(r["source"], r["day"]): (r["price"], r["tier"]) for r in rows}
+    assert got[("heat", d1.isoformat())] == ("", "cheap") and got[("booking", d1.isoformat())] == (550.0, "")
+    assert ("booking", (d1 + timedelta(1)).isoformat()) not in got  # Booking.com only on cheap days
+    assert got[("google", (d1 + timedelta(1)).isoformat())] == (601.0, "") and asked[1] == [d1.isoformat()]  # retried, day 1 skipped
+    out = tmp_path / "hotel_searches.csv"
+    fetch_hotel.save(rows, out)
+    fetch_hotel.save([dict(rows[0], query="Other hotel")], out)  # a second search merges in, the first stays
+    assert len(fetch_hotel.read(out)) == len(rows) + 1
+
+
+def test_hotels_page_fetches_only_missing_check_ins_on_github(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    import hotels
+    monkeypatch.chdir(tmp_path)
+    t = db.connect(str(tmp_path / "tracker.db"))
+    for i in range(1, 6):  # the first 5 check-ins of the default search are saved already
+        t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "Steigenberger Frankfurt",
+                                                               "Frankfurter Hof", 1, "Steigenberger", 200.0, datetime.now().isoformat(), 2))
+    t.commit()
+    started = []
+    monkeypatch.setattr(gh, "token", lambda: "tok")
+    monkeypatch.setattr(gh, "fetch_hotel", lambda tok, *a: started.append(a) or "h1")
+    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
+    monkeypatch.setattr(hotels, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
+    at = AppTest.from_file(os.path.join(HERE, "views", "hotel.py"), default_timeout=60).run()
+    at.button[0].click().run()  # Update prices
+    assert not at.exception and len(started) == 1
+    query, filt, hkey, nights, adults, ranges, booking = started[0]
+    d = lambda i: date.today() + timedelta(i)
+    assert (query, filt, hkey, nights, adults) == ("Steigenberger Frankfurt", "Frankfurter Hof", "g187337-d202275", 1, 2)
+    assert ranges == [(d(6), d(30))]  # only the check-ins not saved yet
+    info = " ".join(i.value for i in at.info)
+    assert "Searching on GitHub" in info and "already saved" not in info

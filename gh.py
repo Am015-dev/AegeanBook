@@ -92,9 +92,20 @@ def fetch(tok, legs, nonstop):
     return request
 
 
-def run(tok, request):
+def fetch_hotel(tok, query, filt, hkey, nights, adults, ranges, booking):
+    """Start fetching a hotel search on GitHub (.github/workflows/fetch-hotel.yml). ranges: [(first, last)] check-in days still
+    missing. Returns the request id that names the run."""
+    request = secrets.token_hex(4)
+    _api(tok, "POST", "/actions/workflows/fetch-hotel.yml/dispatches", {"ref": "main", "inputs": {
+        "query": query, "filt": filt, "hkey": hkey or "", "nights": str(int(nights)), "adults": str(int(adults)),
+        "ranges": ";".join(f"{a.isoformat()},{b.isoformat()}" for a, b in ranges), "booking": "1" if booking else "0",
+        "request": request}})
+    return request
+
+
+def run(tok, request, workflow=WORKFLOW):
     """The fetch's run as dict(status, conclusion, url), or None while GitHub has not listed it yet. status: queued, in_progress or
     completed; conclusion (when completed): success, failure, cancelled..."""
-    runs = _api(tok, "GET", f"/actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=20") or {}
+    runs = _api(tok, "GET", f"/actions/workflows/{workflow}/runs?event=workflow_dispatch&per_page=20") or {}
     r = next((r for r in runs.get("workflow_runs", []) if r.get("display_title") == f"fetch {request}"), None)
     return r and dict(status=r["status"], conclusion=r.get("conclusion"), url=r["html_url"])

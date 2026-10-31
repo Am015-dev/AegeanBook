@@ -129,3 +129,8 @@ after a pause, and commits the fares to `data/routes.csv`. The page shows "Searc
 usually within 1–3 minutes. The app also reads `data/*.csv` straight from GitHub (every 5 minutes at most), so the daily fares and
 fetched routes show without waiting for Streamlit to redeploy, and a fetched route survives the app restarting. Without the token (on
 your own computer, say), the search runs in the app as before.
+
+Hotels work the same way: **Update prices** on the Hotels page starts `.github/workflows/fetch-hotel.yml` (`fetch_hotel.py`: Google
+Hotels for every check-in not saved yet, plus the TripAdvisor cheap-day calendar and Booking.com on the cheap days when a key is given),
+which saves to `data/hotel_searches.csv`. Every fetch merges its rows into the newest file before pushing, so fetches running at the
+same time (and the daily run) never overwrite each other.

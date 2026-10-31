@@ -18,7 +18,7 @@ from jobs import record, start_job, track
 from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass
 from trip_cost import hotel_options, night_prices, trip_costs
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
-                price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker)
+                price_chart, round_trips, route, schedule_note, scraped, smart_filters, window_picker, github_progress, github_note)
 
 db = connect()
 today = date.today()
@@ -129,43 +129,12 @@ if fetch:
         start_job(key, total, work, "{n} day and cabin combinations have no AEGEAN flight. AEGEAN may not fly this route on those "
                   "days, or only in some seasons. Google occasionally misses a day: tick Re-check days already saved (Options) if you "
                   "expect more.", "with no flight", f"{orig}–{dest} {start:%d %b}–{end:%d %b}" + (" return" if nights else ""))
-    else:
+    elif total <= 0:
         st.info("Every day in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
 
-
-@st.fragment(run_every=8)
-def github_fetch(key):
-    """While GitHub fetches this search: say so, and reload the page when the results are in."""
-    pending = st.session_state.get(f"gh-{key}")
-    if not pending:
-        return
-    request, since = pending
-    waited = int(time.time() - since)
-    try:
-        r = gh.run(gh.token(), request)
-    except gh.GitHubError as err:
-        st.error(str(err))
-        return
-    if r and r["status"] == "completed":
-        del st.session_state[f"gh-{key}"]
-        gh.forget("data/routes.csv")  # each direction saves on its own: what was found is there even if one direction failed
-        if r["conclusion"] == "success":
-            st.rerun()
-        st.session_state[f"gh-note-{key}"] = (f"Part of the search on GitHub did not finish ({r['conclusion']}): what was found is saved, "
-                                              f"press Update prices to fetch the rest. Its log: {r['url']}")
-        st.rerun()
-    elif waited > 1500:
-        del st.session_state[f"gh-{key}"]
-        st.error("The search on GitHub is taking too long. Press Update prices to try again." + (f" Its log: {r['url']}" if r else ""))
-    else:
-        st.info(f"Searching on GitHub's servers (Google limits this app's own server): {waited // 60}:{waited % 60:02d} so far, "
-                "usually 1–3 minutes. The prices appear here when it is done.", icon=":material/cloud_sync:")
-
-
-github_fetch(key)
-if note := st.session_state.pop(f"gh-note-{key}", None):
-    st.warning(note, icon=":material/warning:")
+github_progress(key, "fetch-route.yml", "data/routes.csv")
+github_note(key)
 
 scraped([(f"{o} → {d_}", pd.Series([r[0] for r in db.execute(
     "SELECT MAX(fetched) FROM prices WHERE orig=? AND dest=? AND nonstop=? AND day BETWEEN ? AND ? GROUP BY day",

@@ -1,14 +1,17 @@
+import time
 from datetime import date, datetime, timedelta
 
 import pandas as pd
 import streamlit as st
 
+import gh
+from collector import gaps
 from db import RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from hotels import fetch_range
 from jobs import record, start_job, track
 from par import parallel
 from ui import (BOOKING, ECONOMY, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
-                price_chart, route, scraped, smart_filters, window_picker)
+                price_chart, route, scraped, smart_filters, window_picker, github_progress, github_note)
 from xotelo import booking_rate, heatmap_range, hotel_key
 
 db = connect()
@@ -107,12 +110,25 @@ if fetch:
                              "fetched for every day instead. Google's prices will be added once it answers again.")
             booking_days([start + timedelta(i) for i in range((end - start).days + 1)])
 
-    if total > 0:
+    tok = gh.token()
+    if total > 0 and tok:  # Google rate-limits Streamlit Cloud's shared server, and what is saved there is lost on a restart
+        missing = gaps(start, end, {(d, "google") for d in skip}, cabins=("google",))
+        if not missing:  # every check-in is saved; GitHub would search them all again for the calendar alone
+            total = 0
+        try:
+            if missing:
+                st.session_state[f"gh-{key}"] = (gh.fetch_hotel(tok, query, filt, hkey, nights, adults, missing, booking), time.time())
+        except gh.GitHubError as err:
+            st.warning(f"{err} Searching from this server instead.", icon=":material/warning:")
+            tok = None
+    if total > 0 and not tok:
         start_job(key, total, work, "{n} dates show no listing for a hotel matching that name. Check the name filter.",
                   "with no listing", f"{filt} {start:%d %b}–{end:%d %b}")
-    else:
+    elif total <= 0:
         st.info("Every date in this range is already saved. Tick Re-check days already saved under Options to fetch again.")
 track(key)
+github_progress(key, "fetch-hotel.yml", "data/hotel_searches.csv")
+github_note(key)
 
 p = pd.read_sql("SELECT * FROM hotel WHERE query=? AND filt=? AND nights=? AND adults=? AND day BETWEEN ? AND ? ORDER BY fetched",
                 db, params=(query, filt, int(nights), int(adults), start.isoformat(), end.isoformat()))

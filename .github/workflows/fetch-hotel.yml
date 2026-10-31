@@ -1,0 +1,51 @@
+name: Fetch hotel
+run-name: fetch ${{ inputs.request }}  # the app finds its run by this name
+on:
+  workflow_dispatch:
+    inputs:
+      query: {description: "What you would type into Google Hotels", required: true}
+      filt: {description: "Part of the hotel's name", required: true}
+      hkey: {description: "TripAdvisor key, e.g. g187337-d202275 (optional)", default: ""}
+      nights: {description: "Nights", default: "1"}
+      adults: {description: "Adults", default: "2"}
+      ranges: {description: "start,end;... check-in days still missing", required: true}
+      booking: {description: "1 for Booking.com prices on the cheap days", default: "1"}
+      request: {description: "An id the app uses to find this run", required: true}
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install stays==0.1.1
+      - run: python fetch_hotel.py "$RUNNER_TEMP/new_rows.csv"
+        env:  # passed as variables, never pasted into the script, so the inputs cannot run commands
+          QUERY: ${{ inputs.query }}
+          FILT: ${{ inputs.filt }}
+          HKEY: ${{ inputs.hkey }}
+          NIGHTS: ${{ inputs.nights }}
+          ADULTS: ${{ inputs.adults }}
+          RANGES: ${{ inputs.ranges }}
+          BOOKING: ${{ inputs.booking }}
+      - name: Commit results
+        env:
+          REQUEST: ${{ inputs.request }}
+        run: |
+          git config user.name "fetch-hotel"
+          git config user.email "actions@users.noreply.github.com"
+          # Other fetches and the daily run save too: take the newest main every time, merge this search's rows into it and push
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python fetch_hotel.py --merge "$RUNNER_TEMP/new_rows.csv"
+            git add data/hotel_searches.csv
+            git diff --cached --quiet && exit 0
+            git commit -q -m "Fetched $REQUEST"
+            git push -q origin HEAD:main && exit 0
+            sleep $((i * 4))
+          done
+          exit 1
