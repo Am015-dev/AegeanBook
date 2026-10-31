@@ -18,7 +18,7 @@ if getattr(ex, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a mo
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 4:
     ov = importlib.reload(ov)
-if getattr(tp, "VERSION", 0) < 5:
+if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(fa, "VERSION", 0) < 1:
     fa = importlib.reload(fa)
@@ -63,10 +63,15 @@ with st.container(border=True, key="search"):
                           help="Every airport with fares saved: the daily routes, plus any route you searched on the Flights page.")
     dest = c[1].selectbox("To", [d for o, d in fares if o == orig], format_func=place, key=f"plan-dest-{orig}")
     last = date.fromisoformat(db.execute("SELECT MAX(day) FROM prices WHERE price IS NOT NULL").fetchone()[0])  # the last day with fares, any route
-    periods = tp.months(today, last)  # the Overview's own list, so both pages open on the same answer: the next 30 days, then every month
-    if asked_when in [x.name for x in periods]:  # ?when=January 2027 from the Overview's link
-        st.session_state["plan-when"] = [x.name for x in periods].index(asked_when)
-    when = c[2].selectbox("When", range(len(periods)), format_func=lambda i: periods[i].title, key="plan-when")
+    try:  # ?when=2026-12-12,2026-12-18 from the Overview's link: the same days the pass was for
+        a, b = (date.fromisoformat(x) for x in asked_when.split(","))
+        if today < a <= b <= today + timedelta(tp.HORIZON):
+            st.session_state["plan-when"] = (a, b)
+    except (AttributeError, ValueError, TypeError):
+        pass
+    when = c[2].date_input("Leaving between", (today + timedelta(1), today + timedelta(30)), min_value=today + timedelta(1),
+                           max_value=today + timedelta(tp.HORIZON), key="plan-when", format="DD/MM/YYYY")
+    when = tuple(when) if isinstance(when, (tuple, list)) else (when,)
     c = st.columns([1, 1, 1, 1.6])
     cabin = c[0].pills("Cabin", ["economy", "business"], format_func=str.capitalize, required=True, key="plan-cabin")
     pay = c[1].pills("Pay with", list(ex.PAY), format_func=ex.PAY.get, required=True, key="plan-pay")
@@ -81,19 +86,19 @@ with st.container(border=True, key="search"):
                          help="Hotels you searched on the Hotels page (one night) in this city, the most recent first; added to a cash return.")
     if not saved:
         st.caption(f"No hotel in {tp.city(dest)} searched yet: search one on the Hotels page with 1 night, and it appears here.")
-    p = periods[when]
+    p = tp.period(when[0], when[-1], last, today)
     stays = list(range(nights[0], nights[1] + 1))
     # no fares saved for this route in the period (either way): one button fetches them on GitHub, the way back `stays` later
     todo, blank = fa.missing(db, [(orig, dest, p.start, p.end), (dest, orig, p.start + timedelta(min(stays)), p.end + timedelta(max(stays)))], today)
     if blank and pay == "cash":  # award miles cannot be fetched from here: they are collected on the owner's computer, 90 days ahead
-        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Fetch {p.label} fares" if when else f"Fetch the {p.label.lower()}", todo,
+        fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Search {p.name} on GitHub", todo,
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 
 f = ex.facts(db, orig, dest, cabin, pay, stays, wdays, (p.start, p.end), today, hotel, oneway=trip == "oneway")
 # the chat reads the same facts, then every tracked route for follow-ups (without the Overview's Frankfurt trip totals, which include a hotel)
 data = ex.text(f) + "\n\nAll tracked routes, for follow-ups (one-way fares):\n" + ov.facts(summary, fares, {}, hotel_night, awards, today)
 chat = st.session_state.setdefault("expert-chat", [])
-search = (orig, dest, cabin, pay, trip, tuple(stays), tuple(wdays or DAYS), when, hotel and hotel["name"])
+search = (orig, dest, cabin, pay, trip, tuple(stays), tuple(wdays or DAYS), p.start, p.end, hotel and hotel["name"])
 if st.session_state.get("expert-search") not in (None, search):  # a new search: the old answers were about other numbers
     chat.clear()
 st.session_state["expert-search"] = search
