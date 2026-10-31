@@ -65,6 +65,12 @@ st.markdown(f"""<style>
 # --- the route bar: everything below follows it -------------------------------------------------------------------------------------
 place = lambda a: f"{tp.city(a)} ({a})"
 froms = list(dict.fromkeys(o for o, _ in fares))
+q = st.query_params
+if q.get("from") in froms:  # from Explore's "See dates": open the grid on that route
+    st.session_state["ov-grid-orig"] = q["from"]
+    if (q["from"], q.get("to")) in fares:
+        st.session_state[f"ov-grid-dest-{q['from']}"] = q["to"]
+    q.clear()
 c = st.columns([1.2, 1.2, 1, 1])
 orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig",
                       help="Every airport with fares saved: the daily routes, plus any route searched on the Flights page.")

@@ -83,6 +83,13 @@ The same run fetches the Hotels page's default hotel (Steigenberger Frankfurter 
 pressing Update prices. To run it by hand, open GitHub → Actions → Daily fares → Run workflow. To change the routes,
 edit `LEGS` in `collect_daily.py`.
 
+## Explore: where can I fly cheaply?
+
+The **Explore** page is Google Flights' Explore for AEGEAN: pick where you leave from, when (the next 30 days or a month), one way or a
+2–7 night return, the cabin and a budget, and it lists every destination with fares saved, cheapest first (the price, the dates of that
+trip, how many days have a flight, and the typical price), the ones over budget greyed at the bottom. **See dates** opens the Overview's
+date grid on that route. It only knows the routes someone has searched (`data/routes.csv`) or the daily run tracks.
+
 ## The expert (Expert page, and its daily take on the Overview)
 
 An AI model reads the saved fares, award miles and hotel prices, writes a three-line briefing once a day (shown on the Overview) and answers questions in a chat that remembers the conversation. **Plan a trip** on the Expert page asks it from your own choices (destination, month, cabin, cash or miles, one way or return with nights, hotel, the days you can leave): the app works out every candidate trip first, and the expert explains the best time to fly and why. The hotel is one you searched on the Hotels page (1 night) in that city, the most recent first; the Overview's Frankfurt trips use the most recent Frankfurt search too. Add one key under
