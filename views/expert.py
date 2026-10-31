@@ -75,7 +75,7 @@ with st.container(border=True, key="search"):
     when = c[2].date_input("Leaving between", (today + timedelta(1), today + timedelta(30)), min_value=today + timedelta(1),
                            max_value=today + timedelta(tp.HORIZON), key="plan-when", format="DD/MM/YYYY")
     when = tuple(when) if isinstance(when, (tuple, list)) else (when,)
-    c = st.columns([1, 1, 1, 1.6])
+    c = st.columns([1.3, 1, 1.1, 1.6])  # Economy and Business on one line at 1366px with the platform font
     cabin = c[0].pills("Cabin", ["economy", "business"], format_func=str.capitalize, required=True, key="plan-cabin")
     pay = c[1].pills("Pay with", list(ex.PAY), format_func=ex.PAY.get, required=True, key="plan-pay")
     trip = c[2].pills("Trip", ["return", "oneway"], format_func={"return": "Return", "oneway": "One way"}.get, required=True, key="plan-trip")
