@@ -486,9 +486,19 @@ def test_award_miles_survive_old_fetch_stamp_but_not_past_days(tmp_path, monkeyp
     assert t.execute("SELECT day, miles, nonstop FROM award_miles").fetchall() == [(future, 9032, 1)]
 
 
-def test_flights_page_keeps_value_metric_typed_only():
+def test_flights_page_keeps_value_metric_typed_only(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
     from streamlit.testing.v1 import AppTest
-    at = AppTest.from_file("views/flights.py", default_timeout=60).run()
+    import test_overview
+    page = os.path.abspath("views/flights.py")
+    t = test_overview.seed(tmp_path / "tracker.db")  # its own fares: the page must not depend on whatever data the checkout holds
+    t.executemany("INSERT INTO award_miles(day, orig, dest, cabin, miles, nonstop, fetched) VALUES(?,?,?,?,?,?,?)",
+                  [((date.today() + timedelta(10)).isoformat(), "ATH", "FRA", c, m, 1, datetime.now().isoformat())
+                   for c, m in (("economy", 9032), ("business", 18064))])
+    t.commit()
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
     assert "Cheapest economy" in shown and "Lowest economy award" not in shown  # Pay with: Cash € by default: cash fares only
