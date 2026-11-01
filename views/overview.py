@@ -118,15 +118,12 @@ if q.get("from") in froms:  # ?from=SKG&to=ATH (the Expert, an old Explore link)
     q.clear()
 # ponytail: the two rows get keys so ui.CSS can lay the second out differently on a phone (Streamlit stacks every column there)
 c = st.container(key="ov-bar-route").columns([1.1, 1.3, 1.1])
-orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig", on_change=touched,
-                      help="Every airport with fares saved: the daily routes, plus any route searched from here or on the Flights page.")
+orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig", on_change=touched)
 saved = [d for o, d in far if o == orig]
 options = [ANY] + saved + sorted((a for a in cities if a not in saved and a != orig), key=cities.get)
 names = {ANY: "Anywhere", **{d: place(d) for d in saved}, **{a: f"{cities[a]} ({a}) · no fares yet" for a in options[1 + len(saved):]}}
 dkey = f"ov-grid-dest-{orig}"
-dest = c[1].selectbox("To", options, format_func=names.get, key=dkey, on_change=touched, **({} if dkey in st.session_state else {"index": 1}),
-                      help="Anywhere lists every destination with fares saved, cheapest first. An airport with no fares yet can be searched "
-                           "from here. Only AEGEAN's destinations are listed.")
+dest = c[1].selectbox("To", options, format_func=names.get, key=dkey, on_change=touched, **({} if dkey in st.session_state else {"index": 1}))
 farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.values() if len(s))  # the last day with fares, any route
 when = c[2].date_input("Leaving between", (today + timedelta(1), today + timedelta(30)), min_value=today + timedelta(1),
                        max_value=today + timedelta(tp.HORIZON), key="ov-when", on_change=touched, format="DD/MM/YYYY",
@@ -145,8 +142,7 @@ gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_fu
                   on_change=touched)
 pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                  key="ov-grid-pay", on_change=touched)
-pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", on_change=touched, help="Adults. Fares are collected for one adult; the pass and "
-                        "the booking links use this number.")
+pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", on_change=touched)
 
 stays = list(range(nights[0], nights[1] + 1))
 src = far if pay == "cash" else awards
@@ -274,7 +270,7 @@ else:
                  "when": f"{p.start},{p.end}"}
         if ret:
             alert["back"] = best["back"].isoformat()
-        c = st.columns(2)
+        c = st.columns(3)
         for col, page, label, icon, params in (
                 (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:", alert),
                 (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
@@ -283,7 +279,8 @@ else:
                 col.page_link(page, label=label, icon=icon, query_params=params)
             except Exception:  # the page runs on its own (tests), outside the app's navigation
                 pass
-        flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
+        with c[2]:  # the third quiet link in the row: the flight times, fetched on request
+            flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
         hotels = tp.hotels(db, dest) if ret else []
         if hotels and pay == "cash":
             h = hotels[0]
@@ -322,7 +319,7 @@ if best is not None and pay == "cash" and len(out_s):
             first = min(x.index.min() for _, _, x in moved.values() if len(x))
             st.markdown(f'<p class="card-title">How this fare has moved since {pd.Timestamp(first):%-d %b}</p>', unsafe_allow_html=True)
             fig = price_chart(pd.DataFrame({k: x for k, (_, _, x) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
-            st.plotly_chart(fig.update_layout(height=220), width="stretch", config=config)
+            st.plotly_chart(fig.update_layout(height=220, legend=dict(y=1.25)), width="stretch", config=config)
             st.caption("The fare for those exact days each time it was checked. The ring marks the lowest it has been.")
 
 # --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
