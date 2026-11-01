@@ -50,7 +50,7 @@ def render(orig, dest, cabin, depart, back, key):
         st.caption("  \n".join(lines + ["Prices are Google's lowest fare for that flight."]))
     tok = gh.token()
     if missing and tok and f"gh-{key}" not in st.session_state:
-        if st.button("Show flight times", key=key, icon=":material/schedule:"):
+        if st.button("Show flight times", key=key, icon=":material/schedule:", type="tertiary"):
             try:
                 st.session_state[f"gh-{key}"] = (gh.fetch_details(tok, missing, cabin), time.time())
             except gh.GitHubError as err:

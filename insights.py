@@ -116,7 +116,7 @@ def weekday_chart(stats, colour):
 def ahead_chart(stats, colour):
     fig = go.Figure(go.Bar(x=[f"{w}" for w in stats.index], y=stats["median"], marker_color=colour, text=[f"€{v:.0f}" for v in stats["median"]],
                            textposition="outside", cliponaxis=False, hovertemplate="Week %{x}: €%{y:.0f} typical<extra></extra>"))
-    fig.update_xaxes(title_text="Weeks from today (1 = the next 7 days)")
+    fig.update_xaxes(title_text="Weeks from today")
     return _layout(fig)
 
 
