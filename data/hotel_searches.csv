@@ -1,7 +1,4 @@
 source,day,hotel,price,tier,fetched,query,filt,hkey,nights,adults
-booking,2026-11-01,,,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
-google,2026-11-01,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
-heat,2026-11-01,,,cheap,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 booking,2026-11-02,,1218,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2026-11-02,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 heat,2026-11-02,,,cheap,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
@@ -396,6 +393,72 @@ google,2027-04-26,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:
 heat,2027-04-26,,,high,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2027-04-27,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 heat,2027-04-27,,,high,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
+google,2026-11-02,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-02,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-03,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-03,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-04,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-04,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-05,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-05,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-06,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-06,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-07,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-07,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-08,,167,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-08,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-08,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-09,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-09,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-10,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-10,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-11,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-11,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-12,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-12,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-13,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-13,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-14,,175,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-14,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-14,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-15,,208,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-15,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-15,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-16,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-16,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-17,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-17,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-18,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-18,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-19,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-19,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-20,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-20,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-21,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-21,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-22,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-22,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-23,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-23,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-24,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-24,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-25,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-25,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-26,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-26,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-27,,216,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-27,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-27,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-28,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-28,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-29,,202,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-29,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-29,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-30,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-30,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-01,,233,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-01,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-01,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 google,2026-12-04,Steigenberger Frankfurter Hof,188,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
 heat,2026-12-04,,,average,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
 booking,2026-12-05,,208,,2026-10-31T10:55:58,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,2,2
