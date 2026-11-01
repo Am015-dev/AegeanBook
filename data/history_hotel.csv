@@ -718,3 +718,155 @@ booking,2027-01-23,,149,,2026-10-31T22:20:00,Steigenberger Frankfurt,Frankfurter
 booking,2027-01-24,,140,,2026-10-31T22:20:00,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
 booking,2027-01-25,,141,,2026-10-31T22:20:00,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
 booking,2027-01-26,,148,,2026-10-31T22:20:00,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-03,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-08,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-17,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-25,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-22,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-27,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-07,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-15,,,high,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-20,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-23,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-28,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-30,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-05,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-19,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-21,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-23,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-26,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-11-09,,,average,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2026-12-01,,,cheap,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+heat,2027-01-29,,,high,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-04,Steigenberger Frankfurter Hof,315,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-03,Steigenberger Frankfurter Hof,362,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-02,Steigenberger Frankfurter Hof,304,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-06,Steigenberger Frankfurter Hof,201,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-07,Steigenberger Frankfurter Hof,433,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-05,Steigenberger Frankfurter Hof,261,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-08,Steigenberger Frankfurter Hof,152,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-09,Steigenberger Frankfurter Hof,527,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-15,Steigenberger Frankfurter Hof,184,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-16,Steigenberger Frankfurter Hof,368,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-14,Steigenberger Frankfurter Hof,160,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-17,Steigenberger Frankfurter Hof,700,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-18,Steigenberger Frankfurter Hof,768,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-19,Steigenberger Frankfurter Hof,248,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-20,Steigenberger Frankfurter Hof,285,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-22,Steigenberger Frankfurter Hof,177,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-23,Steigenberger Frankfurter Hof,273,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-24,Steigenberger Frankfurter Hof,265,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-25,Steigenberger Frankfurter Hof,262,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-27,Steigenberger Frankfurter Hof,182,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-26,Steigenberger Frankfurter Hof,226,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-28,Steigenberger Frankfurter Hof,200,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-11-30,Steigenberger Frankfurter Hof,188,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-02,Steigenberger Frankfurter Hof,354,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-04,Steigenberger Frankfurter Hof,196,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-05,Steigenberger Frankfurter Hof,181,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-07,Steigenberger Frankfurter Hof,211,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-09,Steigenberger Frankfurter Hof,239,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-10,Steigenberger Frankfurter Hof,214,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-11,Steigenberger Frankfurter Hof,211,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-12,Steigenberger Frankfurter Hof,199,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-15,Steigenberger Frankfurter Hof,236,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-21,Steigenberger Frankfurter Hof,188,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-26,Steigenberger Frankfurter Hof,181,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2026-12-31,Steigenberger Frankfurter Hof,228,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-01,Steigenberger Frankfurter Hof,160,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-03,Steigenberger Frankfurter Hof,131,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-02,Steigenberger Frankfurter Hof,140,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-04,Steigenberger Frankfurter Hof,142,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-05,Steigenberger Frankfurter Hof,142,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-06,Steigenberger Frankfurter Hof,160,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-07,Steigenberger Frankfurter Hof,136,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-08,Steigenberger Frankfurter Hof,136,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-09,Steigenberger Frankfurter Hof,146,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-10,Steigenberger Frankfurter Hof,206,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-11,Steigenberger Frankfurter Hof,249,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-12,Steigenberger Frankfurter Hof,293,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-13,Steigenberger Frankfurter Hof,321,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-14,Steigenberger Frankfurter Hof,249,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-15,Steigenberger Frankfurter Hof,171,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-16,Steigenberger Frankfurter Hof,126,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-17,Steigenberger Frankfurter Hof,130,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-18,Steigenberger Frankfurter Hof,149,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-19,Steigenberger Frankfurter Hof,188,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-20,Steigenberger Frankfurter Hof,130,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-21,Steigenberger Frankfurter Hof,126,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-22,Steigenberger Frankfurter Hof,130,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-23,Steigenberger Frankfurter Hof,130,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-24,Steigenberger Frankfurter Hof,124,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-26,Steigenberger Frankfurter Hof,130,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-25,Steigenberger Frankfurter Hof,124,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-27,Steigenberger Frankfurter Hof,199,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-29,Steigenberger Frankfurter Hof,399,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-28,Steigenberger Frankfurter Hof,343,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+google,2027-01-30,Steigenberger Frankfurter Hof,406,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-03,,467,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-02,,360,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-04,,391,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-05,,293,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-06,,219,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-09,,593,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-14,,175,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-15,,219,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-16,,488,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-19,,307,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-21,,252,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-22,,236,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-23,,362,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-25,,304,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-26,,280,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-28,,230,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-30,,217,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-11-29,,209,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-01,,273,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-04,,231,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-05,,224,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-08,,258,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-07,,247,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-09,,318,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-10,,284,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-11,,265,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-12,,224,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-15,,295,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-14,,263,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-13,,227,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-16,,291,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-17,,243,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-18,,210,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-20,,236,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-19,,223,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-21,,236,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-24,,210,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-23,,209,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-22,,220,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-25,,187,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-26,,213,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-28,,217,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-29,,181,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-30,,228,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2026-12-31,,266,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-01,,194,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-02,,156,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-03,,146,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-05,,165,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-06,,198,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-08,,158,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-09,,194,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-11,,322,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-14,,322,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-15,,245,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-16,,140,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-17,,179,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-19,,271,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-18,,171,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-20,,179,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-22,,179,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-23,,179,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-24,,172,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-26,,150,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-25,,143,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-28,,415,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
+booking,2027-01-30,,490,,2026-11-01T11:18:08,Steigenberger Frankfurt,Frankfurter Hof,g187337-d202275,1,2
