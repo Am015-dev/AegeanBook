@@ -23,6 +23,7 @@ from jobs import record, start_job, track
 from par import parallel
 from plain import checked_sentence, nearly, options_filters
 from insights import FULL, weekday_chart, weekday_stats
+from layout import page_head
 from ui import (BOOKING, ECONOMY, FONT, INK, MUTED, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
                 price_chart, route, window_picker, github_progress, github_note)
 from xotelo import booking_rate, heatmap_range, hotel_key
@@ -36,6 +37,7 @@ STYLE = """<style>
 st.markdown(STYLE, unsafe_allow_html=True)
 HORIZON = 330  # Google Hotels prices about a year ahead
 
+page_head("Hotels", "What a stay costs at your hotel, when to stay, and the cheaper hotels around it.")
 # --- the hotels collected so far: pick one to open it with its saved dates, or download every price ------------------------------
 saved = pd.read_sql("SELECT query, filt, nights, adults, COUNT(DISTINCT day) nights_saved, MIN(day) first, MAX(day) last, MAX(fetched) checked "
                     "FROM hotel WHERE price IS NOT NULL AND day >= ? GROUP BY query, filt, nights, adults ORDER BY checked DESC",

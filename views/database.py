@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import history
+from layout import page_head
 from ui import BUSINESS, ECONOMY, GRID, INK, MUTED, excel_bytes, kpis
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
@@ -107,8 +108,7 @@ def section(name, cfg):
                        key=f"db-dl-{name}")
 
 
-st.markdown('<div class="route"><span class="code">Database</span></div>'
-            '<p class="sub">Every price and miles value recorded so far, kept in GitHub. Nothing is deleted after 5 days.</p>', unsafe_allow_html=True)
+page_head("Database", "Every price and miles value recorded so far, kept in GitHub, to look through and download.")
 overview()
 CHANGES = os.path.join(DATA, "latest_changes.md")  # written by the daily job (digest.py): empty when nothing changed
 if os.path.exists(CHANGES) and os.path.getsize(CHANGES):

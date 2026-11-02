@@ -20,6 +20,7 @@ from jobs import record, start_job, track
 from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass
 from trip_cost import hotel_options, night_prices, trip_costs
 from plain import checked_sentence, nearly, options_filters
+from layout import page_head
 from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, schedule_note, window_picker, github_progress, github_note)
 
@@ -75,6 +76,7 @@ def swap_airports():
     st.session_state["orig"], st.session_state["dest"] = st.session_state["dest"], st.session_state["orig"]
 
 
+page_head("Fare calendar and miles", "Every day's fare on one route, both ways, in cash or award miles, with the Aegean Pass and the Excel file.")
 with st.container(border=True, key="search"):
     c = st.columns([10, 1, 10], vertical_alignment="bottom")  # the swap button sits between the two boxes, level with them
     orig = airport_picker(c[0], "From", "ATH", "orig")

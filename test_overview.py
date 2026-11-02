@@ -300,7 +300,7 @@ def test_each_suggested_question_has_a_plain_answer_from_the_facts(tmp_path):
                                                                                           "economy fare: business costs no more here, so take it.")
     assert ex.answer(dict(f, cabins=dict(economy=210.0, business=None)), ex.BUSINESS) == "No business fare is saved for these dates to compare with."
     # Sky Express: none saved, cheaper, dearer, the same
-    assert ex.answer(f, ex.SKY) == "No Sky Express fare is saved for these days yet. Search the route on the Flights page and the two airlines appear side by side."
+    assert ex.answer(f, ex.SKY) == "No Sky Express fare is saved for these days yet. Search the route in the fare calendar (under Data) and the two airlines appear side by side."
     gq = dict(depart=d(1), back=d(3), nights=2, price=100.0)
     assert ex.answer(dict(f, skyexpress=gq, skyexpress_same=100.0, aegean_same=340.0), ex.SKY) == (
         f"Sky Express is cheaper: €100 (leave {when(d(1))}, back {when(d(3))}, 2 nights, economy) against AEGEAN's €210, €110 less. "
@@ -798,7 +798,7 @@ def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypa
     at = open_page("overview.py").run()
     at.selectbox(key="ov-grid-dest-ATH").set_value("BIO").run()
     assert not at.exception and not [b for b in at.button if b.label.startswith(("Search", "Fetch"))]
-    assert "The next 30 days from Athens to Bilbao is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
+    assert "The next 30 days from Athens to Bilbao is not fetched yet. Search those dates in the fare calendar (under Data)" in " ".join(c.value for c in at.caption)
 
 
 def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):

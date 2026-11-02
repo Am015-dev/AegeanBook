@@ -17,7 +17,7 @@ import deals
 import overview as ov
 import trip_plan as tp
 from db import connect
-from ui import route
+from layout import page_head
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
@@ -32,8 +32,8 @@ if getattr(store, "VERSION", 0) < 1:
 db = connect()
 today = date.today()
 e = html.escape
-route("Price alerts", None, "Tell us a route and a price. Every morning we check the fares; the day one drops below your price, you get an "
-      "email or a phone notification. Free, no account.")
+page_head("Price alerts", "Tell us a route and a price. Every morning we check the fares; the day one drops below your price, you get an "
+          "email or a phone notification. Free, no account.")
 
 
 def find_token():

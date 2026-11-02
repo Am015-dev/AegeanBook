@@ -3,10 +3,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from db import RETENTION_DAYS, connect
-from ui import ECONOMY, GRID, MUTED, TIER_COLORS, kpis, route
+from layout import page_head
+from ui import ECONOMY, GRID, MUTED, TIER_COLORS, kpis
 
 db = connect()
-route("Statistics", None, f"Every price update of the last 30 days, and what is saved now (prices are kept {RETENTION_DAYS} days).")
+page_head("Statistics", f"Every price update of the last 30 days, and what is saved now (prices are kept {RETENTION_DAYS} days).")
 
 runs = pd.read_sql("SELECT * FROM runs ORDER BY started DESC", db)
 if runs.empty:
