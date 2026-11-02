@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import freshness
 import history
 from layout import page_head
 from ui import BUSINESS, ECONOMY, GRID, INK, MUTED, excel_bytes, kpis
@@ -66,7 +67,22 @@ def overview():
     kpis(items)
 
 
+def award_status():
+    """What the award data covers now: per leg, the next year of days split into updated, older and never collected."""
+    rows = freshness.award_coverage(DATA)
+    if not rows:
+        return
+    st.markdown("**What is up to date**")
+    label = lambda iso: f"{date.fromisoformat(iso):%d %b %Y}" if iso else "—"
+    st.dataframe(pd.DataFrame([{"Leg": leg, "Last collected": label(last), "Updated days": updated, "Older days": older, "Not collected": missing,
+                                "Updated up to": label(up_to)} for leg, last, updated, older, missing, up_to in rows]), hide_index=True, width="stretch")
+    st.caption("Next 365 days, nonstop. Updated: from the leg's last collection day. Older: from an earlier day, seats may have changed since. "
+               "Not collected: no answer yet, which is not the same as no seats. Updated up to: every day until then is updated.")
+
+
 def section(name, cfg):
+    if name == "Award miles":
+        award_status()
     path = os.path.join(DATA, cfg["file"])
     df = load(cfg["file"], os.path.getmtime(path) if os.path.exists(path) else 0)
     if df.empty:

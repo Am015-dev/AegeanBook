@@ -609,6 +609,16 @@ def test_database_page_renders_and_keeps_only_changes():
     assert list(zip(got.miles, got.before)) == [("9,032", ""), ("No seats", ""), ("No seats", "9,032"), ("9,032", "No seats")]
 
 
+def test_award_coverage_separates_updated_older_and_missing_days(tmp_path):
+    import freshness
+    (tmp_path / "daily_award.csv").write_text("day,orig,dest,nonstop,fetched\n"
+                                              "2026-11-02,ATH,FRA,1,2026-11-01T07:00:00\n2026-11-03,ATH,FRA,1,2026-10-20T07:00:00\n"
+                                              "2026-11-04,ATH,FRA,1,2026-11-01T07:00:00\n2026-11-02,ATH,ZRH,0,2026-11-01T07:00:00\n"
+                                              "2026-11-09,ATH,FRA,1,2026-11-01T07:00:00\n")          # past the 5 days asked about
+    assert freshness.award_coverage(str(tmp_path), date(2026, 11, 1), 5) == [("ATH \u2192 FRA", "2026-11-01", 2, 1, 2, "2026-11-02")]
+    assert freshness.award_coverage(str(tmp_path / "none"), date(2026, 11, 1)) == []
+
+
 def test_export_whole_database(tmp_path):
     import io
     import zipfile
