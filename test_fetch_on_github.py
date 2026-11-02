@@ -275,6 +275,7 @@ def test_hotels_page_fetches_only_missing_check_ins_on_github(tmp_path, monkeypa
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(hotels, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = AppTest.from_file(os.path.join(HERE, "views", "hotel.py"), default_timeout=60).run()
+    at.text_input(key="ho-link").set_value("g187337-d202275").run()  # the field is empty by default now: this hotel's key, pasted
     at.button[0].click().run()  # Update prices
     assert not at.exception and len(started) == 1
     query, filt, hkey, nights, adults, ranges, booking = started[0]

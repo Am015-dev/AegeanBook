@@ -75,10 +75,9 @@ with st.container(border=True, key="search"):
     fetch = st.button("Update prices", type="primary", width="stretch",
                       help="Fetches the price of a stay starting on every check-in day shown, and saves them. Days already saved are skipped.")
     with st.expander("Options"):
-        link = st.text_input("TripAdvisor link or key", "g187337-d202275", key="ho-link",
-                             help="Open the hotel on TripAdvisor and paste its address, or just the part like g187337-d202275. "
-                                  "It adds the cheap-day calendar and Booking.com prices, and keeps prices coming when Google "
-                                  "Hotels is unavailable. Leave empty for Google prices only.")
+        link = st.text_input("TripAdvisor link (optional)", "", key="ho-link", placeholder="Found automatically when it can be",
+                             help="Not needed: Update prices looks the hotel up on TripAdvisor by its name and place. Paste the hotel's "
+                                  "TripAdvisor address only if it is not found; it adds the cheap-day calendar and Booking.com prices.")
         c = st.columns(2)
         booking = c[0].checkbox("Booking.com prices for the cheap days", value=True,
                                 help="Also fetch Booking.com's own price on the days TripAdvisor marks cheap.")
@@ -88,7 +87,8 @@ with st.container(border=True, key="search"):
                    f"{RETENTION_DAYS} days.")
 
 MAX_DAYS = 186
-hkey = hotel_key(link)
+saved_key = next((k for (q, f), k in keys.items() if plain(q) == plain(query) and plain(f) == plain(filt)), None)
+hkey = hotel_key(link) or saved_key or ""  # the key pasted, else the one a fetch found for this hotel before
 if not filt.strip():
     st.info("Type part of the hotel's name under Hotel name contains, for example Frankfurter Hof; without it any hotel in the search could match.")
     st.stop()

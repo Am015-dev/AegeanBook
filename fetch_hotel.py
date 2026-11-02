@@ -17,7 +17,7 @@ import history
 import hotels
 import landmarks
 from par import parallel
-from xotelo import booking_rate, heatmap_range, hotel_key
+from xotelo import booking_rate, find_key, heatmap_range, hotel_key
 
 OUT = Path(__file__).parent / "data" / "hotel_searches.csv"
 PLACES = OUT.with_name("hotel_places.csv")  # every hotel the searches returned, with where it is, for the Hotels page's map
@@ -119,7 +119,36 @@ def landmark_rows(s, places, path=None, find=landmarks.find):
         return []
 
 
-def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range, places=None):
+def towns(lat, lng, files=None, places_path=None, within=30):
+    """TripAdvisor town codes (g187337) of the hotels saved with a key within `within` km: Xotelo lists every hotel of such a town."""
+    places = read(Path(places_path or PLACES)) if Path(places_path or PLACES).exists() else []
+    out = []
+    for f in files or (OUT, OUT.with_name("daily_hotel.csv")):
+        for r in (read(Path(f)) if Path(f).exists() else []):
+            if not r.get("hkey"):
+                continue
+            spot = next((p for p in places if hotels.plain(p["query"]) == hotels.plain(r["query"]) and hotels.matches(p["hotel"], r["filt"])), None)
+            if spot and hotels.km(lat, lng, float(spot["lat"]), float(spot["lng"])) <= within:
+                out.append(r["hkey"].split("-")[0])
+    return list(dict.fromkeys(out))
+
+
+def tripadvisor_key(s, places, find=None, town_codes=None):
+    """The hotel's TripAdvisor key found from Google's name and place for it; "" when it cannot be found (Google prices only)."""
+    spot = next(((n, p) for n, p in places.items() if hotels.matches(n, s["filt"])), None)
+    if spot is None:
+        return ""
+    name, p = spot
+    try:
+        key = (find or find_key)(name, p["lat"], p["lng"], (town_codes or towns)(p["lat"], p["lng"]), os.environ.get("RAPIDAPI_KEY") or None)
+    except Exception as e:
+        print(f"  TripAdvisor key: {type(e).__name__}: {e}")
+        return ""
+    print(f"  TripAdvisor key for {name}: {key or 'not found'}")
+    return key or ""
+
+
+def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range, places=None, find=None):
     """Rows for the cheap-day calendar and Booking.com (with a TripAdvisor key) and Google Hotels on every day of the ranges.
     Google days that failed (usually a rate limit) are retried after a pause, like the daily run does."""
     google = google or hotels.fetch_range
@@ -128,19 +157,7 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
         source=src, day=d if isinstance(d, str) else d.isoformat(), hotel=name or "", price="" if price is None else price,
         tier=tier or "", fetched=now, query=s["query"], filt=s["filt"], hkey=s["hkey"], nights=s["nights"], adults=s["adults"])
     rows = []
-    for a, b in s["ranges"]:
-        if s["hkey"]:
-            try:
-                tiers = {d: t for d, t in heat(s["hkey"], a, b).items() if a.isoformat() <= d <= b.isoformat()}
-                rows += [row("heat", d, tier=t) for d, t in tiers.items()]
-            except Exception as e:
-                tiers = {}
-                print(f"  heatmap: {type(e).__name__}: {e}")
-            if s["booking"]:
-                cheap = [date.fromisoformat(d) for d, t in sorted(tiers.items()) if t == "cheap"]
-                for d, price, err in parallel(cheap, lambda d: rate(s["hkey"], d, s["nights"]), workers=3):
-                    if not err:
-                        rows.append(row("booking", d, price=price))
+    for a, b in s["ranges"]:  # Google Hotels first: its answers say where the hotel is, to find its TripAdvisor key when none was given
         done = set()
         for n in range(passes):
             failed = 0
@@ -155,6 +172,23 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
             if not failed or n == passes - 1:
                 break
             time.sleep(pause)  # lets a Google rate limit cool down
+    if not s["hkey"] and places:
+        s["hkey"] = tripadvisor_key(s, places, find=find) or ""
+        for r in rows:
+            r["hkey"] = s["hkey"]
+    for a, b in s["ranges"]:
+        if s["hkey"]:
+            try:
+                tiers = {d: t for d, t in heat(s["hkey"], a, b).items() if a.isoformat() <= d <= b.isoformat()}
+                rows += [row("heat", d, tier=t) for d, t in tiers.items()]
+            except Exception as e:
+                tiers = {}
+                print(f"  heatmap: {type(e).__name__}: {e}")
+            if s["booking"]:
+                cheap = [date.fromisoformat(d) for d, t in sorted(tiers.items()) if t == "cheap"]
+                for d, price, err in parallel(cheap, lambda d: rate(s["hkey"], d, s["nights"]), workers=3):
+                    if not err:
+                        rows.append(row("booking", d, price=price))
     return rows
 
 
