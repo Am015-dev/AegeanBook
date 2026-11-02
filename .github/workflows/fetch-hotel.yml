@@ -32,6 +32,7 @@ jobs:
           ADULTS: ${{ inputs.adults }}
           RANGES: ${{ inputs.ranges }}
           BOOKING: ${{ inputs.booking }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}  # optional: Xotelo's name search finds the TripAdvisor key in any town
       - name: Commit results
         env:
           REQUEST: ${{ inputs.request }}

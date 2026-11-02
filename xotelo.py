@@ -2,6 +2,7 @@
 Hotels are identified by a TripAdvisor key like g187337-d202275 (found in the hotel's TripAdvisor URL)."""
 import json
 import re
+import urllib.parse
 import urllib.request
 from datetime import timedelta
 
@@ -43,6 +44,49 @@ def booking_rate(key, day, nights=1):
     return next((x["rate"] for x in r["rates"] if x["code"] == "BookingCom"), None)
 
 
+RAPID = "https://xotelo-hotel-prices.p.rapidapi.com/api/search"  # Xotelo's name search: only through RapidAPI, with a key (free plan)
+
+
+def _same(a, b, plain):
+    return all(w in f" {plain(b)} " for w in plain(a).split()) or all(w in f" {plain(a)} " for w in plain(b).split())
+
+
+def find_key(name, lat, lng, towns=(), rapid_key=None, get=None, search=None, plain=None, km=None):
+    """The TripAdvisor key of a hotel from its name and place, without the traveller pasting a link. First in the free Xotelo list of
+    each town in `towns` (TripAdvisor town codes like g187337, known from hotels saved nearby): the hotel with the same name, or one
+    within 200 m sharing its first words. Then, with a RapidAPI key, Xotelo's name search, which works in any town. None if not found."""
+    import hotels  # plain() and km(), passed in by the tests
+    plain, km, get = plain or hotels.plain, km or hotels.km, get or _get
+    close = lambda h: h.get("geo") and lat is not None and km(lat, lng, h["geo"]["latitude"], h["geo"]["longitude"]) < 0.2
+    for town in dict.fromkeys(towns):
+        for offset in range(0, 500, 100):
+            r = get("list", location_key=town, limit=100, offset=offset)
+            for h in r.get("list") or []:
+                if _same(h["name"], name, plain) or close(h) and plain(h["name"]).split()[:1] == plain(name).split()[:1]:
+                    return h["key"]
+            if offset + 100 >= (r.get("total_count") or 0):
+                break
+    if rapid_key:
+        found = (search or _rapid)(name, rapid_key)
+        hit = next((h for h in found if _same(h["name"], name, plain)), None) or (found[0] if len(found) == 1 else None)
+        return hit and hit["key"]
+    return None
+
+
+def _rapid(name, key):
+    """[dict(name, key)] from Xotelo's name search on RapidAPI."""
+    req = urllib.request.Request(RAPID + "?" + urllib.parse.urlencode(dict(query=name, location_type="accommodation")),
+                                 headers={"x-rapidapi-key": key, "x-rapidapi-host": "xotelo-hotel-prices.p.rapidapi.com"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        res = json.load(r).get("result") or {}
+    out = []
+    for h in res.get("list") or []:  # the key may sit under hotel_key or key, or only in the url: take whichever holds one
+        k = hotel_key(" ".join(str(h.get(f) or "") for f in ("hotel_key", "key", "url")))
+        if k and h.get("name"):
+            out.append(dict(name=h["name"], key=k))
+    return out
+
+
 if __name__ == "__main__":  # self-check, no network
     from datetime import date
     assert hotel_key("https://www.tripadvisor.com/Hotel_Review-g187337-d202275-Reviews-X.html") == "g187337-d202275"
@@ -53,4 +97,11 @@ if __name__ == "__main__":  # self-check, no network
     _get = lambda path, **p: (calls.append(p["chk_out"]), {"heatmap": {}})[1]
     heatmap_range("k", date(2026, 11, 1), date(2026, 12, 31))  # 61 days -> 3 calls
     assert len(calls) == 3, calls
+    town = {"total_count": 2, "list": [{"name": "Steigenberger Icon Frankfurter Hof", "key": "g187337-d202275",
+                                        "geo": {"latitude": 50.1103, "longitude": 8.6761}},
+                                       {"name": "Hotel Nearby", "key": "g187337-d1", "geo": {"latitude": 50.12, "longitude": 8.69}}]}
+    lists = lambda path, **p: town
+    assert find_key("Steigenberger Frankfurter Hof", 50.1103, 8.6760, ["g187337"], get=lists) == "g187337-d202275"  # same place, same first word
+    assert find_key("Hotel Elsewhere", 48.0, 11.0, ["g187337"], get=lists) is None
+    assert find_key("Hotel Elsewhere", 48.0, 11.0, [], rapid_key="k", search=lambda n, k: [{"name": "Hotel Elsewhere Munich", "key": "g1-d2"}]) == "g1-d2"
     print("ok")

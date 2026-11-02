@@ -271,6 +271,7 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
     here = os.path.dirname(os.path.abspath(__file__))
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(os.path.join(here, "views/hotel.py"), default_timeout=60).run()
+    at.text_input(key="ho-link").set_value("g187337-d202275").run()  # the field is empty by default now: this hotel's key, pasted
     first, days = _date.today() + timedelta(1), 30  # default window: the next 30 days from tomorrow
     next(b for b in at.button if b.label == "Update prices").click().run()   # by label: the position moves when buttons are added
     deadline = time.time() + 20
@@ -1091,3 +1092,26 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     assert "**Cheap Inn**, €210 for the 3 nights (€70 a night)" in said and "Grand Hotel Here is €750" in said  # far away hotel left out
     at.button_group(key="ho-stay-rating").set_value(4.5).run()
     assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
+
+
+def test_hotel_fetch_finds_the_tripadvisor_key_itself_when_none_is_given(tmp_path):
+    import fetch_hotel
+    d = date.today() + timedelta(5)
+    s = fetch_hotel.search(dict(QUERY="Grand Resort Bad Ragaz", FILT="Grand Resort", NIGHTS="1", ADULTS="2", RANGES=f"{d},{d}", BOOKING="1"))
+    assert s["hkey"] == ""
+
+    def google(a, b, q, f, n, ad, skip=(), places=None):
+        places["Grand Resort Bad Ragaz"] = dict(lat=47.0035, lng=9.5005, stars=5, rating=4.7, reviews=900, prices={d.isoformat(): 600})
+        yield d, "Grand Resort Bad Ragaz", 600, "ok", None
+    asked = []
+
+    def find(name, lat, lng, towns, rapid):
+        asked.append((name, lat, lng))
+        return "g198797-d2070866"
+    rows = fetch_hotel.fetch(s, google=google, heat=lambda k, a, b: {d.isoformat(): "cheap"}, rate=lambda k, day, n: 550,
+                             places={}, find=find)
+    assert asked == [("Grand Resort Bad Ragaz", 47.0035, 9.5005)]  # looked up by Google's name and place for the hotel
+    assert {r["source"] for r in rows} == {"google", "heat", "booking"} and {r["hkey"] for r in rows} == {"g198797-d2070866"}
+    s["hkey"] = ""
+    rows = fetch_hotel.fetch(s, google=google, places={}, find=lambda *a: None)  # not found: Google prices only, nothing breaks
+    assert {r["source"] for r in rows} == {"google"} and rows[0]["hkey"] == ""
