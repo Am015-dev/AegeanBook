@@ -214,7 +214,7 @@ elif go:
             proven[("email", email.strip().lower())] = True
             try:  # with SMTP_USER / SMTP_PASSWORD in the app's secrets the confirmation goes now; otherwise the daily run sends it
                 alerts.mail(email, f"Confirm your price alert: {tp.city(leg[0])} → {tp.city(leg[1])}",
-                            f"Someone (hopefully you) asked the AEGEAN fare tracker to email this address when {what}.\n\n"
+                            f"Someone (hopefully you) asked FlyCheap, the AEGEAN fare tracker, to email this address when {what}.\n\n"
                             f"Turn the alert on: {alerts.link('confirm', n, code)}\n\nNot you? Ignore this email and nothing more will be sent.")
                 store.mark_confirmation_sent(token, n, alerts.SENT)
                 st.success(f"Almost done: we emailed {email}. Open the link in that email to turn on the alert ({what}). "

@@ -2,7 +2,7 @@ import streamlit as st
 
 from ui import CSS
 
-st.set_page_config(page_title="AEGEAN fare tracker", page_icon="✈️", layout="wide")
+st.set_page_config(page_title="FlyCheap · AEGEAN and Sky Express fares, hotels and when to book", page_icon="✈️", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 st.logo("static/logo.svg", size="large")
 # what a traveller uses, by its usual name, in the bar; the data behind the app under Data

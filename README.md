@@ -1,4 +1,4 @@
-# AEGEAN Fare & Miles Tracker (free)
+# FlyCheap: AEGEAN and Sky Express fares, miles and hotels, and when to book (free)
 
 Compares Economy cash, Business cash (Google Flights date grid via `fli` (package `flights`), scraped) and Business Miles+Bonus
 (manual entry; AEGEAN has no public award API). No paid services.
