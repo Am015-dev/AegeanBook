@@ -9,6 +9,7 @@ import streamlit as st
 
 import booking
 import gh
+import network
 import skyexpress as sx
 from collector import Airline, fetch_range, gaps
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
@@ -94,11 +95,16 @@ with st.container(border=True, key="search"):
     start, end = window_picker(st, "fl", today, HORIZON)
     # Sky Express beside AEGEAN, economy only, where both airports are in its network (the toggle's state is kept per route): in the card
     # once its fares are saved for the route, under Options before that
-    gq_route = sx.serves(orig, dest)
+    gq_route = sx.serves(orig, dest) and network.flies(network.current(), "GQ", orig, dest, network.home_airports("GQ")) is not False
     gq_saved = gq_route and db.execute(f"SELECT 1 FROM {sx.TABLE} WHERE orig=? AND dest=? AND price IS NOT NULL LIMIT 1", (orig, dest)).fetchone()
     gq_help = "Sky Express's economy fares for the same days as a dashed line; Update prices fetches them too."
-    fetch = st.button("Update prices", type="primary", width="stretch",
+    net = network.current()
+    a3_flies = network.flies(net, "A3", orig, dest, network.home_airports("A3"))
+    fetch = st.button("Update prices", type="primary", width="stretch", disabled=a3_flies is False,
                       help="Fetches the fares for every day shown, both ways, and saves them. Days already saved are skipped.")
+    if a3_flies is False:
+        st.caption(f"AEGEAN does not fly {orig} to {dest} in the next two months or next summer (checked by the route network check), "
+                   "so no search is spent on it. Pick another destination.")
     gq = False
     if gq_route:  # on by default, in sight: with fares saved it compares at once, without them Update prices fetches Sky Express too
         gq = st.toggle("Compare with Sky Express", value=True, key=f"fl-gq-{orig}{dest}", help=gq_help)
