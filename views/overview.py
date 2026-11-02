@@ -72,6 +72,10 @@ st.markdown(f"""<style>
 .pass-stub .price {{ font:700 2.6rem/1.05 {FONT}; letter-spacing:-.04em; color:{ECONOMY}; margin:6px 0 4px; }}
 .pass-stub .price small {{ font-size:.42em; font-weight:600; letter-spacing:0; }}
 .pass-stub .note {{ font-size:.82rem; color:{MUTED}; }}
+.pbar {{ position:relative; margin:14px 0 4px; }}
+.pbar .bands {{ display:flex; height:8px; border-radius:4px; overflow:hidden; }} .pbar span {{ flex:1; }} .pbar .lo {{ background:#0E7A53; }} .pbar .mid {{ background:#C9CDD3; }} .pbar .hi {{ background:#C2410C; }}
+.pbar i {{ position:absolute; top:-4px; width:4px; height:16px; margin-left:-2px; background:{INK}; border-radius:2px; box-shadow:0 0 0 2px #fff; }}
+.pbar-k {{ display:flex; justify-content:space-between; font-size:.75rem; color:{MUTED}; }}
 .pass-stub .ctx {{ font-size:.82rem; color:{INK}; margin-top:8px; line-height:1.4; }}
 .pass-stub .good {{ display:inline-block; font-size:.8rem; font-weight:650; color:{ECONOMY}; border:1px solid {ECONOMY}; border-radius:6px;
   padding:1px 7px; margin-right:6px; }}
@@ -266,6 +270,17 @@ else:
                 f"{'Trips like this' if ret else 'This flight'} usually cost{'' if ret else 's'} about {money(ctx['typical'] * pax)}."]
     if ctx and ctx["typical"] > 0 and best["price"] <= ctx["typical"] * 0.75:
         good = '<span class="good">Good price</span> '
+    # Google Flights' price bar: low, typical and high as three bands, a marker where this price sits; from our own history of the route
+    # (price_insights) when there is enough, else from every trip saved for this period (low to twice the typical gap above it)
+    lo, hi = ((ins["low"], ins["high"]) if ins and ins["level"] else
+              (ctx["low"], ctx["typical"] + (ctx["typical"] - ctx["low"])) if ctx and ctx["typical"] > ctx["low"] else (None, None))
+    bar = ""
+    if lo is not None and hi > lo:
+        at = min(max((best["price"] - lo) / (hi - lo), 0), 1) * 100
+        bar = (f'<div class="pbar" title="Typical €{lo * pax:,.0f}–€{hi * pax:,.0f}"><div class="bands"><span class="lo"></span>'
+               f'<span class="mid"></span><span class="hi"></span></div><i style="left:{max(min(at, 98), 2):.0f}%"></i></div>'
+               f'<div class="pbar-k"><span>€{lo * pax:,.0f}</span>'
+               f'<span>typical</span><span>€{hi * pax:,.0f}</span></div>')
     with st.container(key="ov-answer"):  # ponytail: keyed so ui.CSS can pin the Book button to the bottom of a phone screen while the pass shows
         st.markdown(
             f'<div class="pass"><div class="pass-main"><div class="pass-codes">{e(orig)}<span class="line"></span>{e(dest)}</div>'
@@ -273,7 +288,7 @@ else:
             + "".join(f"<div><dt>{k}</dt><dd>{e(v)}</dd></div>" for k, v in fields)
             + f'</dl></div><div class="pass-stub"><span class="k">{"AEGEAN " if gq else ""}Cheapest {kind} · {e(tp.city(orig))} → {e(tp.city(dest))}</span>'
             f'<span class="price">{price}</span><span class="note">{"plus taxes and fees" if pay == "miles" else who}, leaving in {e(p.name)}</span>'
-            + (f'<span class="ctx">{good}{e(" ".join(said))}</span>' if said or good else "") + '</div></div>', unsafe_allow_html=True)
+            + (f'<span class="ctx">{good}{e(" ".join(said))}</span>' if said or good else "") + bar + '</div></div>', unsafe_allow_html=True)
         if pax > 1:
             st.caption(f"The price is for {pax} adults, from fares collected for one adult; the airline may price a group differently.")
         links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
