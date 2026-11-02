@@ -247,7 +247,7 @@ def test_fetch_hotel_checks_the_search_and_fetches_calendar_booking_and_google(m
             ok = i == 0 or len(asked) > 1  # day 2 fails the first time (a rate limit), then works
             yield d, "Baur au Lac", 600.0 + i if ok else None, "ok" if ok else "error", None if ok else "HTTP 429"
     heat = lambda k, a, b: {d1.isoformat(): "cheap", (d1 + timedelta(1)).isoformat(): "high"}
-    rate = lambda k, d, n: 550.0
+    rate = lambda k, d, n, adults: 550.0 if adults == 2 else None  # the search's adults are sent: a room for two
     monkeypatch.setattr(fetch_hotel.time, "sleep", lambda s: None)
     rows = fetch_hotel.fetch(s, google=google, rate=rate, heat=heat)
     got = {(r["source"], r["day"]): (r["price"], r["tier"]) for r in rows}

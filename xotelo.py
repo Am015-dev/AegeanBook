@@ -38,9 +38,10 @@ def heatmap_range(key, start, end):
             return out
 
 
-def booking_rate(key, day, nights=1):
-    """Booking.com's nightly rate in EUR for a stay starting `day`, or None if it isn't listed."""
-    r = _get("rates", hotel_key=key, chk_in=day.isoformat(), chk_out=(day + timedelta(nights)).isoformat(), currency="EUR")
+def booking_rate(key, day, nights=1, adults=2):
+    """Booking.com's nightly rate in EUR for a stay starting `day` for `adults` people, or None if it isn't listed. Xotelo prices one
+    adult unless told, so the number is always sent: a room for two, not a single, is what two travellers book."""
+    r = _get("rates", hotel_key=key, chk_in=day.isoformat(), chk_out=(day + timedelta(nights)).isoformat(), currency="EUR", adults=adults)
     return next((x["rate"] for x in r["rates"] if x["code"] == "BookingCom"), None)
 
 

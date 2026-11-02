@@ -120,15 +120,15 @@ if fetch:
 
         def booking_days(days):
             """Booking.com price (via Xotelo) for each day not saved recently; returns False if the user pressed Stop."""
-            fresh = {r[0] for r in tdb.execute("SELECT day FROM booking WHERE hkey=? AND nights=? AND fetched>=?",
-                                               (hkey, int(nights), cutoff()))}
+            fresh = {r[0] for r in tdb.execute("SELECT day FROM booking WHERE hkey=? AND nights=? AND adults=? AND fetched>=?",
+                                               (hkey, int(nights), int(adults), cutoff()))}
             todo = [d for d in days if d not in fetched_now and (recheck or d.isoformat() not in fresh)]
             j["total"] += len(todo)
-            for d, price, err in parallel(todo, lambda d: booking_rate(hkey, d, int(nights)), workers=3):
+            for d, price, err in parallel(todo, lambda d: booking_rate(hkey, d, int(nights), adults=int(adults)), workers=3):
                 if j["cancel"]:
                     return False
                 if not err:
-                    tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now()))
+                    tdb.execute("INSERT INTO booking VALUES(?,?,?,?,?,?)", (hkey, d.isoformat(), int(nights), price, now(), int(adults)))
                     tdb.commit()
                     fetched_now.add(d)
                 record(j, "error" if err else "ok", err)
@@ -187,15 +187,15 @@ s = p.drop_duplicates("day", keep="last").set_index("day")[["hotel", "price"]].d
 heat = {}
 if hkey:
     heat = dict(db.execute("SELECT day, tier FROM heat WHERE hkey=? AND day BETWEEN ? AND ?", (hkey, start.isoformat(), end.isoformat())))
-    b = pd.read_sql("SELECT day, price FROM booking WHERE hkey=? AND nights=? AND day BETWEEN ? AND ? ORDER BY fetched", db,
-                    params=(hkey, int(nights), start.isoformat(), end.isoformat()))
+    b = pd.read_sql("SELECT day, price FROM booking WHERE hkey=? AND nights=? AND adults=? AND day BETWEEN ? AND ? ORDER BY fetched", db,
+                    params=(hkey, int(nights), int(adults), start.isoformat(), end.isoformat()))
     b = b.drop_duplicates("day", keep="last").set_index("day").price.dropna()
     s = s.join(b.rename("booking"), how="outer")
 
 n = (end - start).days + 1
 checked = checked_sentence([("Google Hotels", p.groupby("day").fetched.max(), n)] +
-                           ([("Booking.com", pd.read_sql("SELECT day, MAX(fetched) f FROM booking WHERE hkey=? AND nights=? AND day BETWEEN ? AND ? "
-                                                         "GROUP BY day", db, params=(hkey, int(nights), start.isoformat(), end.isoformat())).f, n)]
+                           ([("Booking.com", pd.read_sql("SELECT day, MAX(fetched) f FROM booking WHERE hkey=? AND nights=? AND adults=? AND day BETWEEN ? AND ? "
+                                                         "GROUP BY day", db, params=(hkey, int(nights), int(adults), start.isoformat(), end.isoformat())).f, n)]
                             if hkey else []), unit="nights")
 if checked:
     st.caption(checked)

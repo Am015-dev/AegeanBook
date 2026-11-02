@@ -98,7 +98,7 @@ def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_ran
             elif err:
                 print(f"  Google Hotels {d}: {err}")
         todo = [d for d in days if ("booking", d.isoformat()) not in got]
-        for d, price, err in parallel(todo, lambda d: rate(h["hkey"], d, h["nights"])):
+        for d, price, err in parallel(todo, lambda d: rate(h["hkey"], d, h["nights"], adults=h["adults"])):
             if err:
                 print(f"  Booking.com {d}: {err}")
             else:

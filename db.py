@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS gq_prices(day TEXT, orig TEXT, dest TEXT, cabin TEXT,
 CREATE TABLE IF NOT EXISTS awards(day TEXT, orig TEXT, dest TEXT, miles INT, taxes REAL, PRIMARY KEY(day, orig, dest));
 CREATE TABLE IF NOT EXISTS award_miles(day TEXT, orig TEXT, dest TEXT, cabin TEXT, miles INT, nonstop INT, fetched TEXT, taxes REAL);
 CREATE TABLE IF NOT EXISTS heat(hkey TEXT, day TEXT, tier TEXT, fetched TEXT);
-CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT);
+CREATE TABLE IF NOT EXISTS booking(hkey TEXT, day TEXT, nights INT, price REAL, fetched TEXT, adults INT DEFAULT 1);
 CREATE TABLE IF NOT EXISTS runs(page TEXT, label TEXT, started TEXT, seconds REAL, total INT, ok INT, empty INT, failed INT, error TEXT);
 CREATE TABLE IF NOT EXISTS hotel(day TEXT, query TEXT, filt TEXT, nights INT, hotel TEXT, price REAL, fetched TEXT, adults INT DEFAULT 2);
 """
@@ -135,7 +135,7 @@ def load_daily_hotel(db, path=None):
         price = lambda r: float(r["price"]) if r["price"] else None
         db.executemany("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", [(r["day"], r["query"], r["filt"], int(r["nights"]),
                        r["hotel"] or None, price(r), fetched, int(r["adults"])) for r in got if r["source"] == "google"])
-        db.executemany("INSERT INTO booking VALUES(?,?,?,?,?)", [(r["hkey"], r["day"], int(r["nights"]), price(r), fetched)
+        db.executemany("INSERT INTO booking VALUES(?,?,?,?,?,?)", [(r["hkey"], r["day"], int(r["nights"]), price(r), fetched, int(r["adults"]))
                                                                  for r in got if r["source"] == "booking"])
         db.executemany("INSERT INTO heat VALUES(?,?,?,?)", [(r["hkey"], r["day"], r["tier"], fetched)
                                                             for r in got if r["source"] == "heat"])
@@ -150,6 +150,10 @@ def connect(path="tracker.db"):
     db.executescript(SCHEMA)
     try:  # databases created before `adults` existed
         db.execute("ALTER TABLE hotel ADD COLUMN adults INT DEFAULT 2")
+    except sqlite3.OperationalError:
+        pass
+    try:  # Booking.com prices saved before the adults were sent were Xotelo's one-adult rate: they stay, marked as one adult
+        db.execute("ALTER TABLE booking ADD COLUMN adults INT DEFAULT 1")
     except sqlite3.OperationalError:
         pass
     try:  # databases made before award taxes were stored
