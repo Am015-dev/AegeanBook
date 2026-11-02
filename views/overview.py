@@ -204,7 +204,7 @@ gqkey = f"ov-gq|{orig}|{dest}"
 if best is not None and gcab == "economy" and pay == "cash" and sx.serves(orig, dest):  # Sky Express beside AEGEAN's answer: economy cash, both airports in its network
     gq_out = sx.cash_by_day(db, orig, dest, p.start, p.end)
     if len(gq_out):  # the toggle only once there is something to compare (its state is kept per route)
-        gq = st.toggle("Compare with Sky Express", key=f"ov-gq-{orig}{dest}",
+        gq = st.toggle("Compare with Sky Express", value=True, key=f"ov-gq-{orig}{dest}",
                        help="Sky Express's economy fares for the same days, nonstop, one adult, fetched on request like AEGEAN's.")
         if gq:
             gq_back = sx.cash_by_day(db, dest, orig, p.start, p.end + timedelta(max(stays))) if back_s is not None else None
@@ -220,6 +220,10 @@ if best is not None and gcab == "economy" and pay == "cash" and sx.serves(orig, 
                 st.warning(str(err), icon=":material/warning:")
     github_progress(gqkey, "fetch-route.yml", "data/skyexpress.csv", "Sky Express fares")
     github_note(gqkey)
+elif best is not None:  # no comparison here: say why, so it is not taken for missing
+    why = ("Sky Express sells economy only" if gcab != "economy" else "Sky Express fares are compared in cash" if pay != "cash"
+           else f"Sky Express does not fly {tp.city(orig)} to {tp.city(dest)}")
+    st.caption(f"No Sky Express comparison: {why}.")
 
 # --- the answer, as a boarding pass; or, with nothing saved, the one button that searches the route -----------------------------------------
 if best is None and wdays != DAYS and deals.best_trip(out_s, back_s, p.start, p.end, stays) is not None:
@@ -298,6 +302,18 @@ else:
                 st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
                            f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
 
+# --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
+if gq:
+    st.markdown('<p class="group">AEGEAN or Sky Express?</p>', unsafe_allow_html=True)
+    span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
+    a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
+    args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
+    st.markdown(sx.html_table(sx.head_to_head(*args)), unsafe_allow_html=True)
+    st.markdown(f"**{e(sx.verdict(*args))}**")
+    st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
+    st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
+    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
+
 # --- when to fly: the weekday, how far ahead, and how this exact fare has moved; in the open, right under the answer ---------------------
 if best is not None and pay == "cash" and len(out_s):
     label, config = f"{tp.city(orig)} → {tp.city(dest)}", {"displayModeBar": False}
@@ -328,18 +344,6 @@ if best is not None and pay == "cash" and len(out_s):
             fig = price_chart(pd.DataFrame({k: x for k, (_, _, x) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
             st.plotly_chart(fig.update_layout(height=220, legend=dict(y=1.25)), width="stretch", config=config)
             st.caption("The fare for those exact days each time it was checked. The ring marks the lowest it has been.")
-
-# --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
-if gq:
-    st.markdown('<p class="group">AEGEAN or Sky Express?</p>', unsafe_allow_html=True)
-    span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
-    a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
-    args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
-    st.markdown(sx.html_table(sx.head_to_head(*args)), unsafe_allow_html=True)
-    st.markdown(f"**{e(sx.verdict(*args))}**")
-    st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
-    st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
-    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
 
 # --- the dates behind it ------------------------------------------------------------------------------------------------------------------
 if best is not None and back_s is not None and len(back_s.dropna()):
