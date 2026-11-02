@@ -21,7 +21,7 @@ from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_p
 from trip_cost import hotel_options, night_prices, trip_costs
 from plain import checked_sentence, nearly, options_filters
 from layout import page_head
-from ui import (BUSINESS, ECONOMY, MUTED, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
+from ui import (BUSINESS, ECONOMY, MUTED, aegean_rows, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, schedule_note, window_picker, github_progress, github_note)
 
 if getattr(sx, "VERSION", 0) < 2:  # Streamlit Cloud keeps an older copy of a module across redeploys
@@ -325,9 +325,13 @@ with tabs["Price chart"]:
         elif gq:
             st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
     elif not p.price.notna().any():  # every day was searched and Google Flights found no AEGEAN flight at all
+        rows = {r["iata"]: r for r in aegean_rows()}
+        season = [a for a in (orig, dest) if rows.get(a, {}).get("seasonal") == "1"]
+        why = (f"{rows[season[0]]['city']} is a seasonal AEGEAN destination: it is flown only part of the year, and some seasonal flights are "
+               "sold by tour operators rather than on Google Flights. Try the months of its season" if season else
+               "AEGEAN flies to both airports, but not between them, or only in another season. Try other months")
         st.info(f"AEGEAN has no {'nonstop ' if nonstop else ''}flight from {orig} to {dest} on these days: Google Flights found none. "
-                "AEGEAN flies to both airports, but not between them, or only in another season. Try other months"
-                + (", or turn off Nonstop only under Options." if nonstop else "."), icon=":material/flight_takeoff:")
+                + why + (", or turn off Nonstop only under Options." if nonstop else "."), icon=":material/flight_takeoff:")
     else:
         st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop only under Options.")
     if nights and back[["economy", "business"]].notna().any().any():

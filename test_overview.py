@@ -896,5 +896,12 @@ def test_to_list_says_where_aegean_was_found_not_to_fly_from_here(tmp_path, monk
     at = pages(tmp_path, monkeypatch, None)("overview.py").run()
     assert not at.exception
     to = at.selectbox(key="ov-grid-dest-ATH")
-    assert "Erfurt (ERF) · no AEGEAN flight from here found" in to.options and to.options[-1] == "Erfurt (ERF) · no AEGEAN flight from here found"
+    assert to.options[-1] == "Erfurt (ERF) · no AEGEAN flight from here found · seasonal"  # last, and seasonal by AEGEAN's own list
     assert "Bilbao (BIO) · not searched yet" in to.options
+
+
+def test_seasonal_destinations_say_so(tmp_path, monkeypatch):
+    seed(tmp_path / "tracker.db")
+    at = pages(tmp_path, monkeypatch, None)("overview.py").run()
+    assert not at.exception
+    assert "Innsbruck (INN) · not searched yet · seasonal" in at.selectbox(key="ov-grid-dest-ATH").options
