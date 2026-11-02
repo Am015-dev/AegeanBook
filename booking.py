@@ -17,10 +17,18 @@ directFlights, whose other values are undocumented. Not confirmed: that the resu
 JavaScript and did not render in a headless browser here), and whether the parameter names change when AEGEAN redesigns its site.
 Sources: https://en.aegeanair.com/plan/booking-info/booking_methods/ (form fields, 9 passengers at most), https://flights.aegeanair.com/en/
 (the deep link above), https://ignav.com/docs/booking-links (no AEGEAN entry; carrier URL formats change without notice)."""
+from datetime import timedelta
 from urllib.parse import quote, urlencode
 
 AEGEAN = "https://en.aegeanair.com/srv/posthandler/flight/search"
 GOOGLE = "https://www.google.com/travel/flights?q="
+
+
+def hotel_url(name, check_in, nights, adults):
+    """Booking.com's search for this hotel, these dates and this many adults in one room: the traveller checks the price there."""
+    out = check_in + timedelta(nights)
+    return "https://www.booking.com/searchresults.html?" + urlencode(
+        dict(ss=name, checkin=check_in.isoformat(), checkout=out.isoformat(), group_adults=adults, no_rooms=1, group_children=0))
 
 
 def aegean_url(orig, dest, depart, back=None, adults=1, cabin="economy"):
