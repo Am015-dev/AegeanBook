@@ -1,8 +1,10 @@
 """Hotel price collector: Google Hotels via `stays` (free, reverse-engineered, may break).
 Price = Google's lowest nightly rate across the sites it compares (Booking.com is usually one); not Booking-only."""
 import math
+import re
 import statistics
 import time
+import unicodedata
 from datetime import date, timedelta
 
 import stays
@@ -10,10 +12,22 @@ import stays
 from par import parallel
 
 
+def plain(text):
+    """A name as words to compare: no case, no accents, no punctuation, so "Amrâth Grand Hotel de l’Empereur" (Google's curly
+    apostrophe) and "amrath grand hotel De L'Empereur" read the same."""
+    text = "".join(c for c in unicodedata.normalize("NFKD", text or "") if not unicodedata.combining(c))
+    return " ".join(re.sub(r"[^\w]+", " ", text.lower()).split())
+
+
+def matches(name, name_filter):
+    """True when every word of name_filter is in the hotel's name, as plain() reads them."""
+    name = f" {plain(name)} "
+    return all(w in name for w in plain(name_filter).split())
+
+
 def pick(hotels, name_filter):
-    """Cheapest-listed hotel whose name contains every word of name_filter (case-insensitive), with a price."""
-    words = name_filter.lower().split()
-    ok = [h for h in hotels if h.get("display_price") and all(w in h["name"].lower() for w in words)]
+    """Cheapest-listed hotel whose name contains every word of name_filter (any case, accents or apostrophes), with a price."""
+    ok = [h for h in hotels if h.get("display_price") and matches(h["name"], name_filter)]
     return min(ok, key=lambda h: h["display_price"], default=None)
 
 
@@ -101,6 +115,8 @@ if __name__ == "__main__":  # self-check, no network
           {"name": "Steigenberger Frankfurter Hof", "display_price": None}]
     assert pick(hs, "frankfurter hof")["display_price"] == 207 and pick(hs, "steigenberger")["display_price"] == 150
     assert pick(hs, "hilton") is None
+    assert matches("Amrâth Grand Hotel de l'Empereur", "Amrâth Grand Hotel de l’Empereur") and matches("Amrâth Grand Hotel", "amrath grand")
+    assert not matches("Steigenberger Airport Hotel", "frankfurter hof")
     seen = {}
     note(seen, [{"name": "A", "lat": 50.11, "lng": 8.67, "display_price": 200, "star_class": 5},
                 {"name": "B", "lat": 50.12, "lng": 8.68, "display_price": None}, {"name": "C", "display_price": 90}], date(2026, 11, 1))

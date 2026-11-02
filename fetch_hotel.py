@@ -94,10 +94,9 @@ def landmark_rows(s, places, path=None, find=landmarks.find):
     """The landmarks around the hotel searched for, unless the file has them already (a town's station does not move). [] when
     Nominatim fails: the map then shows the hotels alone."""
     path = Path(path or LANDMARKS)
-    if path.exists() and any(r["query"] == s["query"] for r in read(path)):
+    if path.exists() and any(hotels.plain(r["query"]) == hotels.plain(s["query"]) for r in read(path)):
         return []
-    words = s["filt"].lower().split()
-    spot = next((p for n, p in places.items() if all(w in n.lower() for w in words)), None) or next(iter(places.values()), None)
+    spot = next((p for n, p in places.items() if hotels.matches(n, s["filt"])), None) or next(iter(places.values()), None)
     if spot is None:
         return []
     try:
