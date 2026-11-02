@@ -8,7 +8,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import importlib
+
+import booking as links  # not "booking": the page's Booking.com checkbox has that name
 import gh
+
+if not hasattr(links, "hotel_url"):  # Streamlit Cloud can keep an older booking module loaded across a redeploy
+    importlib.reload(links)
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from fetch_hotel import LANDMARKS, NEARBY, PLACES
@@ -225,13 +231,19 @@ if not main and not heat and not st.session_state.get(f"gh-{key}"):  # nothing s
 if not empty:
     near = {c: near_cheapest(s[c], tol) for c in ("price", "booking") if c in s}
     name = s.hotel.dropna().iloc[0] if "hotel" in s and s.hotel.notna().any() else filt
-    st.markdown(f'<p class="group">{name}: the price of a night, check-in by check-in</p>', unsafe_allow_html=True)
+    stay = f"{int(nights)} night{'s' * (nights > 1)}, {int(adults)} adult{'s' * (adults > 1)} in one room"
+    st.markdown(f'<p class="group">{name}: what a stay of {stay} costs, by check-in day</p>', unsafe_allow_html=True)
+    if nights > 1:
+        st.caption(f"Each price is a night of a {int(nights)}-night stay starting that day, the average of its {int(nights)} nights; the "
+                   f"whole stay is {int(nights)} times it. A one-night booking on the same day usually costs more a night.")
     if main:
         col, n = s[main], len(near[main])
         low, high = near[main].index[0], col.idxmax()
         where = "Google Hotels" if main == "price" else "Booking.com"
         also = f" · Booking.com €{s.booking[low]:.0f}" if main == "price" and has_booking and pd.notna(s.booking.get(low)) else ""
-        cards = [("Cheapest night", f"€{col.min():.0f}", f"{ts(low)} ({where}){also}{nearly(n, tol).replace('days', 'nights')}",
+        whole = lambda v: f" · €{v * nights:,.0f} for the {int(nights)} nights" if nights > 1 else ""
+        cards = [("Cheapest night" if nights == 1 else "Cheapest stay, a night", f"€{col.min():.0f}",
+                  f"checking in {ts(low)}{whole(col.min())} ({where}){also}{nearly(n, tol).replace('days', 'check-in days')}",
                   ECONOMY if main == "price" else BOOKING),
                  ("Average night", f"€{col.mean():.0f}", f"across the {col.notna().sum()} nights checked", "#5B6B82"),
                  ("Dearest night", f"€{col.max():.0f}", f"{ts(high)} ({where})", TIER_COLORS["high"])]
@@ -245,6 +257,9 @@ if not empty:
         cards.append(("Cheap nights, says TripAdvisor", str(n), f"of the {len(heat)} nights in this range", TIER_COLORS["cheap"]))
     kpis(cards)
     if main:
+        go_check = date.fromisoformat(low)
+        st.link_button(f"Check it on Booking.com: {go_check:%a %-d %b}, {stay}", links.hotel_url(name, go_check, int(nights), int(adults)),
+                       icon=":material/open_in_new:")
         best_days(near[main], ECONOMY if main == "price" else BOOKING,
                   "The cheapest nights are" if main == "price" else "The cheapest nights on Booking.com are")
         series = {"price": ("Google Hotels", ECONOMY)} if s.price.notna().any() else {}
