@@ -1,4 +1,12 @@
 source,day,hotel,price,tier,fetched,query,filt,hkey,nights,adults
+google,2026-12-04,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+heat,2026-12-04,,,high,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+google,2026-12-05,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+heat,2026-12-05,,,high,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+google,2026-12-06,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+heat,2026-12-06,,,average,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+google,2026-12-07,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
+heat,2026-12-07,,,average,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
 booking,2026-11-03,,1218,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2026-11-03,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 heat,2026-11-03,,,cheap,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
