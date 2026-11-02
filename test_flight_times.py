@@ -74,10 +74,14 @@ def test_render_shows_the_lines_or_a_button_that_asks_github(tmp_path, monkeypat
                     f"flight_times.render('ATH', 'IST', 'economy', date.fromisoformat('{D1}'), date.fromisoformat('{back}'), 'details-test')\n")
     monkeypatch.setattr(gh, "token", lambda: None)
     at = AppTest.from_file(str(page)).run()
-    assert not at.exception and len(at.caption) == 1 and not at.button
-    text = at.caption[0].value
-    assert text.index(f"Out · {D1:%a} {D1.day} {D1:%b}: A3 992 09:25 → 10:55, 1 h 30 · €53") < text.index("A3 994 18:00")  # cheapest first
-    assert f"Back · {back:%a} {back.day} {back:%b}: A3 993 12:00 → 13:25, 1 h 25 · €61" in text and "Google's lowest fare" in text
+    assert not at.exception and not at.button
+    out, ret = (t.value for t in at.dataframe)  # one table a way, cheapest first, as Google Flights lists them
+    assert list(out.Flight) == ["A3 992", "A3 994"] and list(out.Leaves) == ["09:25", "18:00"] and out.Takes[0] == "1 h 30" and out["€"][0] == 53
+    assert list(ret.Flight) == ["A3 993"] and ret.Arrives[0] == "13:25"
+    heads = " ".join(m.value for m in at.markdown)
+    assert f"Out · {D1:%a} {D1.day} {D1:%b} · ATH → IST" in heads and "Google's lowest fare" in at.caption[0].value
+    at.button_group(key="details-test-when").set_value("Evening").run()  # the time-of-day filter
+    assert list(at.dataframe[0].value.Flight) == ["A3 994"] and "No flight leaves in the evening that day." in " ".join(c.value for c in at.caption)
 
     # business is not known: with a token, a button that asks GitHub for both days; without one, nothing
     page.write_text(page.read_text().replace("'economy'", "'business'"))
@@ -88,8 +92,19 @@ def test_render_shows_the_lines_or_a_button_that_asks_github(tmp_path, monkeypat
     monkeypatch.setattr(gh, "fetch_details", lambda tok, legs, cabin: asked.append((legs, cabin)) or "abcd1234")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow: None)
     at = AppTest.from_file(str(page)).run()
-    assert at.button[0].label == "Show flight times"
+    assert at.button[0].label == f"Show the flights of {D1:%a} {D1.day} {D1:%b} and {back:%a} {back.day} {back:%b}"
     at = at.button[0].click().run()
     assert asked == [([("ATH", "IST", D1), ("IST", "ATH", back)], "business")] and not at.exception
     assert at.session_state["gh-details-test"][0] == "abcd1234" and "flight times" in at.info[0].value
     assert not at.run().button  # while GitHub works, the button is gone
+
+
+def test_the_fare_jobs_look_up_the_flights_of_the_cheapest_days():
+    from datetime import date as _d
+    t = _d(2026, 11, 2)
+    rows = [dict(day=f"2026-{m:02d}-{d:02d}", orig="ATH", dest="FRA", cabin="economy", price=p, nonstop="1")
+            for m, d, p in ((11, 10, 90), (11, 12, 70), (11, 20, 80), (12, 20, 40), (12, 21, 45), (12, 22, 50), (1, 5, 60))]
+    rows += [dict(day="2026-12-20", orig="ATH", dest="FRA", cabin="business", price=10, nonstop="1"),  # business: not counted
+             dict(day="2026-11-01", orig="ATH", dest="FRA", cabin="economy", price=1, nonstop="1")]  # past: not asked
+    legs = fetch_details.cheapest_legs(rows, today=t).split(";")
+    assert legs == ["ATH,FRA,2026-12-20", "ATH,FRA,2026-12-21", "ATH,FRA,2026-12-22", "ATH,FRA,2026-11-12", "ATH,FRA,2026-11-20"]
