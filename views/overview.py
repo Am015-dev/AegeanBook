@@ -3,11 +3,14 @@ Passengers) and one answer under it. A route gives a boarding pass with the chea
 saved fares say about weekdays and booking ahead; Anywhere lists every destination with fares saved, cheapest first; a route with nothing
 saved gets one button that fetches it on GitHub. The AI expert lives on its own page; this one shows only numbers the data proves."""
 import html
+import os
+import math
 import importlib
 import time
 from datetime import date, timedelta
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 import booking
@@ -177,6 +180,14 @@ def see():
         touched()
 
 
+def pick_on_map():
+    """A place clicked on the Explore map: the same page, with that destination in To."""
+    pts = (st.session_state.get("xp-map") or {}).get("selection", {}).get("points") or []
+    if pts and pts[0].get("customdata"):
+        st.session_state[dkey] = pts[0]["customdata"]
+        touched()
+
+
 if dest == ANY:
     rows = xp.destinations(src, orig, p.start, p.end, gcab, stays)
     st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(p.name)}, {e(gcab)}, cheapest first</p>', unsafe_allow_html=True)
@@ -187,7 +198,27 @@ if dest == ANY:
             todo, blank = fa.missing(db, [(orig, d, p.start, p.end) for d in saved] + [(d, orig, p.start, p.end) for d in saved if (d, orig) in far], today)
             if todo:
                 fa.button(f"ahead|{orig}|all|{p.start}", f"Search all routes from {tp.city(orig)} on GitHub", todo, f"{p.name.capitalize()} from {tp.city(orig)}")
-    else:  # one grouped list, the price trailing (ui.kpis), then one pill row to open a destination's dates
+    else:  # a map of the places with their prices (Google Flights' Explore), then one grouped list, the price trailing (ui.kpis)
+        places = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "airport_places.csv")).set_index("iata")
+        on_map = rows[rows.dest.isin(places.index)]
+        if len(on_map) and orig in places.index:
+            pts = places.loc[list(on_map.dest)]
+            cheap = on_map.price <= on_map.price.quantile(0.34)  # the cheapest third in green, as the hotel map marks cheaper nights
+            fig = go.Figure()
+            fig.add_scattermap(lat=[places.lat[orig]], lon=[places.lng[orig]], mode="markers", marker=dict(size=14, color=INK),
+                               hovertemplate=f"<b>{e(tp.city(orig))}</b><extra></extra>", showlegend=False)
+            fig.add_scattermap(lat=pts.lat, lon=pts.lng, mode="markers+text", customdata=list(on_map.dest),
+                               text=[f"{tp.city(d)} {money(v * pax)}" for d, v in zip(on_map.dest, on_map.price)], textposition="top center",
+                               textfont=dict(size=12, color=INK), marker=dict(size=13, color=["#0E7A53" if c else colour for c in cheap]),
+                               hovertemplate="<b>%{text}</b><br>click to see the dates<extra></extra>", showlegend=False)
+            lat, lng = list(pts.lat) + [places.lat[orig]], list(pts.lng) + [places.lng[orig]]
+            span = max(max(lat) - min(lat), (max(lng) - min(lng)) / 1.6, 1)
+            fig.update_layout(height=430, margin=dict(l=0, r=0, t=0, b=0), font=dict(family=FONT),
+                              map=dict(style="carto-positron", center=dict(lat=(max(lat) + min(lat)) / 2, lon=(max(lng) + min(lng)) / 2),
+                                       zoom=max(1.5, min(7, 7.6 - math.log2(span * 1.3)))))
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "scrollZoom": True}, key="xp-map", on_select=pick_on_map,
+                            selection_mode="points")
+            st.caption("Green: the cheapest third of the places. Click a place to see its dates.")
         when_ = lambda r: (f"{r.depart:%a %d %b} → {r.back:%a %d %b} · {int(r.nights)} nights" if pd.notna(r.back) else f"{r.depart:%a %d %b} · one way")
         ndays = (p.end - p.start).days + 1
         kpis([(f"{tp.city(r.dest)} · {r.dest}", money(r.price * pax), f"{when_(r)} · flights on {r.days} of {ndays} days · usually {money(r.typical * pax)}", colour)
