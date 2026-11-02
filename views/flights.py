@@ -326,6 +326,10 @@ with tabs["Price chart"]:
                        f"with a fare on {int(view.skyexpress.notna().sum())} days.")
         elif gq:
             st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
+    elif not p.price.notna().any():  # every day was searched and Google Flights found no AEGEAN flight at all
+        st.info(f"AEGEAN has no {'nonstop ' if nonstop else ''}flight from {orig} to {dest} on these days: Google Flights found none. "
+                "AEGEAN flies to both airports, but not between them, or only in another season. Try other months"
+                + (", or turn off Nonstop only under Options." if nonstop else "."), icon=":material/flight_takeoff:")
     else:
         st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop only under Options.")
     if nights and back[["economy", "business"]].notna().any().any():

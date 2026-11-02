@@ -775,7 +775,7 @@ def test_overview_searches_a_route_with_no_fares_from_the_bar(tmp_path, monkeypa
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     at = open_page("overview.py").run()
     to = at.selectbox(key="ov-grid-dest-ATH")
-    assert to.options[:3] == ["Anywhere", "Frankfurt (FRA)", "Zurich (ZRH)"] and "Bilbao (BIO) · no fares yet" in to.options
+    assert to.options[:3] == ["Anywhere", "Frankfurt (FRA)", "Zurich (ZRH)"] and "Bilbao (BIO) · not searched yet" in to.options
     assert "Athens (ATH)" not in " ".join(to.options) and to.value == "FRA"  # not itself; the first saved route by default
     to.set_value("BIO").run()
     assert not at.exception and "No economy fares saved from Athens to Bilbao for the next 30 days yet" in at.info[0].value
@@ -884,3 +884,17 @@ def test_any_route_with_saved_fares_works_like_the_daily_ones(tmp_path, monkeypa
     assert "The cheapest economy return from Bilbao to Athens with these filters is €184: leave " in text  # €91 out on day 1, €93 back on day 3
     at.chat_input[0].set_value("Why?").run()
     assert not at.exception and "Search: Bilbao (BIO) to Athens (ATH)" in seen[-1][1] and "2 nights, €184." in seen[-1][1]
+
+
+def test_to_list_says_where_aegean_was_found_not_to_fly_from_here(tmp_path, monkeypatch):
+    from datetime import datetime
+    t = seed(tmp_path / "tracker.db")
+    now = datetime.now().isoformat()
+    for i in range(1, 6):  # Athens -> Erfurt searched: every day checked, no AEGEAN flight
+        t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "ATH", "ERF", "economy", None, "calendar", now, 1))
+    t.commit()
+    at = pages(tmp_path, monkeypatch, None)("overview.py").run()
+    assert not at.exception
+    to = at.selectbox(key="ov-grid-dest-ATH")
+    assert "Erfurt (ERF) · no AEGEAN flight from here found" in to.options and to.options[-1] == "Erfurt (ERF) · no AEGEAN flight from here found"
+    assert "Bilbao (BIO) · not searched yet" in to.options

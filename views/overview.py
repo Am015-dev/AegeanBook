@@ -122,8 +122,13 @@ page_head("Overview", "The cheapest AEGEAN trip for your dates, and when to fly.
 c = st.container(key="ov-bar-route").columns([1.1, 1.3, 1.1])
 orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig", on_change=touched)
 saved = [d for o, d in far if o == orig]
-options = [ANY] + saved + sorted((a for a in cities if a not in saved and a != orig), key=cities.get)
-names = {ANY: "Anywhere", **{d: place(d) for d in saved}, **{a: f"{cities[a]} ({a}) · no fares yet" for a in options[1 + len(saved):]}}
+# airports searched from here where Google Flights found no AEGEAN flight on any day: AEGEAN flies there, but not from this airport
+# (or not in these months); they go last, saying so, so nobody takes them for a route
+none_found = {r[0] for r in db.execute("SELECT dest FROM prices WHERE orig=? AND nonstop=1 GROUP BY dest HAVING COUNT(price)=0", (orig,))}
+rest = [a for a in cities if a not in saved and a != orig]
+options = [ANY] + saved + sorted((a for a in rest if a not in none_found), key=cities.get) + sorted((a for a in rest if a in none_found), key=cities.get)
+names = {ANY: "Anywhere", **{d: place(d) for d in saved},
+         **{a: f"{cities[a]} ({a}) · " + ("no AEGEAN flight from here found" if a in none_found else "not searched yet") for a in rest}}
 dkey = f"ov-grid-dest-{orig}"
 dest = c[1].selectbox("To", options, format_func=names.get, key=dkey, on_change=touched, **({} if dkey in st.session_state else {"index": 1}))
 farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.values() if len(s))  # the last day with fares, any route
