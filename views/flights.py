@@ -302,66 +302,68 @@ else:
     if "skyexpress" in cabins:
         best_days(near["skyexpress"], sx.COLOUR, "Sky Express is cheapest on")
 
-# What should I book? One answer per cabin for the trip type chosen at the top (one way or return): cash, miles or an Aegean Pass.
-st.markdown('<p class="group">What should I book? Cash, miles or an Aegean Pass</p>', unsafe_allow_html=True)
-with st.expander("Assumptions: what a mile and each pass are worth"):
-    per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
-                            help="Miles are recommended when they save more than this per 1,000, cash otherwise. Set it to what you would "
-                                 "otherwise get for your miles.")
-    pcols = st.columns(4)
-    pass_prices = [pcols[i].number_input(f"{name} (€)", min_value=0.0, value=default, step=10.0, key=f"pass-price-{days}")
-                   for i, (name, default, days) in enumerate(PASSES)]
-    pass_flights = pcols[2].number_input("Flights in each pass", min_value=1, max_value=40, value=DEFAULT_FLIGHTS, key="pass-flights",
-                                         help="The price per flight depends on how many flights the pass has. Check yours.")
-    pass_taxes = pcols[3].number_input("Taxes per flight (€)", min_value=0.0, max_value=300.0, value=DEFAULT_TAXES, step=5.0, key="pass-taxes",
-                                       help="Airport taxes and surcharges are paid on top of the pass, flight by flight. €30 is what AEGEAN's award "
-                                            "response showed for a nonstop Athens to Frankfurt flight: use your own route's.")
-    st.caption("A pass is only compared with trips you could book that many days ahead. Current prices: "
-               "https://en.aegeanair.com/flight-deals/aegean-pass/")
-empty = pd.Series(dtype=float)
-bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
-day = lambda iso: f"{pd.Timestamp(iso):%a %d %b}"
-cards = []
-for name, colour, cash_col, miles_col, taxes_col in (("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"),
-                                                     ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")):
-    ow = one_way_plan(view, cash_col, miles_col, taxes_col)
-    ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
-                      view[taxes_col], bamt.get(cash_col, empty)) if nights else None
-    # the advice names a shortlist of days across the whole range, never one arbitrary day: the cheapest few for cash, and for miles (which cost
-    # the same on every seat day) the days where a seat replaces the most cash
-    if nights:  # a return trip: round-trip totals and the pairs of days that have miles both ways
-        trips_cabin = trips[trips.cabin == cash_col]
-        tc_ = trips_cabin.total
-        cash_in = dict(min=float(tc_.min()), typical=float(tc_.median()), when=cheapest_pairs(trips_cabin, tol)) if len(tc_) else None
-        mm = ret.get("miles")
-        cash_of = {(t.depart, t.back): float(t.total) for t in trips_cabin.itertuples()}
-        miles_in = dict(miles=mm[3], taxes=mm[5], when=best_miles_pairs(view[miles_col], bam.get(cash_col, empty), nights, cash_of, view[taxes_col],
-                                                                       bamt.get(cash_col, empty))) if mm else None
-    else:
-        c_ = view[cash_col].dropna()
-        cash_in = dict(min=float(c_.min()), typical=float(c_.median()), when=cheapest_days(view[cash_col], tol)) if len(c_) else None
-        mm = ow.get("miles")
-        miles_in = dict(miles=mm[1], taxes=mm[3], when=best_miles_days(view[cash_col], view[miles_col], view[taxes_col])) if mm else None
-    pass_in, notes = [], []
-    if cash_col == "economy":  # each pass against the dates shown above that could be booked that far ahead
-        for (pname, _, days_ahead), price in zip(PASSES, pass_prices):
-            pa = assess_pass(out["economy"], price, pass_flights, pass_taxes, days_ahead, today) if price else None
-            shown = int(out["economy"].notna().sum())
-            if pa and pa["days"] * 2 >= shown:  # most of the dates shown can be booked that far ahead
-                pass_in.append(dict(name=pname, eff=pa["effective"], days=days_ahead, price=price, flights=pass_flights))
-            elif price:
-                notes.append(f"The {pname} is left out: only {pa['days'] if pa else 0} of the {shown} dates shown can be booked {days_ahead} or more "
-                             "days ahead. Choose a longer range at the top to include it.")
-    else:
-        notes.append("The Aegean Pass is an Economy Flex fare, so it is not compared for Business.")
-    cards.append((name, colour, adv_options(cash_in, miles_in, pass_in, per_k, 2 if nights else 1), notes))
-st.markdown(ADV_STYLE, unsafe_allow_html=True)
-for ui_col, (name, colour, opts, notes) in zip(st.columns(2, gap="medium"), cards):
-    with ui_col:
-        st.markdown(adv_card(name, colour, opts, "round trip" if nights else "flight", notes), unsafe_allow_html=True)
-st.caption("Cash fares come from Google Flights and award miles from AEGEAN. "
-           + ("Showing round trips for the stay chosen at the top. " if nights else "Showing one-way flights; set Trip to Return at the top for round trips. ")
-           + f"Based on the {len(out)} days chosen at the top: choose 90 days there to consider everything saved.")
+has_advice = bool(out[["economy", "business", "econ_miles", "biz_miles"]].notna().any().any())  # fares or award seats saved
+if has_advice:  # nothing saved yet (a search still running, or not started): no advice made of empty cards
+    # What should I book? One answer per cabin for the trip type chosen at the top (one way or return): cash, miles or an Aegean Pass.
+    st.markdown('<p class="group">What should I book? Cash, miles or an Aegean Pass</p>', unsafe_allow_html=True)
+    with st.expander("Assumptions: what a mile and each pass are worth"):
+        per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
+                                help="Miles are recommended when they save more than this per 1,000, cash otherwise. Set it to what you would "
+                                     "otherwise get for your miles.")
+        pcols = st.columns(4)
+        pass_prices = [pcols[i].number_input(f"{name} (€)", min_value=0.0, value=default, step=10.0, key=f"pass-price-{days}")
+                       for i, (name, default, days) in enumerate(PASSES)]
+        pass_flights = pcols[2].number_input("Flights in each pass", min_value=1, max_value=40, value=DEFAULT_FLIGHTS, key="pass-flights",
+                                             help="The price per flight depends on how many flights the pass has. Check yours.")
+        pass_taxes = pcols[3].number_input("Taxes per flight (€)", min_value=0.0, max_value=300.0, value=DEFAULT_TAXES, step=5.0, key="pass-taxes",
+                                           help="Airport taxes and surcharges are paid on top of the pass, flight by flight. €30 is what AEGEAN's award "
+                                                "response showed for a nonstop Athens to Frankfurt flight: use your own route's.")
+        st.caption("A pass is only compared with trips you could book that many days ahead. Current prices: "
+                   "https://en.aegeanair.com/flight-deals/aegean-pass/")
+    empty = pd.Series(dtype=float)
+    bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
+    day = lambda iso: f"{pd.Timestamp(iso):%a %d %b}"
+    cards = []
+    for name, colour, cash_col, miles_col, taxes_col in (("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"),
+                                                         ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")):
+        ow = one_way_plan(view, cash_col, miles_col, taxes_col)
+        ret = return_plan(trips[trips.cabin == cash_col], view[miles_col], bam.get(cash_col, empty), nights,
+                          view[taxes_col], bamt.get(cash_col, empty)) if nights else None
+        # the advice names a shortlist of days across the whole range, never one arbitrary day: the cheapest few for cash, and for miles (which cost
+        # the same on every seat day) the days where a seat replaces the most cash
+        if nights:  # a return trip: round-trip totals and the pairs of days that have miles both ways
+            trips_cabin = trips[trips.cabin == cash_col]
+            tc_ = trips_cabin.total
+            cash_in = dict(min=float(tc_.min()), typical=float(tc_.median()), when=cheapest_pairs(trips_cabin, tol)) if len(tc_) else None
+            mm = ret.get("miles")
+            cash_of = {(t.depart, t.back): float(t.total) for t in trips_cabin.itertuples()}
+            miles_in = dict(miles=mm[3], taxes=mm[5], when=best_miles_pairs(view[miles_col], bam.get(cash_col, empty), nights, cash_of, view[taxes_col],
+                                                                           bamt.get(cash_col, empty))) if mm else None
+        else:
+            c_ = view[cash_col].dropna()
+            cash_in = dict(min=float(c_.min()), typical=float(c_.median()), when=cheapest_days(view[cash_col], tol)) if len(c_) else None
+            mm = ow.get("miles")
+            miles_in = dict(miles=mm[1], taxes=mm[3], when=best_miles_days(view[cash_col], view[miles_col], view[taxes_col])) if mm else None
+        pass_in, notes = [], []
+        if cash_col == "economy":  # each pass against the dates shown above that could be booked that far ahead
+            for (pname, _, days_ahead), price in zip(PASSES, pass_prices):
+                pa = assess_pass(out["economy"], price, pass_flights, pass_taxes, days_ahead, today) if price else None
+                shown = int(out["economy"].notna().sum())
+                if pa and pa["days"] * 2 >= shown:  # most of the dates shown can be booked that far ahead
+                    pass_in.append(dict(name=pname, eff=pa["effective"], days=days_ahead, price=price, flights=pass_flights))
+                elif price and shown:
+                    notes.append(f"The {pname} is left out: only {pa['days'] if pa else 0} of the {shown} dates shown can be booked {days_ahead} or more "
+                                 "days ahead. Choose a longer range at the top to include it.")
+        else:
+            notes.append("The Aegean Pass is an Economy Flex fare, so it is not compared for Business.")
+        cards.append((name, colour, adv_options(cash_in, miles_in, pass_in, per_k, 2 if nights else 1), notes))
+    st.markdown(ADV_STYLE, unsafe_allow_html=True)
+    for ui_col, (name, colour, opts, notes) in zip(st.columns(2, gap="medium"), cards):
+        with ui_col:
+            st.markdown(adv_card(name, colour, opts, "round trip" if nights else "flight", notes), unsafe_allow_html=True)
+    st.caption("Cash fares come from Google Flights and award miles from AEGEAN. "
+               + ("Showing round trips for the stay chosen at the top. " if nights else "Showing one-way flights; set Trip to Return at the top for round trips. ")
+               + f"Based on the {len(out)} days chosen at the top: choose 90 days there to consider everything saved.")
 
 days_checked = seen.day.nunique()
 if days_checked < len(days):
@@ -385,7 +387,7 @@ with tabs["Price chart"]:
                        f"with a fare on {int(view.skyexpress.notna().sum())} days.")
         elif gq:
             st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
-    elif not p.price.notna().any():  # every day was searched and Google Flights found no AEGEAN flight at all
+    elif seen.day.nunique() >= len(days) and not p.price.notna().any():  # every day searched, and no AEGEAN flight on any
         rows = {r["iata"]: r for r in aegean_rows()}
         season = [a for a in (orig, dest) if rows.get(a, {}).get("seasonal") == "1"]
         why = (f"{rows[season[0]]['city']} is a seasonal AEGEAN destination: it is flown only part of the year, and some seasonal flights are "

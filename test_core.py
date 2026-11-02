@@ -1137,3 +1137,24 @@ def test_hotel_fetch_finds_the_tripadvisor_key_itself_when_none_is_given(tmp_pat
     s["hkey"] = ""
     rows = fetch_hotel.fetch(s, google=google, places={}, find=lambda *a: None)  # not found: Google prices only, nothing breaks
     assert {r["source"] for r in rows} == {"google"} and rows[0]["hkey"] == ""
+
+
+def test_flights_page_says_no_flight_only_after_every_day_came_back_empty(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    page = os.path.abspath("views/flights.py")
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60).run()  # nothing saved yet (a search not started or still running)
+    text = " ".join(m.value for m in at.markdown) + " ".join(i.value for i in at.info)
+    assert not at.exception and "found none" not in text and "What should I book?" not in text
+    t = db.connect(str(tmp_path / "tracker.db"))  # now every day of the default 30 came back with no AEGEAN flight, both ways
+    now = datetime.now().isoformat()
+    for i in range(1, 31):
+        for o, d_ in (("ATH", "FRA"), ("FRA", "ATH")):
+            for cabin in ("economy", "business"):
+                t.execute("INSERT INTO prices VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), o, d_, cabin, None, "calendar", now, 1))
+    t.commit()
+    at.run()
+    assert not at.exception and any("Google Flights found none" in i.value for i in at.info)
+    assert "What should I book?" not in " ".join(m.value for m in at.markdown)  # nothing to advise on
