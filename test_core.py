@@ -1024,3 +1024,25 @@ def test_hotel_places_keep_every_hotel_a_search_returned(tmp_path):
     got = {r["hotel"]: r for r in csv.DictReader(out.open())}
     assert len(got) == 2 and got["Cheap Inn"]["low"] == "80" and got["Frankfurter Hof"]["stars"] == "5"
     assert 0.8 < hotels.km(50.110, 8.676, 50.107, 8.665) < 0.9
+
+
+def test_hotel_landmarks_are_looked_up_once_per_search_and_never_break_a_fetch(tmp_path):
+    import csv
+    import fetch_hotel
+    out = tmp_path / "hotel_landmarks.csv"
+    places = {"Steigenberger Frankfurter Hof": dict(lat=50.110, lng=8.676), "Other": dict(lat=50.2, lng=8.7)}
+    asked = []
+
+    def find(lat, lng):
+        asked.append((lat, lng))
+        return [dict(kind="station", label="Main station", name="Frankfurt (Main) Hauptbahnhof", lat=50.107, lng=8.663)]
+    s = dict(query="Steigenberger Frankfurt", filt="Frankfurter Hof")
+    rows = fetch_hotel.landmark_rows(s, places, out, find)
+    assert asked == [(50.110, 8.676)] and rows[0]["query"] == "Steigenberger Frankfurt"  # looked up around the hotel searched for
+    fetch_hotel.save_landmarks(rows, out)
+    assert fetch_hotel.landmark_rows(s, places, out, find) == [] and len(asked) == 1  # already saved: no second lookup
+    assert [r["name"] for r in csv.DictReader(out.open())] == ["Frankfurt (Main) Hauptbahnhof"]
+
+    def down(lat, lng):
+        raise OSError("Nominatim is down")
+    assert fetch_hotel.landmark_rows(dict(query="Elsewhere", filt="x"), places, out, down) == []  # the map just shows the hotels

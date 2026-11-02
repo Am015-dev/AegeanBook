@@ -11,7 +11,7 @@ import streamlit as st
 import gh
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
-from fetch_hotel import PLACES
+from fetch_hotel import LANDMARKS, PLACES
 from hotels import fetch_range, km
 from jobs import record, start_job, track
 from par import parallel
@@ -250,6 +250,15 @@ if len(here):
         near_by = here.assign(km=float("nan")).sort_values("low")
     # this hotel's cheapest night over the same searched check-in days as its neighbours, so the two compare like for like
     own = me.low if me is not None and pd.notna(me.low) else None
+    marks_path = gh.data_file("data/hotel_landmarks.csv") or str(LANDMARKS)
+    marks = pd.read_csv(marks_path) if os.path.exists(marks_path) else pd.DataFrame(columns=["query", "kind", "label", "name", "lat", "lng"])
+    marks = marks[marks["query"] == query]
+    spot = {k: marks[marks.kind == k].iloc[0] for k in ("station", "centre") if (marks.kind == k).any()}
+    for k, m in spot.items():  # how far each hotel is from the main station and the town centre
+        here[f"to_{k}"] = [km(m.lat, m.lng, a, b) for a, b in zip(here.lat, here.lng)]
+        near_by[f"to_{k}"] = here.loc[near_by.index, f"to_{k}"]
+        if me is not None:
+            me = here.loc[mine.index[0]]
 
     def text(r):
         stars = f"{int(r.stars)}-star · " if pd.notna(r.stars) else ""
@@ -257,7 +266,8 @@ if len(here):
         price = (f"from €{r.low:.0f} a night, usually €{r.typical:.0f}<br>(check-ins {pd.Timestamp(r['first']):%-d %b}–"
                  f"{pd.Timestamp(r['last']):%-d %b})") if pd.notna(r.low) else "no price for these dates"
         away = f"<br>{r.km:.1f} km away" if pd.notna(r.get("km")) and r.km > 0.05 else ""
-        return f"<b>{r.hotel}</b><br>{stars}{rating}<br>{price}{away}"
+        to = " · ".join(f"{r[f'to_{k}']:.1f} km to the {'main station' if k == 'station' else 'centre'}" for k in spot if pd.notna(r.get(f"to_{k}")))
+        return f"<b>{r.hotel}</b><br>{stars}{rating}<br>{price}{away}" + (f"<br>{to}" if to else "")
 
     title = (f"{me.hotel} and the {len(near_by)} hotels within {RADIUS} km" if me is not None
              else f"The {len(near_by)} hotels Google listed for {query}")
@@ -271,7 +281,14 @@ if len(here):
     if me is not None:
         fig.add_scattermap(lat=[me.lat], lon=[me.lng], mode="markers", name=me.hotel, marker=dict(size=20, color=ECONOMY),
                            text=[text(me)], hovertemplate="%{text}<extra></extra>")
-    shown = pd.concat([near_by, mine.head(1)])
+    # the places a traveller finds their way by, labelled on the map itself; each label on its own side, because the centre and the
+    # cathedral are often a few hundred metres apart and the map hides a label that overlaps another
+    side = {"centre": "top left", "church": "bottom right", "station": "bottom center"}
+    for i, (_, m) in enumerate(marks.iterrows()):
+        fig.add_scattermap(lat=[m.lat], lon=[m.lng], mode="markers+text", name="Centre, station, church", legendgroup="marks",
+                           showlegend=i == 0, text=[m.label], textposition=side.get(m.kind, "top center"), textfont=dict(size=13, color=INK),
+                           marker=dict(size=13, color=INK), customdata=[m["name"]], hovertemplate="<b>%{text}</b><br>%{customdata}<extra></extra>")
+    shown = pd.concat([near_by, mine.head(1), marks[["lat", "lng"]]])
     spread = max([km(shown.lat.mean(), shown.lng.mean(), a, b) for a, b in zip(shown.lat, shown.lng)] + [0.3])
     fig.update_layout(height=440, margin=dict(l=0, r=0, t=0, b=0), font=dict(family=FONT, color=INK), hoverlabel=dict(font_family=FONT),
                       legend=dict(orientation="h", x=0, y=1.0, yanchor="bottom", bgcolor="rgba(0,0,0,0)"),
@@ -281,10 +298,14 @@ if len(here):
     if len(near_by):
         table = near_by.assign(Stars=near_by.stars.map(lambda v: f"{int(v)}" if pd.notna(v) else ""),
                                Rating=near_by.rating.map(lambda v: f"{v:.1f}" if pd.notna(v) else ""))
-        table = table.rename(columns={"hotel": "Hotel", "km": "km away", "low": "From € a night", "typical": "Usually €"})
-        cols = (["Hotel"] + (["km away"] if me is not None else []) + ["Stars", "Rating", "From € a night", "Usually €"])
+        table = table.rename(columns={"hotel": "Hotel", "km": "km away", "low": "From € a night", "typical": "Usually €",
+                                      "to_station": "km to station", "to_centre": "km to centre"})
+        cols = (["Hotel"] + (["km away"] if me is not None else []) + [c for c in ("km to station", "km to centre") if c in table]
+                + ["Stars", "Rating", "From € a night", "Usually €"])
         st.dataframe(table[cols], hide_index=True, width="stretch", height=min(36 * len(table) + 38, 330),
                      column_config={"km away": st.column_config.NumberColumn(format="%.1f"),
+                                    "km to station": st.column_config.NumberColumn(format="%.1f"),
+                                    "km to centre": st.column_config.NumberColumn(format="%.1f"),
                                     "From € a night": st.column_config.NumberColumn(format="€%d"),
                                     "Usually €": st.column_config.NumberColumn(format="€%d")})
         when = f"{pd.Timestamp(near_by['first'].min()):%-d %b}–{pd.Timestamp(near_by['last'].max()):%-d %b}"

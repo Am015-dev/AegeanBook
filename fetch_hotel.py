@@ -15,11 +15,13 @@ from pathlib import Path
 
 import history
 import hotels
+import landmarks
 from par import parallel
 from xotelo import booking_rate, heatmap_range, hotel_key
 
 OUT = Path(__file__).parent / "data" / "hotel_searches.csv"
 PLACES = OUT.with_name("hotel_places.csv")  # every hotel the searches returned, with where it is, for the Hotels page's map
+LANDMARKS = OUT.with_name("hotel_landmarks.csv")  # the town centre, main station and cathedral around each search, for the same map
 PLACE_FIELDS = ["query", "nights", "adults", "hotel", "lat", "lng", "stars", "rating", "reviews", "low", "typical", "days", "first", "last",
                 "fetched"]
 FIELDS = ["source", "day", "hotel", "price", "tier", "fetched", "query", "filt", "hkey", "nights", "adults"]
@@ -80,6 +82,31 @@ def save_places(rows, path=None):
     write(sorted(newest.values(), key=lambda r: (r["query"], r["hotel"])), path, PLACE_FIELDS)
 
 
+def save_landmarks(rows, path=None):
+    """Merge one search's landmarks into the file: a search's new set replaces its old one."""
+    path = Path(path or LANDMARKS)
+    queries = {r["query"] for r in rows}
+    keep = [r for r in (read(path) if path.exists() else []) if r["query"] not in queries]
+    write(sorted(keep + rows, key=lambda r: (r["query"], r["kind"])), path, landmarks.FIELDS)
+
+
+def landmark_rows(s, places, path=None, find=landmarks.find):
+    """The landmarks around the hotel searched for, unless the file has them already (a town's station does not move). [] when
+    Nominatim fails: the map then shows the hotels alone."""
+    path = Path(path or LANDMARKS)
+    if path.exists() and any(r["query"] == s["query"] for r in read(path)):
+        return []
+    words = s["filt"].lower().split()
+    spot = next((p for n, p in places.items() if all(w in n.lower() for w in words)), None) or next(iter(places.values()), None)
+    if spot is None:
+        return []
+    try:
+        return [dict(p, query=s["query"]) for p in find(spot["lat"], spot["lng"])]
+    except Exception as e:
+        print(f"  landmarks: {type(e).__name__}: {e}")
+        return []
+
+
 def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range, places=None):
     """Rows for the cheap-day calendar and Booking.com (with a TripAdvisor key) and Google Hotels on every day of the ranges.
     Google days that failed (usually a rate limit) are retried after a pause, like the daily run does."""
@@ -124,10 +151,14 @@ if __name__ == "__main__":
         save(read(sys.argv[2]))
         if os.path.exists(sys.argv[2] + ".places"):
             save_places(read(sys.argv[2] + ".places"))
+        if os.path.exists(sys.argv[2] + ".landmarks") and (marks := read(sys.argv[2] + ".landmarks")):
+            save_landmarks(marks)
     else:
         s, places = search(os.environ), {}
         got = fetch(s, places=places)
         write(got, sys.argv[1])
         write(hotels.place_rows(places, s["query"], s["nights"], s["adults"], datetime.now().isoformat(timespec="seconds")),
               sys.argv[1] + ".places", PLACE_FIELDS)
-        print(f"{len(got)} rows, {len(places)} hotels seen")
+        marks = landmark_rows(s, places)
+        write(marks, sys.argv[1] + ".landmarks", landmarks.FIELDS)
+        print(f"{len(got)} rows, {len(places)} hotels seen, {len(marks)} landmarks")
