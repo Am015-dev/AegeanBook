@@ -127,8 +127,10 @@ saved = [d for o, d in far if o == orig]
 none_found = {r[0] for r in db.execute("SELECT dest FROM prices WHERE orig=? AND nonstop=1 GROUP BY dest HAVING COUNT(price)=0", (orig,))}
 rest = [a for a in cities if a not in saved and a != orig]
 options = [ANY] + saved + sorted((a for a in rest if a not in none_found), key=cities.get) + sorted((a for a in rest if a in none_found), key=cities.get)
+seasonal = {r["iata"] for r in aegean_rows() if r["seasonal"] == "1"}  # AEGEAN's own list marks them: flights only part of the year
 names = {ANY: "Anywhere", **{d: place(d) for d in saved},
-         **{a: f"{cities[a]} ({a}) · " + ("no AEGEAN flight from here found" if a in none_found else "not searched yet") for a in rest}}
+         **{a: f"{cities[a]} ({a}) · " + ("no AEGEAN flight from here found" if a in none_found else "not searched yet")
+            + (" · seasonal" if a in seasonal else "") for a in rest}}
 dkey = f"ov-grid-dest-{orig}"
 dest = c[1].selectbox("To", options, format_func=names.get, key=dkey, on_change=touched, **({} if dkey in st.session_state else {"index": 1}))
 farday = max(date.fromisoformat(s.index.max()) for f in far.values() for s in f.values() if len(s))  # the last day with fares, any route
