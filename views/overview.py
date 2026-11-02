@@ -23,6 +23,7 @@ import trip_plan as tp
 from db import connect
 from insights import DAYS, ahead_chart, ahead_stats, ahead_takeaway, weekday_chart, weekday_stats, weekday_takeaway
 from trip_cost import night_prices
+from layout import page_head
 from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aegean_rows, github_note, github_progress, grid_frame, html_table,
                 kpis, no_service_note, price_chart, route)
 
@@ -36,7 +37,7 @@ if getattr(pi, "VERSION", 0) < 1:
     pi = importlib.reload(pi)
 if getattr(sx, "VERSION", 0) < 2:
     sx = importlib.reload(sx)
-if getattr(fa, "VERSION", 0) < 1:
+if getattr(fa, "VERSION", 0) < 2:
     fa = importlib.reload(fa)
 if getattr(xp, "VERSION", 0) < 2:
     xp = importlib.reload(xp)
@@ -117,6 +118,7 @@ if q.get("from") in froms:  # ?from=SKG&to=ATH (the Expert, an old Explore link)
     touched()
     q.clear()
 # ponytail: the two rows get keys so ui.CSS can lay the second out differently on a phone (Streamlit stacks every column there)
+page_head("Flights", "The cheapest AEGEAN trip for your dates, and when to fly.")
 c = st.container(key="ov-bar-route").columns([1.1, 1.3, 1.1])
 orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig", on_change=touched)
 saved = [d for o, d in far if o == orig]

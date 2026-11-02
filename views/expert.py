@@ -15,19 +15,19 @@ import overview as ov
 import trip_plan as tp
 from db import connect
 from insights import DAYS
-from ui import route
+from layout import page_head
 
-if getattr(ex, "VERSION", 0) < 5:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ex, "VERSION", 0) < 6:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 4:
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
-if getattr(fa, "VERSION", 0) < 1:
+if getattr(fa, "VERSION", 0) < 2:
     fa = importlib.reload(fa)
 db = connect()
 today = date.today()
-route("Expert", None, "Why this is the trip to book, and what else would work.")
+page_head("Ask the expert", "Why this is the trip to book, and what else would work.")
 try:
     cfg = ex.available(st.secrets)
 except Exception:
@@ -63,7 +63,7 @@ with st.container(border=True, key="search"):
     c = st.columns([1.2, 1.2, 1])
     place = lambda a: f"{tp.city(a)} ({a})"
     orig = c[0].selectbox("From", froms, format_func=place, key="plan-orig",
-                          help="Every airport with fares saved: the daily routes, plus any route you searched on the Flights page.")
+                          help="Every airport with fares saved: the daily routes, plus any route you searched in the fare calendar.")
     dest = c[1].selectbox("To", [d for o, d in fares if o == orig], format_func=place, key=f"plan-dest-{orig}")
     last = date.fromisoformat(db.execute("SELECT MAX(day) FROM prices WHERE price IS NOT NULL").fetchone()[0])  # the last day with fares, any route
     try:  # ?when=2026-12-12,2026-12-18 from the Overview's link: the same days the pass was for

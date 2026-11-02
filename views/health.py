@@ -4,10 +4,10 @@ import streamlit as st
 
 from checks import run_checks
 from freshness import freshness
-from ui import route
+from layout import page_head
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-route("Health", None, "Check that each data source answers right now. Run this first if results look odd or empty.")
+page_head("Status", "Whether each data source answers right now, and the GitHub minutes used this month. Look here first if results look odd or empty.")
 st.markdown('<p class="card-title">GitHub minutes</p>', unsafe_allow_html=True)
 import budget as _budget
 import gh as _gh
