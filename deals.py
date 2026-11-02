@@ -4,7 +4,7 @@ import html
 
 import pandas as pd
 
-VERSION = 6  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 7  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 
 def by_month(fares, min_days=7):
@@ -66,7 +66,7 @@ def grid_html(t, fmt, colours=grid_colours):
     e = html.escape
     css = colours(t)
     low = t.min().min()
-    head = "<tr><th></th>" + "".join(f"<th>{e(str(c))}</th>" for c in t.columns) + "</tr>"
+    head = '<tr><th class="corner">Leave ↓ · stay →</th>' + "".join(f"<th>{e(str(c))}</th>" for c in t.columns) + "</tr>"
     rows, marked = [], False
     for i, (day, r) in enumerate(t.iterrows()):
         cells = []

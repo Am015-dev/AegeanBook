@@ -37,11 +37,11 @@ if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a mo
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
-if getattr(deals, "VERSION", 0) < 6:
+if getattr(deals, "VERSION", 0) < 7:
     deals = importlib.reload(deals)
 if getattr(pi, "VERSION", 0) < 1:
     pi = importlib.reload(pi)
-if getattr(sx, "VERSION", 0) < 2:
+if getattr(sx, "VERSION", 0) < 3:
     sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 3:
     fa = importlib.reload(fa)
@@ -335,7 +335,7 @@ else:
             alert["back"] = best["back"].isoformat()
         c = st.columns(2)
         for col, page, label, icon, params in (
-                (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:", alert),
+                (c[0], "views/alerts.py", "Track this price: tell me when it drops", ":material/notifications_active:", alert),
                 (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
                  {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": f"{p.start},{p.end}"})):
             try:
