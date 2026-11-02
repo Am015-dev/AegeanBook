@@ -167,4 +167,25 @@ def test_day_rows_carry_taxes_when_the_request_mode_read_them():
     assert rows[("economy", 1)]["miles"] == 9032 and rows[("economy", 1)]["taxes"] == 30.44
     assert rows[("business", 1)]["miles"] == "" and rows[("business", 1)]["taxes"] == ""   # no seats: both empty
     assert rows[("business", 0)]["miles"] == 16935 and rows[("business", 0)]["taxes"] == ""  # page-reading mode: miles, no taxes
-    assert list(rows[("economy", 1)]) == ["day", "orig", "dest", "cabin", "miles", "taxes", "nonstop", "fetched"] == ac.FIELDS
+    assert list(rows[("economy", 1)]) == ["day", "orig", "dest", "cabin", "miles", "taxes", "nonstop", "fetched", "calendar"] == ac.FIELDS
+
+
+def test_only_changed_days_are_rewritten_and_a_missed_change_stays_changed(tmp_path):
+    from datetime import date
+    p = str(tmp_path / "d.csv")
+    row = lambda day, miles, cal, t: dict(day=day, orig="ATH", dest="FRA", cabin="economy", miles=miles, nonstop=0, fetched=t, calendar=cal)
+    ac.save_csv([row("2026-11-01", 9032, "FLEX 9032 30.44", "t1"), row("2026-11-02", 9032, "", "t1")], p, today=date(2026, 10, 29))
+    stamps = {("2026-11-02", "ATH", "FRA"): "FLEX 9032 30.44"}          # the day was not asked about: only its calendar cell moves
+    ac.save_csv([row("2026-11-01", 15000, "ECONOMY 15000 78.44", "t2")], p, today=date(2026, 10, 29), stamps=stamps)
+    assert ac.last_checked("ATH", "FRA", p) == {"2026-11-01": ("ECONOMY 15000 78.44", "t2"), "2026-11-02": ("FLEX 9032 30.44", "t1")}
+    assert ac.last_checked("FRA", "ATH", p) == {}
+
+
+def test_history_does_not_get_the_calendar_column(tmp_path):
+    import csv
+    p = tmp_path / "h.csv"
+    best = {("economy", 0): (9032, 30.44)}
+    ac.append_history(ac.day_rows("2026-11-07", "ATH", "FRA", best, "t1", "FLEX 9032 30.44"), p)
+    ac.append_history(ac.day_rows("2026-11-07", "ATH", "FRA", best, "t2", "FLEX 12664 55.92"), p)  # the calendar moved, this day's fare did not
+    rows = list(csv.DictReader(open(p)))
+    assert len(rows) == 1 and "calendar" not in rows[0]

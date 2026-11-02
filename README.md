@@ -38,10 +38,10 @@ Self-check: `python collector.py`. Scraping may break whenever Google changes it
     python award_collector.py login    # log in once, no password stored
     python award_collector.py record   # do one manual Business award search, then press Enter
 
-### Award miles (AEGEAN-operated flights, Economy and Business, next 90 days, four legs)
+### Award miles (AEGEAN-operated flights, Economy and Business, next 365 days, four legs, once a month)
 
     python award_collector.py fetch                      # ATH-FRA FRA-ATH ATH-ZRH ZRH-ATH, or name legs: fetch ATH-FRA
-    award_daily.bat                                      # fetch + commit/push data/daily_award.csv (Task Scheduler, daily)
+    award_daily.bat                                      # fetch + commit/push data/daily_award.csv (Task Scheduler, every 4 weeks)
 
 The award search needs your AEGEAN login, so it only runs on your own computer (close every Chrome window using `.aegean_profile`
 first). It writes `data/daily_award.csv`; the deployed app loads that file, so pushing it is what updates the live app. On your

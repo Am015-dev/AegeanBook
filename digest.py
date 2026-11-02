@@ -57,7 +57,7 @@ def build(data_dir):
     section("Dearer fares", [f"- {_where(r)}: €{old:.0f} → €{new:.0f} (+€{new - old:.0f})" for r, old, new in rises])
     section("New award seats", [f"- {_where(r)}: {new:,.0f} miles (was none)" for r, old, new in miles if old is None and new is not None])
     section("Award seats gone", [f"- {_where(r)}: was {old:,.0f} miles" for r, old, new in miles if old is not None and new is None])
-    section("Award miles changed", [f"- {_where(r)}: {old:,.0f} → {new:,.0f} miles" for r, old, new in miles if old is not None and new is not None])
+    section("Award miles changed", [f"- {_where(r)}: {old:,.0f} → {new:,.0f} miles" for r, old, new in miles if old is not None and new is not None and old != new])
     if not sections:
         return ""
     latest = max(r["fetched"][:10] for r, _, _ in prices + miles)

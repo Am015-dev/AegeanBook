@@ -20,7 +20,7 @@ SETS = {
     "Sky Express fares": dict(file="history_skyexpress.csv", value="price", unit="€", key=["day", "orig", "dest", "cabin", "nonstop"], series="cabin",
                               route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="Sky Express economy fare, from Google Flights"),
     "Award miles": dict(file="award_history.csv", value="miles", unit=" miles", key=["day", "orig", "dest", "cabin", "nonstop"], series="cabin",
-                        route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="AEGEAN award miles, lowest of the day"),
+                        route=lambda d: d["orig"] + " → " + d["dest"], day="Departure day", what="AEGEAN award miles, lowest of the day", empty="No seats"),
     "Hotels": dict(file="history_hotel.csv", value="price", unit="€", key=["source", "day", "query", "filt", "nights", "adults"], series="source",
                    route=lambda d: d["query"].astype(str) + " · " + d["filt"].astype(str), day="Check-in day", what="Price per night"),
 }
@@ -42,6 +42,13 @@ def changes_only(df, key, value):
     prev = g[value].shift()
     same = (df[value] == prev) | (df[value].isna() & prev.isna())
     return df[first | ~same]
+
+
+def with_before(df, key, value, empty):
+    """Rows of changes_only, oldest first, as text with what each one replaced: `before` is "" on a day's first recording; `empty` names a
+    missing value, so 9,032 -> No seats reads as a change instead of a blank cell."""
+    text = df[value].map(lambda v: empty if pd.isna(v) else f"{v:,.0f}")
+    return df.assign(**{value: text, "before": text.groupby([df[k] for k in key], dropna=False).shift().fillna("")})
 
 
 def overview():
@@ -97,10 +104,15 @@ def section(name, cfg):
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
     else:
         st.caption("This day has been recorded once so far; the chart of how it moved appears after the next daily run.")
-    table = view.sort_values("fetched", ascending=False).rename(columns={"fetched": "Recorded", "day": cfg["day"], "route": "Route",
+    rows = with_before(view, cfg["key"], cfg["value"], cfg["empty"]) if "empty" in cfg else view
+    table = rows.sort_values("fetched", ascending=False).rename(columns={"fetched": "Recorded", "day": cfg["day"], "route": "Route", "before": "Before",
                                                                            "series": "Cabin" if cfg["series"] == "cabin" else "Source",
                                                                            cfg["value"]: "Price €" if cfg["unit"] == "€" else "Miles"})
     show = ["Recorded", cfg["day"], "Route", "Cabin" if cfg["series"] == "cabin" else "Source", "Price €" if cfg["unit"] == "€" else "Miles"]
+    if "empty" in cfg:
+        show.insert(-1, "Before")
+        if st.toggle("Only changes", key=f"db-changes-{name}", help="Hide days recorded for the first time."):
+            table = table[table.Before != ""]
     st.dataframe(table[show].head(1000), hide_index=True, width="stretch")
     if len(table) > 1000:
         st.caption("The newest 1,000 rows are shown; the download has all of them.")

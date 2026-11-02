@@ -602,6 +602,11 @@ def test_database_page_renders_and_keeps_only_changes():
     exec(src[src.index("def changes_only"):src.index("def overview")], {"pd": pd}, ns)  # the pure helper, without running the page
     df = pd.DataFrame({"day": ["d"] * 4, "fetched": ["t1", "t2", "t3", "t4"], "price": [100.0, 100.0, 90.0, 90.0]})
     assert list(ns["changes_only"](df, ["day"], "price").fetched) == ["t1", "t3"]
+    ns["pd"] = pd
+    exec(src[src.index("def with_before"):src.index("def overview")], ns)
+    m = pd.DataFrame({"day": ["d1", "d2", "d1", "d1"], "fetched": ["t1", "t1", "t2", "t3"], "miles": [9032.0, float("nan"), float("nan"), 9032.0]})
+    got = ns["with_before"](m, ["day"], "miles", "No seats")
+    assert list(zip(got.miles, got.before)) == [("9,032", ""), ("No seats", ""), ("No seats", "9,032"), ("9,032", "No seats")]
 
 
 def test_export_whole_database(tmp_path):
@@ -667,6 +672,7 @@ def test_freshness_levels_and_health_page(tmp_path):
     assert r["Cash fares"][2] == 1 and r["Cash fares"][3] == "ok"
     assert r["Award miles"][1] is None and r["Award miles"][3] == "stale"   # never collected: stale, with how it is collected
     assert freshness.freshness(str(tmp_path), date(2026, 11, 3))[0][3] == "late" and freshness.freshness(str(tmp_path), date(2026, 12, 1))[0][3] == "stale"
+    assert freshness.SOURCES[2][2] == 35  # award miles are collected once a month
     import os
     from streamlit.testing.v1 import AppTest
     page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "health.py")
@@ -734,8 +740,13 @@ def test_digest_lists_changes_and_ignores_first_sightings(tmp_path):
     a = tmp_path / "award_history.csv"
     a.write_text("day,orig,dest,cabin,miles,nonstop,fetched\n"
                  "2026-11-20,ATH,FRA,business,,1,2026-10-29T07:00:00\n"
-                 "2026-11-20,ATH,FRA,business,16935,1,2026-10-30T07:00:00\n")           # a seat appeared
+                 "2026-11-20,ATH,FRA,business,16935,1,2026-10-30T07:00:00\n"            # a seat appeared
+                 "2026-11-21,ATH,FRA,economy,9032,1,2026-10-29T07:00:00\n"
+                 "2026-11-21,ATH,FRA,economy,,1,2026-10-30T07:00:00\n"                  # the seats went
+                 "2026-11-22,ATH,FRA,economy,9032,1,2026-10-29T07:00:00\n"
+                 "2026-11-22,ATH,FRA,economy,9032,1,2026-10-30T07:00:00\n")             # same miles, only the taxes changed: not news
     md = digest.build(str(tmp_path))
+    assert "Sat 21 Nov, economy: was 9,032 miles" in md and "Sun 22 Nov" not in md
     assert md.startswith("# What changed on 30 Oct 2026")
     assert "Wed 18 Nov, economy: \u20ac86 \u2192 \u20ac79 (\u2212\u20ac7)" in md and "\u20ac100 \u2192 \u20ac120 (+\u20ac20)" in md
     assert "Fri 20 Nov, business: 16,935 miles (was none)" in md and "2027" not in md and "Jan" not in md

@@ -8,8 +8,8 @@ from datetime import date
 SOURCES = [
     ("Cash fares", "daily.csv", 2, "Collected every morning by the GitHub Action 'Daily fares'. If it is late, open the Actions tab on GitHub."),
     ("Hotel prices", "daily_hotel.csv", 2, "Collected every morning by the same GitHub Action."),
-    ("Award miles", "daily_award.csv", 3, "Collected on the owner's computer (award_daily.bat), not by GitHub. It only updates when that "
-                                         "computer runs it."),
+    ("Award miles", "daily_award.csv", 35, "Collected once a month on the owner's computer (award_daily.bat), not by GitHub. It only updates "
+                                          "when that computer runs it."),
 ]
 
 

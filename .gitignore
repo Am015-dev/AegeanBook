@@ -8,3 +8,4 @@ hotel_export.xlsx
 .streamlit/secrets.toml
 .claude/skills/
 .claude/worktrees/
+award_run.log
