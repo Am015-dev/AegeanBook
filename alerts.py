@@ -201,7 +201,7 @@ def title(orig, dest, cabin, unit, limit, trip="oneway"):
 def new_issue_link(orig, dest, cabin, unit, limit, start="", end="", trip="oneway", nights=NIGHTS):
     """A link to GitHub's new-issue form, filled in with an alert, for the app's alert form when it has no token."""
     body = "\n".join(body_lines(orig, dest, cabin, unit, limit, trip, nights, start, end)
-                     + ["", "Price alert from the AEGEAN fare tracker: the daily run checks it every morning and comments here when it is met. "
+                     + ["", "Price alert from FlyCheap, the AEGEAN fare tracker: the daily run checks it every morning and comments here when it is met. "
                             "Close this issue to stop it."])
     q = urllib.parse.urlencode({"title": title(orig, dest, cabin, unit, limit, trip), "labels": LABEL, "body": body})
     return f"https://github.com/{REPO}/issues/new?{q}"
@@ -220,7 +220,7 @@ def mail(to, subject, text):
     if not user or not password:
         raise RuntimeError("SMTP_USER and SMTP_PASSWORD are not set, so email alerts cannot be sent")
     m = EmailMessage()
-    m["From"], m["To"], m["Subject"] = f"AEGEAN fare tracker <{user}>", to, subject
+    m["From"], m["To"], m["Subject"] = f"FlyCheap <{user}>", to, subject
     m.set_content(text)
     with smtplib.SMTP_SSL(os.environ.get("SMTP_HOST", "smtp.gmail.com"), 465, timeout=30) as s:
         s.login(user, password)
@@ -250,7 +250,7 @@ def handle(issue, alert, today=None, db=None):
             return None
         what = describe(alert)
         mail(alert["email"], f"Confirm your price alert: {city(alert['orig'])} → {city(alert['dest'])}",
-             f"Someone (hopefully you) asked the AEGEAN fare tracker to email this address when {what}.\n\n"
+             f"Someone (hopefully you) asked FlyCheap, the AEGEAN fare tracker, to email this address when {what}.\n\n"
              f"Turn the alert on: {link('confirm', n, alert['code'])}\n\nNot you? Ignore this email and nothing more will be sent.")
         return body + "\n" + SENT
     hits = matches(alert, today, db)

@@ -503,7 +503,7 @@ def test_flights_page_keeps_value_metric_typed_only(tmp_path, monkeypatch):
     at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
-    assert "Cheapest economy" in shown and "Lowest economy award" not in shown  # Pay with: Cash € by default: cash fares only
+    assert "Cheapest economy" in shown and "Lowest economy award" in shown  # award seats saved: shown beside the cash fares, whatever Pay with says
     at.button_group(key="fl-pay").set_value("miles").run()
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)

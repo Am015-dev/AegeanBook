@@ -9,6 +9,7 @@ import streamlit as st
 
 import booking
 import gh
+import miles_value
 import network
 import skyexpress as sx
 from collector import Airline, fetch_range, gaps
@@ -266,8 +267,8 @@ def best_trip(col):
 kind = "return" if nights else ""
 collected = bool(am.size)  # any award data for this route and range: no data is not the same as no seats
 (eav, eas), (bav, bas) = best_award(view.econ_miles, collected), best_award(view.biz_miles, collected)
-award_col = None  # the award miles only when asked for (Pay with: Miles at the top), beside the cash fares on a desktop, under them on a phone
-if pay == "miles":
+award_col = None  # the award miles beside the cash fares on a desktop, under them on a phone: whenever award seats are saved, or asked for
+if pay == "miles" or collected:
     cash_col, award_col = st.columns(2, gap="medium")
 else:
     cash_col = st.container()
@@ -288,6 +289,14 @@ if award_col:
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
         st.caption("Miles+Bonus award seats, collected on the owner's computer; taxes not included.")
         award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
+        for cab, cash_c, miles_c, tax_c, colour in (("economy", "economy", "econ_miles", "econ_taxes", ECONOMY),
+                                                    ("business", "business", "biz_miles", "biz_taxes", BUSINESS)):
+            b = miles_value.best_use(view[cash_c], view[miles_c], view.get(tax_c))
+            if b:  # the day a seat replaces the most cash, and what each 1,000 miles is worth there
+                award_rows.append((f"Best day to use {cab} miles", f"€{b['value']:.0f} / 1,000 mi",
+                                   f"{pd.Timestamp(b['day']):%a %d %b}: {b['miles']:,} miles" + (f" + €{b['taxes']:.0f}" if b["taxes"] else "")
+                                   + f" instead of €{b['cash']:.0f}" + (" · worth it" if b["value"] >= miles_value.WORTH else " · cash is better"),
+                                   colour))
         if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
             award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
                                f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
@@ -378,7 +387,7 @@ if note := schedule_note(seen, orig, dest, nonstop):
     st.info(note, icon=":material/event_busy:")
 # only the tabs that apply: the award seats when paying with miles, the trip cost for a return once a hotel has prices saved
 saved_hotels = hotel_options(db) if nights else []
-names = ["Price chart"] + (["Award seats"] if pay == "miles" else []) + ["Day by day"] + (["Trip cost"] if saved_hotels else [])
+names = ["Price chart"] + (["Award seats"] if pay == "miles" or collected else []) + ["Day by day"] + (["Trip cost"] if saved_hotels else [])
 tabs = dict(zip(names, st.tabs(names)))
 with tabs["Price chart"]:
     if view[["economy", "business"]].notna().any().any():
@@ -408,7 +417,7 @@ with tabs["Price chart"]:
         st.markdown(f'<p class="card-title">{dest} → {orig}, the way back: the fare each day, the cheapest days are circled</p>', unsafe_allow_html=True)
         st.plotly_chart(price_chart(back, {"economy": ("Economy", ECONOMY), "business": ("Business", BUSINESS)}, near=bnear, extra=extra),
                         width="stretch", config={"displayModeBar": False})
-if pay == "miles":
+if "Award seats" in tabs:
     with tabs["Award seats"]:
         seen_aw = am.index.size if len(am) else 0
         if not seen_aw or not last_aw:

@@ -16,13 +16,15 @@ import explore as xp
 import fetch_ahead as fa
 import flight_times
 import gh
+import miles_value
 import network
 import overview as ov
 import price_insights as pi
 import skyexpress as sx
 import trip_plan as tp
 from db import connect
-from insights import DAYS, ahead_chart, ahead_stats, ahead_takeaway, weekday_chart, weekday_stats, weekday_takeaway
+from award_view import load_award
+from insights import DAYS, cash_by_day, ahead_chart, ahead_stats, ahead_takeaway, weekday_chart, weekday_stats, weekday_takeaway
 from trip_cost import night_prices
 from layout import page_head
 from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aegean_rows, github_note, github_progress, grid_frame, html_table,
@@ -305,6 +307,18 @@ else:
                 cost = sum(nights_[s] for s in stay)
                 st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
                            f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
+
+# --- cash or miles: for each cabin, the day an award seat replaces the most cash in the period, and whether that beats paying ---------------
+if dest != ANY:
+    am, at_, _ = load_award(db, orig, dest, True, p.start, p.end)
+    if len(am):
+        st.markdown('<p class="group">Cash or miles?</p>', unsafe_allow_html=True)
+        lines = [miles_value.sentence(cab.capitalize(), miles_value.best_use(cash_by_day(db, orig, dest, cab, True, p.start, p.end),
+                                                                            am.get(cab, pd.Series(dtype=float)), at_.get(cab)))
+                 for cab in ("economy", "business")]
+        st.markdown("\n".join(f"- {e(l)}" for l in lines))
+        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}, {p.name}: AEGEAN Miles+Bonus award seats as last collected, against the cash "
+                   f"fare the same day. Miles count as worth €{miles_value.WORTH:.0f} for each 1,000; the Flights page lets you change that.")
 
 # --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
 if gq:
