@@ -3,7 +3,7 @@ prices is pressed), like fetch_route.py does for flights: Google rate-limits Str
 there is lost when the app restarts. Writes data/hotel_searches.csv (the columns of data/daily_hotel.csv), which the app reads from
 GitHub. The search comes in environment variables (QUERY, FILT, HKEY, NIGHTS, ADULTS, RANGES, BOOKING), never through a shell.
 
-    python fetch_hotel.py new_rows.csv          # fetch, write this search's rows on their own too
+    python fetch_hotel.py new_rows.csv          # fetch, write this search's rows on their own too (and new_rows.csv.places)
     python fetch_hotel.py --merge new_rows.csv  # add those rows to the newest data/hotel_searches.csv (the workflow's save step)
 """
 import csv
@@ -19,6 +19,9 @@ from par import parallel
 from xotelo import booking_rate, heatmap_range, hotel_key
 
 OUT = Path(__file__).parent / "data" / "hotel_searches.csv"
+PLACES = OUT.with_name("hotel_places.csv")  # every hotel the searches returned, with where it is, for the Hotels page's map
+PLACE_FIELDS = ["query", "nights", "adults", "hotel", "lat", "lng", "stars", "rating", "reviews", "low", "typical", "days", "first", "last",
+                "fetched"]
 FIELDS = ["source", "day", "hotel", "price", "tier", "fetched", "query", "filt", "hkey", "nights", "adults"]
 KEEP = 30  # days a fetch is kept, as long as the app keeps it (db.RETENTION_DAYS)
 
@@ -48,9 +51,9 @@ def read(path):
         return list(csv.DictReader(f))
 
 
-def write(rows, path):
+def write(rows, path, fields=FIELDS):
     with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, FIELDS)
+        w = csv.DictWriter(f, fields)
         w.writeheader()
         w.writerows(rows)
 
@@ -69,7 +72,15 @@ def save(rows, path=None):
                            ("price", "tier", "hotel"))
 
 
-def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range):
+def save_places(rows, path=None):
+    """Merge the hotels one search saw into the places file: the newest row per search and hotel, kept for good."""
+    path = Path(path or PLACES)
+    key = lambda r: (r["query"], str(r["nights"]), str(r["adults"]), r["hotel"])
+    newest = {key(r): r for r in (read(path) if path.exists() else []) + rows}
+    write(sorted(newest.values(), key=lambda r: (r["query"], r["hotel"])), path, PLACE_FIELDS)
+
+
+def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range, places=None):
     """Rows for the cheap-day calendar and Booking.com (with a TripAdvisor key) and Google Hotels on every day of the ranges.
     Google days that failed (usually a rate limit) are retried after a pause, like the daily run does."""
     google = google or hotels.fetch_range
@@ -94,7 +105,8 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
         done = set()
         for n in range(passes):
             failed = 0
-            for d, name, price, status, err in google(a, b, s["query"], s["filt"], s["nights"], s["adults"], skip=done):
+            more = {} if places is None else {"places": places}
+            for d, name, price, status, err in google(a, b, s["query"], s["filt"], s["nights"], s["adults"], skip=done, **more):
                 if status == "error":
                     failed += 1
                     continue
@@ -110,7 +122,12 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
 if __name__ == "__main__":
     if sys.argv[1] == "--merge":
         save(read(sys.argv[2]))
+        if os.path.exists(sys.argv[2] + ".places"):
+            save_places(read(sys.argv[2] + ".places"))
     else:
-        got = fetch(search(os.environ))
+        s, places = search(os.environ), {}
+        got = fetch(s, places=places)
         write(got, sys.argv[1])
-        print(f"{len(got)} rows")
+        write(hotels.place_rows(places, s["query"], s["nights"], s["adults"], datetime.now().isoformat(timespec="seconds")),
+              sys.argv[1] + ".places", PLACE_FIELDS)
+        print(f"{len(got)} rows, {len(places)} hotels seen")
