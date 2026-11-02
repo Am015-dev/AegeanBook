@@ -76,7 +76,7 @@ def swap_airports():
     st.session_state["orig"], st.session_state["dest"] = st.session_state["dest"], st.session_state["orig"]
 
 
-page_head("Fare calendar and miles", "Every day's fare on one route, both ways, in cash or award miles, with the Aegean Pass and the Excel file.")
+page_head("Flights", "Every day's fare on one route, both ways, in cash or award miles, with the Aegean Pass and the Excel file.")
 with st.container(border=True, key="search"):
     c = st.columns([10, 1, 10], vertical_alignment="bottom")  # the swap button sits between the two boxes, level with them
     orig = airport_picker(c[0], "From", "ATH", "orig")
