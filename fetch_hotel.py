@@ -186,7 +186,7 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
                 print(f"  heatmap: {type(e).__name__}: {e}")
             if s["booking"]:
                 cheap = [date.fromisoformat(d) for d, t in sorted(tiers.items()) if t == "cheap"]
-                for d, price, err in parallel(cheap, lambda d: rate(s["hkey"], d, s["nights"]), workers=3):
+                for d, price, err in parallel(cheap, lambda d: rate(s["hkey"], d, s["nights"], adults=s["adults"]), workers=3):
                     if not err:
                         rows.append(row("booking", d, price=price))
     return rows

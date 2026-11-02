@@ -267,7 +267,7 @@ def test_hotels_fall_back_to_booking_when_google_is_rate_limited(tmp_path, monke
         raise RuntimeError("TransientBatchExecuteError: HTTP 429 from endpoint")
     monkeypatch.setattr(hotels, "fetch_day", limited)
     monkeypatch.setattr(xotelo, "heatmap_range", lambda key, s, e: {})
-    monkeypatch.setattr(xotelo, "booking_rate", lambda key, d, n=1: 100.0 + d.day)
+    monkeypatch.setattr(xotelo, "booking_rate", lambda key, d, n=1, adults=2: 100.0 + d.day)
     here = os.path.dirname(os.path.abspath(__file__))
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(os.path.join(here, "views/hotel.py"), default_timeout=60).run()
@@ -442,7 +442,7 @@ def test_daily_hotel_retries_until_complete_and_app_loads_it(tmp_path, monkeypat
             if d.isoformat() not in skip:
                 yield d, "Steigenberger Frankfurter Hof", 250.0, "ok", None
 
-    def rate(key, d, nights):  # Booking.com fails once for every day, then answers
+    def rate(key, d, nights, adults=2):  # Booking.com fails once for every day, then answers
         tries[d] = tries.get(d, 0) + 1
         if tries[d] == 1:
             raise RuntimeError("timeout")
@@ -1108,7 +1108,7 @@ def test_hotel_fetch_finds_the_tripadvisor_key_itself_when_none_is_given(tmp_pat
     def find(name, lat, lng, towns, rapid):
         asked.append((name, lat, lng))
         return "g198797-d2070866"
-    rows = fetch_hotel.fetch(s, google=google, heat=lambda k, a, b: {d.isoformat(): "cheap"}, rate=lambda k, day, n: 550,
+    rows = fetch_hotel.fetch(s, google=google, heat=lambda k, a, b: {d.isoformat(): "cheap"}, rate=lambda k, day, n, adults: 550,
                              places={}, find=find)
     assert asked == [("Grand Resort Bad Ragaz", 47.0035, 9.5005)]  # looked up by Google's name and place for the hotel
     assert {r["source"] for r in rows} == {"google", "heat", "booking"} and {r["hkey"] for r in rows} == {"g198797-d2070866"}
