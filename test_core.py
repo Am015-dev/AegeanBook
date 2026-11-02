@@ -1062,7 +1062,7 @@ def test_hotel_map_shows_for_a_name_typed_with_google_s_curly_apostrophe_even_be
     at.run()
     assert not at.exception
     assert any("No prices saved yet" in i.value for i in at.info)
-    assert any("Where it is: Amrâth Grand Hotel de" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
+    assert any("The hotels around it: Amrâth Grand Hotel de" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
 
 
 def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, monkeypatch):

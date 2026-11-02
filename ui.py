@@ -189,7 +189,7 @@ def price_chart(df, series, unit="€", near=None, extra=None):
         if col in df and df[col].notna().any():
             fig.add_scatter(x=x, y=df[col], name=label, mode="lines+markers", connectgaps=False, line=dict(color=colour, width=2, dash="dash"),
                             marker=dict(size=5, color=colour), hovertemplate=f"{label}: {unit}%{{y:.0f}}<extra></extra>")
-    for col, (label, colour) in series.items():
+    for k, (col, (label, colour)) in enumerate(series.items()):
         y = df[col]
         fig.add_scatter(x=x, y=y, name=label, mode="lines+markers", connectgaps=False,
                         line=dict(color=colour, width=2), marker=dict(size=7, color=colour, line=dict(color="#fff", width=2)),
@@ -199,7 +199,7 @@ def price_chart(df, series, unit="€", near=None, extra=None):
             ring = [d for d in (near or {}).get(col, [i]) if d in y.index] or [i]
             fig.add_scatter(x=pd.to_datetime(ring), y=[y[d] for d in ring], mode="markers+text", showlegend=False, hoverinfo="skip",
                             marker=dict(size=15, color="rgba(0,0,0,0)", line=dict(color=colour, width=2.5)),
-                            text=[f"{unit}{y[d]:.0f}" if d == i else "" for d in ring], textposition="bottom center",
+                            text=[f"{unit}{y[d]:.0f}" if d == i else "" for d in ring], textposition="top center" if k else "bottom center",
                             textfont=dict(color=INK, size=13))
     fig.update_layout(height=380, margin=dict(l=28, r=8, t=40, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                       font=dict(family=FONT, color=MUTED), hovermode="x unified",
