@@ -1,0 +1,131 @@
+query,nights,adults,hotel,lat,lng,stars,rating,reviews,low,typical,days,first,last,fetched
+Grand Resort Bad Ragaz,1,2,Boutique Hotel Ochsen,47.0035102,9.500557599999999,,3.6,230,126,126,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,"Casa Marie, (Malans),",46.981056213378906,9.576742172241211,,4.6992188,64,252,252,6,2026-11-17,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Cubilaris Motel Bad Ragaz,47.0129356,9.4938259,,4.7,220,114,125,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Ergänzungsvorsorge Grand Resort Bad Ragaz,47.0002101,9.5012752,,5.0,5,300,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Esos Hotel Quelle,47.0006949,9.500777,,4.0,87,65,65,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Garni Hotel Torkelbündte,47.0049571,9.503802799999999,,4.8,191,200,200,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,"Grand Maisonette-Attica, Jenins, Top of Heidiland",46.99803924560547,9.560799598693848,,3.9000003,24,689,715,6,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Grand Resort Bad Ragaz,47.000427200000004,9.5037097,5,4.7,834,300,935,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hans Broder,47.0003132,9.5000428,,,,300,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Bellevue und Genusswerkstatt,47.001064299999996,9.5008082,,4.4,171,240,240,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Hirschen,47.004622,9.528936,,4.2,390,134,134,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Restaurant Alpenrose,47.0050722,9.5303778,,4.2,252,115,115,1,2026-11-21,2026-11-21,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Rustico,47.0015007,9.500561900000001,,4.1,8,300,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Rössli,47.003377,9.501831,3,4.7,230,256,256,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Schloss Ragaz,46.997416799999996,9.5084178,3,4.3,869,152,167,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Hotel Schloss Wartenstein,46.9941667,9.5086111,,4.4,246,300,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Krone by b_smart,47.0012401,9.5008448,,3.9,133,76,94,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,"Lueg ins Land, (Mels),",47.03813171386719,9.415213584899902,,,,259,259,2,2026-11-16,2026-11-19,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Palais Bad Ragaz,47.000379699999996,9.502030999999999,,4.6,29,300,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Schlaffass Marchhof Flums,47.0729753,9.3909092,,4.7,6,300,300,6,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Sorell Hotel Tamina Bad Ragaz,47.0020454,9.5007585,4,4.6,521,196,223,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Grand Resort Bad Ragaz,1,2,Walsersiedlung Sankt Martin,46.9207231,9.3572741,,4.6,761,120,300,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,'DAHElM',46.75520324707031,8.076736450195312,,4.45,19,140,254,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Alpine feeling & lakeside,46.7591552734375,8.05339527130127,,4.8,28,149,149,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Anstatthotel Goldau - self-check-in - Superior Studio (1-5 Adults),47.04412841796875,8.548150062561035,,5.0,8,163,168,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Beautiful apartment in the center of Switzerland - Three-Bedroom Apartment with Mountain View,46.8178596496582,8.654040336608887,,4.0,27,227,227,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Berggasthaus Tannalp - Double Room with Private Bathroom,46.7788200378418,8.318860054016113,,5.0,8,287,287,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Berggasthaus Tannalp - Quintuple Room with Shared Bathroom,46.7788200378418,8.318860054016113,,5.0,8,241,241,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Chalet 87- Mountain Chalet with spectacular Views,46.82620620727539,8.39795970916748,,4.9,172,576,576,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Chalet ALPEN LOTUS,46.70809555053711,8.236762046813965,,4.4532256,31,530,530,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Cosy Chalet 87 in Engelberg with spectacular mountain and lake Views - Three-Bedroom Chalet,46.82619094848633,8.397979736328125,,5.0,1,663,663,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,"Eigerblick in Grindelwald: Apartment with mountain views, a garden, and a ski lift just 10 minutes away",46.622188568115234,8.045702934265137,,4.0,6,260,260,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Erlebnishof Ming,46.790218353271484,8.16174030303955,,4.8540545,37,162,162,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Ferienwohnung Efibach 41 - One-Bedroom Apartment,46.79938888549805,8.669989585876465,,4.943243,37,232,232,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Hirsch,46.6300163269043,8.049270629882812,,,,390,390,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Holiday apartment Rigi Kaltbad for 1 - 5 persons with 2 bedrooms - Holiday apartment,47.04412078857422,8.466150283813477,,4.0588236,34,375,375,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Kempinski Palace Engelberg,46.8206098,8.402380299999999,5,4.7,711,603,648,7,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,LEVA Stay Luzern-Interlaken I Nature I Familie - Three-Bedroom Apartment,46.92076110839844,8.259599685668945,,,,593,593,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Luna o Mountainview o Pizzaoven,47.00131607055664,8.610191345214844,,4.65,30,368,412,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,NEW! Private Spa-Suite in Luzern,47.0401611328125,8.310632705688477,,5.0,8,528,528,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,"Realp-Andermatt 3,5 locali giardino privato In mezzo la natura, spettacolare per appassionati montanbike, pesca ecc In inverno fai sci di fondo dal giardino e con il treno davanti a casa si raggiunge in 5min il comprensorio scistico di Andermatt",46.59790802001953,8.503596305847168,,4.726966,89,344,354,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,"Rigi Paradise in Vitznau, Lake access, Ferry Terminal, Rigibahn, Restaurants all 2 minutes walking distance",47.01065444946289,8.484367370605469,,4.75,19,380,380,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Serviced Apartments – Kirchbühl@home,46.62710952758789,8.045552253723145,,4.4448223,478,325,325,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Serviced Apartments – Kirchbühl@home - Studio (502),46.627166748046875,8.0455961227417,,4.558211,341,348,382,2,2026-12-14,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,The Base Andermatt - Standard Apartment,46.63737869262695,8.59550952911377,,5.0,8,803,803,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Titlis Resort - Studio,46.81924057006836,8.395939826965332,,,,330,330,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,"Titlis Studio Engelberg | Balcony, View & Parking",46.81964111328125,8.39474868774414,,4.2807693,13,225,225,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,Ufem Egg Ferienwohnungen,46.708839416503906,8.240280151367188,,5.0,8,179,179,1,2026-12-20,2026-12-20,2026-11-02T16:14:54
+Kempinski Palace Engelberg,1,2,”Heimet” im Berner Oberland,46.74553298950195,8.10353946685791,,4.5,83,295,295,1,2026-12-14,2026-12-14,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Adina Apartment Hotel Frankfurt Neue Oper,50.107284,8.672536599999999,,4.3,1139,97,103,3,2026-11-20,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Adina Apartment Hotel Frankfurt Neue Oper,50.107284,8.672536599999999,,4.3,1139,104,117,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Bed and Pool - One-Bedroom Apartment,50.20861053466797,8.564029693603516,,4.9,8,151,151,3,2026-11-17,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Boutique Kaiser - Hotel Apartments - Superior Studio,50.10866165161133,8.66862964630127,,4.9,8,139,229,3,2026-11-16,2026-11-20,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Boutique Kaiser - Hotel Apartments - Superior Studio,50.10866165161133,8.66862964630127,,4.9,8,124,124,5,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,"Falkenstein Grand, Autograph Collection",50.1922007,8.4798843,,4.4,913,253,253,1,2026-11-17,2026-11-17,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Frankfurt Marriott Hotel,50.1145889,8.6503145,,4.4,4848,113,585,4,2026-11-16,2026-11-21,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Frankfurt Marriott Hotel,50.1145889,8.6503145,,4.4,4848,118,129,4,2026-12-04,2026-12-07,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Grandhotel Hessischer Hof,50.1124879,8.655745999999999,,4.5,523,120,120,4,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Grandhotel Hessischer Hof,50.1124879,8.655745999999999,,4.5,523,140,155,4,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hilton Frankfurt City Centre,50.1166957,8.6773508,,4.5,3161,185,229,5,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Hilton Frankfurt City Centre,50.1166957,8.6773508,,4.5,3161,181,231,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hilton Garden Inn Frankfurt City Centre,50.11017210000001,8.6677541,,4.1,1744,352,352,1,2026-11-16,2026-11-16,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Homburg-Residenz,50.23314666748047,8.610219955444336,,4.35,13,210,210,1,2026-11-21,2026-11-21,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Beethoven,50.11682,8.656579299999999,4,4.6,129,97,206,3,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Hotel Beethoven,50.11682,8.656579299999999,4,4.6,129,115,138,3,2026-12-07,2026-12-09,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Hotel Lumière an der Messe,50.1091276,8.6602756,,3.6,238,36,36,1,2026-12-09,2026-12-09,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Motel One Frankfurt-Riverside,50.1099751,8.6923379,,4.5,1863,150,150,1,2026-11-16,2026-11-16,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Motel One Frankfurt-Römer,50.110324000000006,8.677999699999999,,4.5,3213,88,101,5,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Hotel Motel One Frankfurt-Römer,50.110324000000006,8.677999699999999,,4.5,3213,120,148,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel NH Collection Frankfurt Spin Tower,50.10771,8.65519,4,4.6,2252,98,107,5,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Hotel NH Collection Frankfurt Spin Tower,50.10771,8.65519,4,4.6,2252,101,119,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Nizza,50.107266499999994,8.6695534,,4.7,111,175,175,1,2026-11-22,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Ocean Pearl Frankfurt Central Station,50.1073861,8.6672019,,2.2,18,146,146,1,2026-11-18,2026-11-18,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Hotel Schopenhauer Hof,50.109646299999994,8.6886858,,4.4,455,233,233,1,2026-11-16,2026-11-16,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,JW Marriott Hotel Frankfurt,50.1149273,8.6806895,,4.5,2041,207,297,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,JW Marriott Hotel Frankfurt,50.1149273,8.6806895,,4.5,2041,278,310,4,2026-12-04,2026-12-07,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,K&T Estate Resort & Spa - Liederbach am Taunus,50.1213907,8.4826196,,4.0,66,92,92,1,2026-11-18,2026-11-18,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Kimpton Main Frankfurt by IHG,50.112688999999996,8.6744221,,4.8,166,162,175,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Kimpton Main Frankfurt by IHG,50.112688999999996,8.6744221,,4.8,166,171,202,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,"LUME Boutique Hotel, Autograph Collection",50.109477999999996,8.670082299999999,,4.5,732,100,175,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,"LUME Boutique Hotel, Autograph Collection",50.109477999999996,8.670082299999999,,4.5,732,141,178,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,LUXUS 5 Zi-Wohnung + Balkon in TOP-Lage FFM+KLIMA - Three-Bedroom Apartment,50.12464141845703,8.67473030090332,,4.6125,12,656,656,1,2026-11-19,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,LUXUS 5 Zi-Wohnung + Balkon in TOP-Lage FFM+KLIMA - Three-Bedroom Apartment,50.12464141845703,8.67473030090332,,4.6125,12,616,616,2,2026-12-06,2026-12-07,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Le Méridien Frankfurt,50.1055669,8.666763099999999,,4.2,1877,96,114,4,2026-11-19,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Le Méridien Frankfurt,50.1055669,8.666763099999999,,4.2,1877,105,134,5,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Lindenberg,50.112088199999995,8.699358799999999,,4.9,11,175,175,3,2026-11-16,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,LyvInn Hotel Frankfurt,50.1089616,8.6438676,,4.3,1246,188,269,2,2026-11-16,2026-11-18,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,LyvInn Hotel Frankfurt,50.1089616,8.6438676,,4.3,1246,42,44,2,2026-12-08,2026-12-09,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Maritim Hotel Frankfurt am Main,50.1128797,8.649566799999999,,4.0,3907,573,573,1,2026-11-17,2026-11-17,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Moxy Frankfurt City Center,50.116270799999995,8.6806711,,4.1,2042,203,203,1,2026-11-19,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Numa Frankfurt Bloc,50.118430000000004,8.6783804,,4.3,413,86,96,3,2026-11-20,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Numa Frankfurt Bloc,50.118430000000004,8.6783804,,4.3,413,91,100,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Numa Frankfurt Oben,50.117754,8.641147,,4.5,400,67,68,2,2026-12-05,2026-12-06,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Premier Inn Frankfurt Westend Hotel,50.114840699999995,8.649645999999999,,4.5,999,62,62,1,2026-12-10,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Residence Inn Frankfurt City Center,50.1164353,8.680266699999999,,4.2,817,204,204,1,2026-11-19,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,"Roomers Frankfurt Central, Autograph Collection",50.1045988,8.6666867,,4.6,1629,113,161,5,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,"Roomers Frankfurt Central, Autograph Collection",50.1045988,8.6666867,,4.6,1629,134,158,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Ruby Louise Hotel Frankfurt by IHG,50.113685399999994,8.6745136,,4.3,2134,83,84,2,2026-11-20,2026-11-21,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Ruby Louise Hotel Frankfurt by IHG,50.113685399999994,8.6745136,,4.3,2134,86,108,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,SAKS Urban Design Hotel Frankfurt,50.1179619,8.658754499999999,4,4.4,286,94,94,1,2026-11-21,2026-11-21,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Scandic Frankfurt Museumsufer,50.1049053,8.668192,,4.4,2701,93,102,4,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Scandic Frankfurt Museumsufer,50.1049053,8.668192,,4.4,2701,79,94,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,"Schlosshotel Kronberg, an SLH Hotel",50.18900000000001,8.51011,5,4.6,1753,277,277,1,2026-11-17,2026-11-17,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Schlosshotel Rettershof GmbH,50.169481,8.429326699999999,,4.2,538,126,126,1,2026-11-16,2026-11-16,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Sofitel Frankfurt Opera,50.116046600000004,8.6734656,,4.6,1553,438,612,2,2026-11-17,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Steigenberger Airport Hotel Frankfurt,50.0589277,8.589944599999999,,4.2,5087,115,152,4,2026-11-16,2026-11-20,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Steigenberger Airport Hotel Frankfurt,50.0589277,8.589944599999999,,4.2,5087,70,81,4,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Steigenberger Frankfurter Hof,50.1102913,8.6760504,5,4.5,3401,195,311,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Steigenberger Frankfurter Hof,50.1102913,8.6760504,5,4.5,3401,193,215,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Steigenberger Hotel Bad Homburg,50.22617280000001,8.622370199999999,,4.4,1563,121,129,3,2026-11-16,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,StudioHouse Frankfurt,50.102550300000004,8.6784904,,4.5,46,175,175,3,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,THE FLAG West M.,50.1174348,8.6653562,,4.4,812,78,78,1,2026-11-20,2026-11-20,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,THE FLAG West M.,50.1174348,8.6653562,,4.4,812,66,77,5,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Tante ALMA Bristol Hotel,50.107731,8.6586569,,3.6,1938,38,45,3,2026-11-18,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Tante ALMA Bristol Hotel,50.107731,8.6586569,,3.6,1938,41,43,5,2026-12-06,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,The Doorman Welle Frankfurt am Main - Studio,50.11798858642578,8.67257022857666,,5.0,8,125,125,3,2026-11-20,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,The Doorman Welle Frankfurt am Main - Studio,50.11798858642578,8.67257022857666,,5.0,8,125,142,6,2026-12-05,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,The Westin Grand Frankfurt,50.115783199999996,8.6872593,,4.4,2705,191,488,2,2026-11-17,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Tower Hotel Frankfurt,50.1277748,8.5967562,,4.6,87,70,74,5,2026-11-16,2026-11-22,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Tower Hotel Frankfurt,50.1277748,8.5967562,,4.6,87,73,74,7,2026-12-04,2026-12-10,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,Trip Inn Boutique Frankfurt,50.106082,8.690607,,2.9,41,46,46,1,2026-12-08,2026-12-08,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,VILLA FLORENTINA,50.11237,8.66193,,4.5,444,126,126,1,2026-11-19,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Vital Hotel Frankfurt,50.096933299999996,8.4614389,4,4.3,1544,156,182,2,2026-11-17,2026-11-18,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Westend Hotel Property GmbH,50.111285599999995,8.6617461,,5.0,1,175,175,2,2026-11-17,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,Wyndham Grand Frankfurt,50.1048404,8.6679702,,4.2,398,262,285,3,2026-11-16,2026-11-19,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,b'mine Frankfurt Airport,50.0545414,8.590662199999999,,4.6,1714,288,288,1,2026-11-17,2026-11-17,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,lyf East Frankfurt,50.112493400000005,8.7181965,,4.2,158,62,62,1,2026-12-05,2026-12-05,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,smartments Frankfurt Airport,50.05659103393555,8.593337059020996,,4.2,93,136,268,3,2026-11-16,2026-11-18,2026-11-02T16:14:54
+Steigenberger Frankfurt,2,2,smartments Frankfurt Airport,50.05659103393555,8.593337059020996,,4.2,93,66,66,1,2026-12-04,2026-12-04,2026-11-02T16:14:54
+Steigenberger Frankfurt,1,2,the sQuare Hotel Frankfurt,50.107917699999994,8.6705796,,3.1,104,290,290,1,2026-11-17,2026-11-17,2026-11-02T16:14:54

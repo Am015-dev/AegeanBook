@@ -1007,3 +1007,20 @@ def test_fetch_hotel_save_keeps_every_price_in_the_history(tmp_path, monkeypatch
     fetch_hotel.save([dict(row, price=110, fetched="2026-11-03T10:00:00")], out)
     assert [r["price"] for r in csv.DictReader(out.open())] == ["110"]  # the file: the newest price per day
     assert [r["price"] for r in csv.DictReader((tmp_path / "history_hotel.csv").open())] == ["120", "110"]  # the history: every change
+
+
+def test_hotel_places_keep_every_hotel_a_search_returned(tmp_path):
+    import csv
+    import fetch_hotel
+    seen = {}
+    hotels.note(seen, [{"name": "Frankfurter Hof", "lat": 50.110, "lng": 8.676, "display_price": 287, "star_class": 5, "overall_rating": 4.5,
+                        "review_count": 3401}, {"name": "Cheap Inn", "lat": 50.107, "lng": 8.665, "display_price": 90},
+                       {"name": "No Coordinates", "display_price": 50}], date(2026, 11, 20))
+    rows = hotels.place_rows(seen, "Steigenberger Frankfurt", 1, 2, "2026-11-02T10:00:00")
+    assert {r["hotel"] for r in rows} == {"Frankfurter Hof", "Cheap Inn"}  # a hotel without a place cannot go on the map
+    out = tmp_path / "hotel_places.csv"
+    fetch_hotel.save_places(rows, out)
+    fetch_hotel.save_places([dict(rows[1], low=80, fetched="2026-11-03T10:00:00")], out)  # a newer search replaces that hotel's row
+    got = {r["hotel"]: r for r in csv.DictReader(out.open())}
+    assert len(got) == 2 and got["Cheap Inn"]["low"] == "80" and got["Frankfurter Hof"]["stars"] == "5"
+    assert 0.8 < hotels.km(50.110, 8.676, 50.107, 8.665) < 0.9

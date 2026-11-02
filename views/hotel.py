@@ -2,17 +2,21 @@ import os
 import time
 from datetime import date, datetime, timedelta
 
+import math
+
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 import gh
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
-from hotels import fetch_range
+from fetch_hotel import PLACES
+from hotels import fetch_range, km
 from jobs import record, start_job, track
 from par import parallel
 from plain import checked_sentence, nearly, options_filters
-from ui import (BOOKING, ECONOMY, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
+from ui import (BOOKING, ECONOMY, FONT, INK, MUTED, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
                 price_chart, route, window_picker, github_progress, github_note)
 from xotelo import booking_rate, heatmap_range, hotel_key
 
@@ -227,6 +231,65 @@ kpis(cards)
 if main:
     best_days(near[main], ECONOMY if main == "price" else BOOKING,
               "The cheapest nights are" if main == "price" else "The cheapest nights on Booking.com are")
+
+# --- where it is, and the hotels around it: every hotel Google listed in this hotel's searches (data/hotel_places.csv) ---------------
+RADIUS, CHEAPER = 3, "#0E7A53"  # km around the hotel; the green of a cheaper night elsewhere on the site
+places_path = gh.data_file("data/hotel_places.csv") or str(PLACES)
+pl = pd.read_csv(places_path) if os.path.exists(places_path) else pd.DataFrame()
+here = pl[pl["query"] == query] if len(pl) else pl
+if len(here):
+    same = here[(here.nights == nights) & (here.adults == adults)]
+    here = (same if len(same) else here.sort_values("fetched").drop_duplicates("hotel", keep="last")).copy()
+    words = filt.lower().split()
+    mine = here[here.hotel.str.lower().map(lambda n: all(w in n for w in words))]
+    me = mine.iloc[0] if len(mine) else None
+    if me is not None:
+        here["km"] = [km(me.lat, me.lng, a, b) for a, b in zip(here.lat, here.lng)]
+        near_by = here[(here.km <= RADIUS) & (here.hotel != me.hotel)].sort_values("low")
+    else:
+        near_by = here.assign(km=float("nan")).sort_values("low")
+    # this hotel's cheapest night over the same searched check-in days as its neighbours, so the two compare like for like
+    own = me.low if me is not None and pd.notna(me.low) else None
+
+    def text(r):
+        stars = f"{int(r.stars)}-star · " if pd.notna(r.stars) else ""
+        rating = f"{r.rating:.1f}/5 ({int(r.reviews):,} reviews)" if pd.notna(r.rating) and pd.notna(r.reviews) else ""
+        price = (f"from €{r.low:.0f} a night, usually €{r.typical:.0f}<br>(check-ins {pd.Timestamp(r['first']):%-d %b}–"
+                 f"{pd.Timestamp(r['last']):%-d %b})") if pd.notna(r.low) else "no price for these dates"
+        away = f"<br>{r.km:.1f} km away" if pd.notna(r.get("km")) and r.km > 0.05 else ""
+        return f"<b>{r.hotel}</b><br>{stars}{rating}<br>{price}{away}"
+
+    title = (f"{me.hotel} and the {len(near_by)} hotels within {RADIUS} km" if me is not None
+             else f"The {len(near_by)} hotels Google listed for {query}")
+    st.markdown(f'<p class="group">Where it is: {title}</p>', unsafe_allow_html=True)
+    fig = go.Figure()
+    cheaper = near_by.low < own if own is not None else pd.Series(False, index=near_by.index)
+    for rows, name, colour in ((near_by[~cheaper], "Other hotels", MUTED), (near_by[cheaper], f"Cheaper than {me.hotel if me is not None else 'it'}", CHEAPER)):
+        if len(rows):
+            fig.add_scattermap(lat=rows.lat, lon=rows.lng, mode="markers", name=name, marker=dict(size=11, color=colour, opacity=.85),
+                               text=[text(r) for _, r in rows.iterrows()], hovertemplate="%{text}<extra></extra>")
+    if me is not None:
+        fig.add_scattermap(lat=[me.lat], lon=[me.lng], mode="markers", name=me.hotel, marker=dict(size=20, color=ECONOMY),
+                           text=[text(me)], hovertemplate="%{text}<extra></extra>")
+    shown = pd.concat([near_by, mine.head(1)])
+    spread = max([km(shown.lat.mean(), shown.lng.mean(), a, b) for a, b in zip(shown.lat, shown.lng)] + [0.3])
+    fig.update_layout(height=440, margin=dict(l=0, r=0, t=0, b=0), font=dict(family=FONT, color=INK), hoverlabel=dict(font_family=FONT),
+                      legend=dict(orientation="h", x=0, y=1.0, yanchor="bottom", bgcolor="rgba(0,0,0,0)"),
+                      map=dict(style="carto-positron", center=dict(lat=shown.lat.mean(), lon=shown.lng.mean()),
+                               zoom=max(8, min(15, 13.8 - math.log2(spread)))))
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "scrollZoom": True})
+    if len(near_by):
+        table = near_by.assign(Stars=near_by.stars.map(lambda v: f"{int(v)}" if pd.notna(v) else ""),
+                               Rating=near_by.rating.map(lambda v: f"{v:.1f}" if pd.notna(v) else ""))
+        table = table.rename(columns={"hotel": "Hotel", "km": "km away", "low": "From € a night", "typical": "Usually €"})
+        cols = (["Hotel"] + (["km away"] if me is not None else []) + ["Stars", "Rating", "From € a night", "Usually €"])
+        st.dataframe(table[cols], hide_index=True, width="stretch", height=min(36 * len(table) + 38, 330),
+                     column_config={"km away": st.column_config.NumberColumn(format="%.1f"),
+                                    "From € a night": st.column_config.NumberColumn(format="€%d"),
+                                    "Usually €": st.column_config.NumberColumn(format="€%d")})
+        when = f"{pd.Timestamp(near_by['first'].min()):%-d %b}–{pd.Timestamp(near_by['last'].max()):%-d %b}"
+        st.caption(f"Google Hotels' prices for {int(nights)} night{'s' * (nights > 1)}, {int(adults)} adults, on the check-in days searched "
+                   f"({when}), cheapest first. Green on the map: a cheaper night than {me.hotel if me is not None else 'this hotel'} on those days.")
 
 if heat:
     st.markdown('<p class="card-title">Cheap, average and expensive nights, as TripAdvisor rates them</p>', unsafe_allow_html=True)
