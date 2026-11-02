@@ -970,3 +970,40 @@ def test_schedule_note_says_no_service_and_names_aegean_airports_in_that_city():
                                                      "Try London Heathrow (LHR).")
     assert schedule_note(seen(3), "ATH", "FRA", nonstop=False) == "AEGEAN has no flights ATH → FRA on the days checked (Sat 31 Oct – Mon 02 Nov)."
     assert schedule_note(seen(0), "ATH", "LCY") is None  # nothing checked yet: nothing to say
+
+
+def test_hotel_page_lists_the_hotels_collected_and_opens_one(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    page = os.path.abspath("views/hotel.py")
+    t = db.connect(str(tmp_path / "tracker.db"))
+    now = datetime.now().isoformat()
+    for i in range(40, 50):  # a hotel a visitor searched, outside the default 30-day window
+        t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "Kempinski Engelberg", "Kempinski", 2,
+                                                                 "Kempinski Palace", 300.0 + i, now, 2))
+    t.commit()
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60).run()
+    assert not at.exception
+    pick = at.selectbox(key="ho-saved")
+    assert "Kempinski · 10 check-in days saved" in pick.format_func(0)
+    assert not at.markdown or "Kempinski" not in " ".join(m.value for m in at.markdown)  # the default search is still Frankfurt
+    pick.select(0).run()
+    assert not at.exception
+    assert at.text_input(key="ho-query").value == "Kempinski Engelberg" and at.number_input(key="ho-nights").value == 2
+    assert at.date_input(key="ho-when").value == (date.today() + timedelta(40), date.today() + timedelta(49))
+    assert "Kempinski" in " ".join(m.value for m in at.markdown)  # the page opens on that hotel's saved dates
+    assert any(b.label.startswith("Download all") for b in at.get("download_button"))
+
+
+def test_fetch_hotel_save_keeps_every_price_in_the_history(tmp_path, monkeypatch):
+    import csv
+    import fetch_hotel
+    out = tmp_path / "hotel_searches.csv"
+    day = (date.today() + timedelta(5)).isoformat()
+    row = dict(source="google", day=day, hotel="H", price=120, tier="", fetched="2026-11-02T10:00:00", query="q", filt="f", hkey="", nights=1, adults=2)
+    fetch_hotel.save([row], out)
+    fetch_hotel.save([dict(row, price=110, fetched="2026-11-03T10:00:00")], out)
+    assert [r["price"] for r in csv.DictReader(out.open())] == ["110"]  # the file: the newest price per day
+    assert [r["price"] for r in csv.DictReader((tmp_path / "history_hotel.csv").open())] == ["120", "110"]  # the history: every change

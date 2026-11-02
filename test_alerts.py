@@ -324,7 +324,7 @@ def test_alerts_page_opens_prefilled_from_the_boarding_pass(page, monkeypatch):
     # a one-way pass
     at = page(route="ATH-FRA", cabin="economy", unit="eur", price="60", depart=day(10)).run()
     assert not at.exception and at.button_group(key="al-trip").value == "oneway" and at.number_input(key="al-limit-ATHFRA-economy-eur-oneway").value == 60
-    assert "drops below €60 one way, leaving in" in [m.value for m in at.markdown if "Tell me when" in m.value][0]
+    assert "drops below €60 one way, leaving " in [m.value for m in at.markdown if "Tell me when" in m.value][0]  # "in <month>" or "between" the month's remaining days
     # a route with nothing saved: the form opens on its defaults
     at = page(route="ATH-XXX", cabin="economy", unit="eur", price="1").run()
     assert not at.exception and at.selectbox(key="al-leg").value == ("ATH", "FRA")
