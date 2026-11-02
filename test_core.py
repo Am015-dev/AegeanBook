@@ -1063,3 +1063,31 @@ def test_hotel_map_shows_for_a_name_typed_with_google_s_curly_apostrophe_even_be
     assert not at.exception
     assert any("No prices saved yet" in i.value for i in at.info)
     assert any("Where it is: Amrâth Grand Hotel de" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
+
+
+def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    import fetch_hotel
+    now, day = datetime.now().isoformat(timespec="seconds"), lambda i: (date.today() + timedelta(i)).isoformat()
+    places = {"Grand Hotel Here": dict(lat=50.110, lng=8.676, stars=5, rating=4.6, reviews=900, prices={day(5): 300, day(6): 250}),
+              "Cheap Inn": dict(lat=50.112, lng=8.678, stars=None, rating=3.9, reviews=40, prices={day(5): 70, day(6): 90}),
+              "Good Value": dict(lat=50.108, lng=8.672, stars=None, rating=4.7, reviews=300, prices={day(6): 95}),
+              "Far Away": dict(lat=50.300, lng=8.900, stars=None, rating=4.8, reviews=10, prices={day(5): 20})}
+    monkeypatch.setattr(fetch_hotel, "PLACES", tmp_path / "hotel_places.csv")
+    fetch_hotel.save_places(hotels.place_rows(places, "Test Query", 3, 2, now), tmp_path / "hotel_places.csv")
+    fetch_hotel.save_nearby(hotels.day_rows(places, "Test Query", 3, 2, now), tmp_path / "hotel_nearby.csv")
+    page = os.path.abspath("views/hotel.py")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(fetch_hotel, "NEARBY", tmp_path / "hotel_nearby.csv")
+    at = AppTest.from_file(page, default_timeout=60).run()
+    for k, v in (("ho-query", "Test Query"), ("ho-filt", "Grand Hotel Here")):
+        at.text_input(key=k).set_value(v)
+    at.number_input(key="ho-nights").set_value(3)
+    at.run()
+    assert not at.exception
+    said = [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
+    assert "**Cheap Inn**, €210 for the 3 nights (€70 a night)" in said and "Grand Hotel Here is €750" in said  # far away hotel left out
+    at.button_group(key="ho-stay-rating").set_value(4.5).run()
+    assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]

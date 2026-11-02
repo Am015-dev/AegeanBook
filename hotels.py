@@ -57,6 +57,13 @@ def place_rows(places, query, nights, adults, fetched):
     return out
 
 
+def day_rows(places, query, nights, adults, fetched):
+    """One row per hotel and check-in day with a price (the columns of data/hotel_nearby.csv): what each hotel around the one searched
+    for costs a night, on each day, so the page can rank them for one check-in. Google's price is per night, averaged over the stay."""
+    return [dict(query=query, nights=nights, adults=adults, day=d, hotel=name, price=price, fetched=fetched)
+            for name, p in places.items() for d, price in sorted(p["prices"].items())]
+
+
 def km(lat1, lng1, lat2, lng2):
     """Distance on the ground between two points, in km."""
     a = math.sin(math.radians(lat2 - lat1) / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
@@ -124,6 +131,7 @@ if __name__ == "__main__":  # self-check, no network
     rows = {r["hotel"]: r for r in place_rows(seen, "q", 1, 2, "t")}
     assert set(rows) == {"A", "B"} and (rows["A"]["low"], rows["A"]["typical"], rows["A"]["days"]) == (100, 150, 2)  # C has no place
     assert rows["B"]["low"] == "" and rows["B"]["days"] == 0
+    assert [(r["hotel"], r["day"], r["price"]) for r in day_rows(seen, "q", 1, 2, "t")] == [("A", "2026-11-01", 200), ("A", "2026-11-02", 100)]
     assert 1.3 < km(50.11, 8.67, 50.12, 8.68) < 1.4
     d0 = date(2026, 11, 1)
     fetch_day = lambda *a: ("H", 1)

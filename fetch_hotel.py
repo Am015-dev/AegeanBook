@@ -21,6 +21,8 @@ from xotelo import booking_rate, heatmap_range, hotel_key
 
 OUT = Path(__file__).parent / "data" / "hotel_searches.csv"
 PLACES = OUT.with_name("hotel_places.csv")  # every hotel the searches returned, with where it is, for the Hotels page's map
+NEARBY = OUT.with_name("hotel_nearby.csv")  # every hotel's price a night on every check-in day searched, to rank them for a stay
+NEARBY_FIELDS = ["query", "nights", "adults", "day", "hotel", "price", "fetched"]
 LANDMARKS = OUT.with_name("hotel_landmarks.csv")  # the town centre, main station and cathedral around each search, for the same map
 PLACE_FIELDS = ["query", "nights", "adults", "hotel", "lat", "lng", "stars", "rating", "reviews", "low", "typical", "days", "first", "last",
                 "fetched"]
@@ -80,6 +82,17 @@ def save_places(rows, path=None):
     key = lambda r: (r["query"], str(r["nights"]), str(r["adults"]), r["hotel"])
     newest = {key(r): r for r in (read(path) if path.exists() else []) + rows}
     write(sorted(newest.values(), key=lambda r: (r["query"], r["hotel"])), path, PLACE_FIELDS)
+
+
+def save_nearby(rows, path=None):
+    """Merge one search's per-day prices into the file: the newest per search, stay, check-in day and hotel; past days and prices
+    fetched more than KEEP days ago are dropped, like hotel_searches.csv."""
+    path = Path(path or NEARBY)
+    old = (datetime.now() - timedelta(days=KEEP)).isoformat()
+    keep = [r for r in read(path) if r["fetched"] >= old and r["day"] > date.today().isoformat()] if path.exists() else []
+    key = lambda r: (r["query"], str(r["nights"]), str(r["adults"]), r["day"], r["hotel"])
+    newest = {key(r): r for r in keep + rows}
+    write(sorted(newest.values(), key=lambda r: (r["query"], r["day"], r["hotel"])), path, NEARBY_FIELDS)
 
 
 def save_landmarks(rows, path=None):
@@ -150,6 +163,8 @@ if __name__ == "__main__":
         save(read(sys.argv[2]))
         if os.path.exists(sys.argv[2] + ".places"):
             save_places(read(sys.argv[2] + ".places"))
+        if os.path.exists(sys.argv[2] + ".nearby"):
+            save_nearby(read(sys.argv[2] + ".nearby"))
         if os.path.exists(sys.argv[2] + ".landmarks") and (marks := read(sys.argv[2] + ".landmarks")):
             save_landmarks(marks)
     else:
@@ -158,6 +173,8 @@ if __name__ == "__main__":
         write(got, sys.argv[1])
         write(hotels.place_rows(places, s["query"], s["nights"], s["adults"], datetime.now().isoformat(timespec="seconds")),
               sys.argv[1] + ".places", PLACE_FIELDS)
+        write(hotels.day_rows(places, s["query"], s["nights"], s["adults"], datetime.now().isoformat(timespec="seconds")),
+              sys.argv[1] + ".nearby", NEARBY_FIELDS)
         marks = landmark_rows(s, places)
         write(marks, sys.argv[1] + ".landmarks", landmarks.FIELDS)
         print(f"{len(got)} rows, {len(places)} hotels seen, {len(marks)} landmarks")
