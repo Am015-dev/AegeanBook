@@ -643,7 +643,7 @@ def test_grid_html_marks_the_cheapest_and_keeps_the_days_as_row_headers():
     back = pd.Series({(date(2027, 3, 2) + timedelta(i)).isoformat(): 50.0 for i in range(4)})
     g = deals.trip_grid(out, back, date(2027, 3, 1), date(2027, 3, 3), [1, 2])
     h = deals.grid_html(g, "€{:,.0f}".format)
-    assert list(g.columns) == ["1 night", "2 nights"] and h.startswith('<table class="grid"><thead><tr><th></th><th>1 night</th><th>2 nights</th></tr>')
+    assert list(g.columns) == ["1 night", "2 nights"] and h.startswith('<table class="grid"><thead><tr><th class="corner">Leave ↓ · stay →</th><th>1 night</th><th>2 nights</th></tr>')
     assert h.count('id="low"') == 1 and 'id="low">€150</td>' in h and "<tr><th>Mon 01 Mar</th>" in h  # the first cheapest cell, once
     assert 'background-color:#0E7A53;color:#fff;font-weight:650" id="low"' in h and "<td>—</td>" not in h.split("<tr><th>Mon 01 Mar")[1].split("</tr>")[0]
     one = pd.DataFrame({"One way": [None, 80.0]}, index=["Mon 01 Mar", "Tue 02 Mar"])
@@ -659,7 +659,7 @@ def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     assert not at.exception
     d10, d14 = date.today() + timedelta(10), date.today() + timedelta(14)
-    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Alert me if it gets cheaper")
+    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Track this price: tell me when it drops")
     when = f"{date.today() + timedelta(1)},{date.today() + timedelta(30)}"
     assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "210", "depart": d10.isoformat(), "back": d14.isoformat(),
                      "nights": "2-7", "trip": "return", "when": when}  # €60 out on day 10, €150 back 4 nights later, per adult; the bar's nights

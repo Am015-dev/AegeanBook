@@ -9,7 +9,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CODE, NAME, FILE, TABLE = "GQ", "Sky Express", "data/skyexpress.csv", "gq_prices"
 COLOUR = "#C2255C"  # Sky Express's pink, dark enough for a line and a label on white
 
@@ -53,7 +53,7 @@ def table(t):
     def cheaper(v):
         if pd.isna(v):
             return "—"
-        return "Same price" if v == 0 else f"{NAME if v < 0 else 'AEGEAN'}, €{abs(v):,.0f} less"
+        return "Same price" if v == 0 else f"{NAME if v < 0 else 'AEGEAN'} by €{abs(v):,.0f}"
     return pd.DataFrame({"AEGEAN": t.aegean.map(money).values, NAME: t.skyexpress.map(money).values, "Cheaper": t.difference.map(cheaper).values},
                         index=[f"{pd.Timestamp(d):%a %d %b}" for d in t.index])
 
@@ -90,12 +90,12 @@ def head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
         if b["back"] is None:
             return f"{b['depart']:%a %-d %b}, one way"
         return f"{b['depart']:%a %-d %b} → {b['back']:%a %-d %b}, {b['nights']} night{'s' if b['nights'] != 1 else ''}"
-    rows = {"Cheapest trip": [money(a3["price"]) if a3 else "no fare saved", money(gq["price"]) if gq else "no fare saved"],
-            "Dates": [dates(a3), dates(gq)]}
+    rows = {"Each airline's cheapest trip": [money(a3["price"]) if a3 else "no fare saved", money(gq["price"]) if gq else "no fare saved"],
+            "Its dates": [dates(a3), dates(gq)]}
     for name, b, series in (("AEGEAN", a3, (gq_out, gq_back)), (NAME, gq, (a3_out, a3_back))):
         if b is not None:
             other = money(trip_price(*series, b["depart"], b["back"]))
-            rows[f"Both on {span(b)}"] = [money(b["price"]), other] if name == "AEGEAN" else [other, money(b["price"])]
+            rows[f"Both on {name}'s dates ({span(b)})"] = [money(b["price"]), other] if name == "AEGEAN" else [other, money(b["price"])]
     return pd.DataFrame.from_dict(rows, orient="index", columns=["AEGEAN", NAME])
 
 
