@@ -1,54 +1,58 @@
 query,nights,adults,hotel,lat,lng,stars,rating,reviews,low,typical,days,first,last,fetched
 Amrâth Grand Hotel De L'Empereur,3,2,Aldenhof Appartementen - Two-Bedroom Apartment,50.84431076049805,5.682079792022705,,5.0,8,188,188,1,2026-12-06,2026-12-06,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Alex Maastricht,50.849503399999996,5.7036777999999995,,4.5,760,96,142,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Grand Hotel de l'Empereur,50.849972199999996,5.7044691,,3.9,1766,67,86,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Hotel Bigarré,50.853713199999994,5.6936056,,4.1,800,77,100,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Hotel DuCasque,50.8502729,5.6889192,,4.1,477,115,156,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,"Crowne Plaza Maastricht, an IHG Hotel",50.8470158,5.6985836999999995,4,4.2,2168,82,114,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Derlon Hotel Maastricht,50.847777799999996,5.6933333,,4.1,928,120,148,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Exclusive Residence - Two-Bedroom Apartment,50.85110092163086,5.702250003814697,,,,622,622,2,2026-12-04,2026-12-05,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Garner Hotel Maastricht by IHG,50.858498,5.7168635,4,4.0,1836,73,77,2,2026-12-06,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Hotel Beaumont,50.849773,5.7006903,4,4.6,633,124,186,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Hotel Maison Maastricht Centrum - Handwritten Collection,50.853195299999996,5.6897725999999995,5,4.3,124,161,194,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Hotel NH Maastricht,50.837739299999996,5.7140995,4,4.1,2631,60,89,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Hotel Sansa,50.8498076,5.7035502,,2.9,243,66,120,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Kaboom Hotel,50.8493614,5.7047726999999995,,4.3,1720,77,97,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Kruisherenhotel Maastricht,50.8486742,5.6837688,5,4.6,1498,269,294,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Leonardo Boutique Hotel Maastricht City Center,50.849722199999995,5.7027778,4,4.3,1621,87,112,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Maison Haas Hustinx & Sanctum Spa,50.8483601,5.6883167,,4.4,256,151,194,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,The Dutch,50.850108299999995,5.701225,3,4.6,851,63,88,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,The Green Elephant Hostel & Spa,50.8512959,5.7032663,,4.4,1487,30,42,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,Van der Valk Hotel Maastricht-Maas,50.840936,5.7022268,,4.7,6,135,160,4,2026-12-04,2026-12-07,2026-11-02T16:33:08
+Amrâth Grand Hotel De L'Empereur,3,2,Alex Maastricht,50.849503399999996,5.7036777999999995,,4.5,760,96,142,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Grand Hotel de l'Empereur,50.849972199999996,5.7044691,,3.9,1766,67,86,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Hotel Bigarré,50.853713199999994,5.6936056,,4.1,800,77,100,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Amrâth Hotel DuCasque,50.8502729,5.6889192,,4.1,477,115,156,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,"Crowne Plaza Maastricht, an IHG Hotel",50.8470158,5.6985836999999995,4,4.2,2168,82,114,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Derlon Hotel Maastricht,50.847777799999996,5.6933333,,4.1,928,120,148,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Exclusive Residence - Two-Bedroom Apartment,50.85110092163086,5.702250003814697,,,,622,622,1,2026-12-05,2026-12-05,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Garner Hotel Maastricht by IHG,50.858498,5.7168635,4,4.0,1836,73,81,3,2026-12-05,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Historische bovenwoning Wyck,50.84920120239258,5.698246479034424,,4.7,19,323,323,1,2026-12-06,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Hotel Beaumont,50.849773,5.7006903,4,4.6,633,124,187,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Hotel Maison Maastricht Centrum - Handwritten Collection,50.853195299999996,5.6897725999999995,5,4.3,124,271,271,1,2026-12-04,2026-12-04,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Hotel NH Maastricht,50.837739299999996,5.7140995,4,4.1,2631,60,89,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Hotel Sansa,50.8498076,5.7035502,,2.9,243,66,120,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Kaboom Hotel,50.8493614,5.7047726999999995,,4.3,1720,77,97,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Kruisherenhotel Maastricht,50.8486742,5.6837688,5,4.6,1498,269,294,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Leonardo Boutique Hotel Maastricht City Center,50.849722199999995,5.7027778,4,4.3,1621,87,112,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Maison Haas Hustinx & Sanctum Spa,50.8483601,5.6883167,,4.4,256,151,194,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,The Dutch,50.850108299999995,5.701225,3,4.6,851,63,88,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,The Green Elephant Hostel & Spa,50.8512959,5.7032663,,4.4,1487,30,42,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Van der Valk Hotel Maastricht,50.842161,5.719655,4,4.3,4393,122,142,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,Van der Valk Hotel Maastricht-Maas,50.840936,5.7022268,,4.7,6,137,137,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,W Y C K - E N D boutique hotel - Deluxe Double Room,50.84939956665039,5.702690124511719,,5.0,8,113,113,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
 Amrâth Grand Hotel De L'Empereur,3,2,W Y C K - E N D boutique hotel - Standard Room with King Bed,50.84939956665039,5.702690124511719,,5.0,8,113,113,1,2026-12-06,2026-12-06,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,W Y C K - E N D boutique hotel - Three-Bedroom Apartment,50.84939956665039,5.702690124511719,,5.0,16,113,165,3,2026-12-04,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,WYCK-END boutique hotel,50.8494022,5.702685799999999,,4.2,19,175,175,2,2026-12-04,2026-12-05,2026-11-02T16:33:08
-Amrâth Grand Hotel De L'Empereur,3,2,accademia00 - Quadruple Room with Private External Bathroom,50.85150146484375,5.688079833984375,,5.0,8,130,130,1,2026-12-07,2026-12-07,2026-11-02T16:33:08
-Amrâth Grand Hotel de l’Empereur,3,2,Alex Maastricht,50.849503399999996,5.7036777999999995,,4.5,760,96,142,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Grand Hotel de l'Empereur,50.849972199999996,5.7044691,,3.9,1766,67,86,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Hotel Bigarré,50.853713199999994,5.6936056,,4.1,800,77,100,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Hotel DuCasque,50.8502729,5.6889192,,4.1,477,115,156,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,"Crowne Plaza Maastricht, an IHG Hotel",50.8470158,5.6985836999999995,4,4.2,2168,82,114,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Derlon Hotel Maastricht,50.847777799999996,5.6933333,,4.1,928,120,148,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Exclusive Residence - Two-Bedroom Apartment,50.85110092163086,5.702250003814697,,,,623,623,2,2026-12-04,2026-12-05,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Garner Hotel Maastricht by IHG,50.858498,5.7168635,4,4.0,1836,73,73,1,2026-12-07,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Historische bovenwoning Wyck,50.84920120239258,5.698246479034424,,4.7,19,323,323,1,2026-12-06,2026-12-06,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Hotel Beaumont,50.849773,5.7006903,4,4.6,633,128,186,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Hotel Maison Maastricht Centrum - Handwritten Collection,50.853195299999996,5.6897725999999995,5,4.3,124,161,194,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Hotel NH Maastricht,50.837739299999996,5.7140995,4,4.1,2631,60,89,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Hotel Sansa,50.8498076,5.7035502,,2.9,243,66,120,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Kaboom Hotel,50.8493614,5.7047726999999995,,4.3,1720,77,97,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Kruisherenhotel Maastricht,50.8486742,5.6837688,5,4.6,1498,269,294,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Leonardo Boutique Hotel Maastricht City Center,50.849722199999995,5.7027778,4,4.3,1621,87,112,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Maison Haas Hustinx & Sanctum Spa,50.8483601,5.6883167,,4.4,256,151,194,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,The Dutch,50.850108299999995,5.701225,3,4.6,851,63,88,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,The Green Elephant Hostel & Spa,50.8512959,5.7032663,,4.4,1487,30,42,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
+Amrâth Grand Hotel De L'Empereur,3,2,W Y C K - E N D boutique hotel - Three-Bedroom Apartment,50.84939956665039,5.702690124511719,,5.0,16,113,139,2,2026-12-05,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,WYCK-END boutique hotel,50.8494022,5.702685799999999,,4.2,19,175,175,3,2026-12-04,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel De L'Empereur,3,2,accademia00 - Quadruple Room with Private External Bathroom,50.85150146484375,5.688079833984375,,5.0,8,130,130,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Alex Maastricht,50.849503399999996,5.7036777999999995,,4.5,760,96,142,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Grand Hotel de l'Empereur,50.849972199999996,5.7044691,,3.9,1766,67,86,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Hotel Bigarré,50.853713199999994,5.6936056,,4.1,800,77,100,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Amrâth Hotel DuCasque,50.8502729,5.6889192,,4.1,477,115,156,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Bie de Juliaantjes,50.84423065185547,5.689107418060303,,4.6,38,161,161,1,2026-12-04,2026-12-04,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,"Crowne Plaza Maastricht, an IHG Hotel",50.8470158,5.6985836999999995,4,4.2,2168,82,114,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Derlon Hotel Maastricht,50.847777799999996,5.6933333,,4.1,928,120,148,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Exclusive Residence - Two-Bedroom Apartment,50.85110092163086,5.702250003814697,,,,622,622,1,2026-12-05,2026-12-05,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Garner Hotel Maastricht by IHG,50.858498,5.7168635,4,4.0,1836,73,81,3,2026-12-05,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Historische bovenwoning Wyck,50.84920120239258,5.698246479034424,,4.7,19,323,323,1,2026-12-06,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Hotel Beaumont,50.849773,5.7006903,4,4.6,633,124,187,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Hotel Maison Maastricht Centrum - Handwritten Collection,50.853195299999996,5.6897725999999995,5,4.3,124,271,271,1,2026-12-04,2026-12-04,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Hotel NH Maastricht,50.837739299999996,5.7140995,4,4.1,2631,60,89,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Hotel Sansa,50.8498076,5.7035502,,2.9,243,66,120,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Kaboom Hotel,50.8493614,5.7047726999999995,,4.3,1720,77,97,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Kruisherenhotel Maastricht,50.8486742,5.6837688,5,4.6,1498,269,294,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Leonardo Boutique Hotel Maastricht City Center,50.849722199999995,5.7027778,4,4.3,1621,87,112,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Maison Haas Hustinx & Sanctum Spa,50.8483601,5.6883167,,4.4,256,151,194,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,The Dutch,50.850108299999995,5.701225,3,4.6,851,63,88,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,The Green Elephant Hostel & Spa,50.8512959,5.7032663,,4.4,1487,30,42,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
 Amrâth Grand Hotel de l’Empereur,3,2,Urban Residences Maastricht - Maisonette (2 Adults),50.849971771240234,5.687290191650391,,5.0,8,156,156,1,2026-12-06,2026-12-06,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Van der Valk Hotel Maastricht,50.842161,5.719655,4,4.3,4393,126,126,1,2026-12-06,2026-12-06,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,Van der Valk Hotel Maastricht-Maas,50.840936,5.7022268,,4.7,6,135,160,4,2026-12-04,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,W Y C K - E N D boutique hotel - Deluxe Double Room,50.84939956665039,5.702690124511719,,5.0,8,113,113,2,2026-12-06,2026-12-07,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,W Y C K - E N D boutique hotel - Three-Bedroom Apartment,50.84939956665039,5.702690124511719,,5.0,16,113,165,3,2026-12-04,2026-12-06,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,WYCK-END boutique hotel,50.8494022,5.702685799999999,,4.2,19,175,175,2,2026-12-04,2026-12-05,2026-11-02T16:30:10
-Amrâth Grand Hotel de l’Empereur,3,2,accademia00 - Quadruple Room with Private External Bathroom,50.85150146484375,5.688079833984375,,5.0,8,130,130,1,2026-12-07,2026-12-07,2026-11-02T16:30:10
+Amrâth Grand Hotel de l’Empereur,3,2,Van der Valk Hotel Maastricht,50.842161,5.719655,4,4.3,4393,122,142,4,2026-12-04,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,Van der Valk Hotel Maastricht-Maas,50.840936,5.7022268,,4.7,6,137,137,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,W Y C K - E N D boutique hotel - Deluxe Double Room,50.84939956665039,5.702690124511719,,5.0,8,113,113,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,W Y C K - E N D boutique hotel - Three-Bedroom Apartment,50.84939956665039,5.702690124511719,,5.0,16,113,165,3,2026-12-04,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,WYCK-END boutique hotel,50.8494022,5.702685799999999,,4.2,19,175,175,3,2026-12-04,2026-12-06,2026-11-02T16:36:41
+Amrâth Grand Hotel de l’Empereur,3,2,accademia00 - Quadruple Room with Private External Bathroom,50.85150146484375,5.688079833984375,,5.0,8,130,130,1,2026-12-07,2026-12-07,2026-11-02T16:36:41
 Grand Resort Bad Ragaz,1,2,Boutique Hotel Ochsen,47.0035102,9.500557599999999,,3.6,230,126,126,7,2026-11-16,2026-11-22,2026-11-02T16:14:54
 Grand Resort Bad Ragaz,1,2,"Casa Marie, (Malans),",46.981056213378906,9.576742172241211,,4.6992188,64,252,252,6,2026-11-17,2026-11-22,2026-11-02T16:14:54
 Grand Resort Bad Ragaz,1,2,Cubilaris Motel Bad Ragaz,47.0129356,9.4938259,,4.7,220,114,125,7,2026-11-16,2026-11-22,2026-11-02T16:14:54

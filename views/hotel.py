@@ -12,7 +12,7 @@ import gh
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from fetch_hotel import LANDMARKS, PLACES
-from hotels import fetch_range, km
+from hotels import fetch_range, km, matches, plain
 from jobs import record, start_job, track
 from par import parallel
 from plain import checked_sentence, nearly, options_filters
@@ -202,46 +202,48 @@ ts = lambda i: f"{pd.Timestamp(i):%a %d %b}"
 s = on_weekdays(s, weekdays)  # cards, chips and chart only look at the chosen weekdays
 has_booking = "booking" in s and s.booking.notna().any()
 main = "price" if s.price.notna().any() else "booking" if has_booking else None  # Booking.com stands in when Google is blocked
+empty = False
 if not main and not heat and not st.session_state.get(f"gh-{key}"):  # nothing saved: one sentence, and Update prices above is the one button
     if len(p):
         st.info(f"No hotel called {filt} was found on these dates. Check the name, or try other dates.", icon=":material/hotel:")
     else:
         st.info(f"No prices saved yet for {filt} between {start:%a %d %b} and {end:%a %d %b}. Press Update prices to fetch them.",
                 icon=":material/hotel:")
-    st.stop()
-near = {c: near_cheapest(s[c], tol) for c in ("price", "booking") if c in s}
-if main:
-    col, n = s[main], len(near[main])
-    low, high = near[main].index[0], col.idxmax()
-    where = "Google Hotels" if main == "price" else "Booking.com"
-    also = f" · Booking.com €{s.booking[low]:.0f}" if main == "price" and has_booking and pd.notna(s.booking.get(low)) else ""
-    cards = [("Cheapest night", f"€{col.min():.0f}", f"{ts(low)} ({where}){also}{nearly(n, tol).replace('days', 'nights')}",
-              ECONOMY if main == "price" else BOOKING),
-             ("Average night", f"€{col.mean():.0f}", f"across the {col.notna().sum()} nights checked", "#5B6B82"),
-             ("Dearest night", f"€{col.max():.0f}", f"{ts(high)} ({where})", TIER_COLORS["high"])]
-    if main == "price" and has_booking and s.booking.idxmin() != low:  # Booking.com's own cheapest night, when it is another night
-        bl = s.booking.idxmin()
-        cards.append(("Cheapest night on Booking.com", f"€{s.booking.min():.0f}", ts(bl), BOOKING))
-else:
-    cards = []
-if heat:
-    n = sum(t == "cheap" for t in heat.values())
-    cards.append(("Cheap nights, says TripAdvisor", str(n), f"of the {len(heat)} nights in this range", TIER_COLORS["cheap"]))
-kpis(cards)
-if main:
-    best_days(near[main], ECONOMY if main == "price" else BOOKING,
-              "The cheapest nights are" if main == "price" else "The cheapest nights on Booking.com are")
+    empty = True  # the map below still shows where the hotel is and what is around it
+if not empty:
+    near = {c: near_cheapest(s[c], tol) for c in ("price", "booking") if c in s}
+    if main:
+        col, n = s[main], len(near[main])
+        low, high = near[main].index[0], col.idxmax()
+        where = "Google Hotels" if main == "price" else "Booking.com"
+        also = f" · Booking.com €{s.booking[low]:.0f}" if main == "price" and has_booking and pd.notna(s.booking.get(low)) else ""
+        cards = [("Cheapest night", f"€{col.min():.0f}", f"{ts(low)} ({where}){also}{nearly(n, tol).replace('days', 'nights')}",
+                  ECONOMY if main == "price" else BOOKING),
+                 ("Average night", f"€{col.mean():.0f}", f"across the {col.notna().sum()} nights checked", "#5B6B82"),
+                 ("Dearest night", f"€{col.max():.0f}", f"{ts(high)} ({where})", TIER_COLORS["high"])]
+        if main == "price" and has_booking and s.booking.idxmin() != low:  # Booking.com's own cheapest night, when it is another night
+            bl = s.booking.idxmin()
+            cards.append(("Cheapest night on Booking.com", f"€{s.booking.min():.0f}", ts(bl), BOOKING))
+    else:
+        cards = []
+    if heat:
+        n = sum(t == "cheap" for t in heat.values())
+        cards.append(("Cheap nights, says TripAdvisor", str(n), f"of the {len(heat)} nights in this range", TIER_COLORS["cheap"]))
+    kpis(cards)
+    if main:
+        best_days(near[main], ECONOMY if main == "price" else BOOKING,
+                  "The cheapest nights are" if main == "price" else "The cheapest nights on Booking.com are")
 
 # --- where it is, and the hotels around it: every hotel Google listed in this hotel's searches (data/hotel_places.csv) ---------------
 RADIUS, CHEAPER = 3, "#0E7A53"  # km around the hotel; the green of a cheaper night elsewhere on the site
 places_path = gh.data_file("data/hotel_places.csv") or str(PLACES)
 pl = pd.read_csv(places_path) if os.path.exists(places_path) else pd.DataFrame()
-here = pl[pl["query"] == query] if len(pl) else pl
+here = pl[pl["query"].map(plain) == plain(query)] if len(pl) else pl  # the same search, however its apostrophes were typed
 if len(here):
     same = here[(here.nights == nights) & (here.adults == adults)]
-    here = (same if len(same) else here.sort_values("fetched").drop_duplicates("hotel", keep="last")).copy()
-    words = filt.lower().split()
-    mine = here[here.hotel.str.lower().map(lambda n: all(w in n for w in words))]
+    # one row per hotel: the newest, from this stay length if it was searched, else from any (two spellings of a search overlap)
+    here = (same if len(same) else here).sort_values("fetched").drop_duplicates("hotel", keep="last").copy()
+    mine = here[here.hotel.map(lambda n: matches(n, filt))]
     me = mine.iloc[0] if len(mine) else None
     if me is not None:
         here["km"] = [km(me.lat, me.lng, a, b) for a, b in zip(here.lat, here.lng)]
@@ -252,7 +254,7 @@ if len(here):
     own = me.low if me is not None and pd.notna(me.low) else None
     marks_path = gh.data_file("data/hotel_landmarks.csv") or str(LANDMARKS)
     marks = pd.read_csv(marks_path) if os.path.exists(marks_path) else pd.DataFrame(columns=["query", "kind", "label", "name", "lat", "lng"])
-    marks = marks[marks["query"] == query]
+    marks = marks[marks["query"].map(plain) == plain(query)]
     spot = {k: marks[marks.kind == k].iloc[0] for k in ("station", "centre") if (marks.kind == k).any()}
     for k, m in spot.items():  # how far each hotel is from the main station and the town centre
         here[f"to_{k}"] = [km(m.lat, m.lng, a, b) for a, b in zip(here.lat, here.lng)]

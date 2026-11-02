@@ -1046,3 +1046,20 @@ def test_hotel_landmarks_are_looked_up_once_per_search_and_never_break_a_fetch(t
     def down(lat, lng):
         raise OSError("Nominatim is down")
     assert fetch_hotel.landmark_rows(dict(query="Elsewhere", filt="x"), places, out, down) == []  # the map just shows the hotels
+
+
+def test_hotel_map_shows_for_a_name_typed_with_google_s_curly_apostrophe_even_before_prices(tmp_path, monkeypatch):
+    import os
+    from streamlit.testing.v1 import AppTest
+    assert hotels.matches("Amrâth Grand Hotel de l'Empereur", "Amrâth Grand Hotel de l’Empereur")
+    page = os.path.abspath("views/hotel.py")
+    monkeypatch.chdir(tmp_path)  # an empty database: no prices for this search at all
+    at = AppTest.from_file(page, default_timeout=60).run()
+    name = "Amrâth Grand Hotel de l’Empereur"
+    at.text_input(key="ho-query").set_value(name)
+    at.text_input(key="ho-filt").set_value(name)
+    at.number_input(key="ho-nights").set_value(3)
+    at.run()
+    assert not at.exception
+    assert any("No prices saved yet" in i.value for i in at.info)
+    assert any("Where it is: Amrâth Grand Hotel de" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
