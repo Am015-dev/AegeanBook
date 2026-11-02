@@ -16,6 +16,7 @@ import explore as xp
 import fetch_ahead as fa
 import flight_times
 import gh
+import network
 import overview as ov
 import price_insights as pi
 import skyexpress as sx
@@ -125,7 +126,8 @@ saved = [d for o, d in far if o == orig]
 # airports searched from here where Google Flights found no AEGEAN flight on any day: AEGEAN flies there, but not from this airport
 # (or not in these months); they go last, saying so, so nobody takes them for a route
 none_found = {r[0] for r in db.execute("SELECT dest FROM prices WHERE orig=? AND nonstop=1 GROUP BY dest HAVING COUNT(price)=0", (orig,))}
-rest = [a for a in cities if a not in saved and a != orig]
+net, home = network.current(), network.home_airports("A3")
+rest = [a for a in cities if a not in saved and a != orig and network.flies(net, "A3", orig, a, home) is not False]  # never a pair it does not fly
 options = [ANY] + saved + sorted((a for a in rest if a not in none_found), key=cities.get) + sorted((a for a in rest if a in none_found), key=cities.get)
 seasonal = {r["iata"] for r in aegean_rows() if r["seasonal"] == "1"}  # AEGEAN's own list marks them: flights only part of the year
 names = {ANY: "Anywhere", **{d: place(d) for d in saved},
