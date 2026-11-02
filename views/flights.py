@@ -100,16 +100,14 @@ with st.container(border=True, key="search"):
     fetch = st.button("Update prices", type="primary", width="stretch",
                       help="Fetches the fares for every day shown, both ways, and saves them. Days already saved are skipped.")
     gq = False
-    if gq_saved:
-        gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
-    elif gq_route:
-        st.caption("Sky Express fares can be fetched too: Options → Compare with Sky Express")
+    if gq_route:  # on by default, in sight: with fares saved it compares at once, without them Update prices fetches Sky Express too
+        gq = st.toggle("Compare with Sky Express", value=True, key=f"fl-gq-{orig}{dest}", help=gq_help)
+    else:
+        st.caption(f"No Sky Express comparison: Sky Express does not fly {orig} to {dest}.")
     with st.expander("Options"):
         c = st.columns(2)
         nonstop = c[0].checkbox("Nonstop only", value=True, help="Direct flights only. Turn it off to include flights with a stop.")
         recheck = c[1].checkbox("Re-check days already saved", help="Fetch again the days that already have a saved price.")
-        if gq_route and not gq_saved:
-            gq = st.toggle("Compare with Sky Express", key=f"fl-gq-{orig}{dest}", help=gq_help)
         tol, weekdays = options_filters(st, "fl")
         st.caption(f"Fares are for one adult on AEGEAN, from Google Flights; a return is two one-way fares. Saved fares are kept "
                    f"{RETENTION_DAYS} days. ATH–FRA and ATH–ZRH (both ways, the next 90 days) are refreshed every morning.")
@@ -326,6 +324,10 @@ with tabs["Price chart"]:
                        f"with a fare on {int(view.skyexpress.notna().sum())} days.")
         elif gq:
             st.caption("No Sky Express fares saved for these days yet: Update prices fetches them with AEGEAN's.")
+    elif not p.price.notna().any():  # every day was searched and Google Flights found no AEGEAN flight at all
+        st.info(f"AEGEAN has no {'nonstop ' if nonstop else ''}flight from {orig} to {dest} on these days: Google Flights found none. "
+                "AEGEAN flies to both airports, but not between them, or only in another season. Try other months"
+                + (", or turn off Nonstop only under Options." if nonstop else "."), icon=":material/flight_takeoff:")
     else:
         st.info("No AEGEAN fares on these days. Try other weekdays, a longer window, or turn off Nonstop only under Options.")
     if nights and back[["economy", "business"]].notna().any().any():

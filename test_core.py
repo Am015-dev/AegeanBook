@@ -382,6 +382,7 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
         return {(start + timedelta(i)).isoformat(): base + (start + timedelta(i)).day for i in range((end - start).days + 1)}
     monkeypatch.setattr(collector, "fetch_cabin", grid)
     at = AppTest.from_file(os.path.join(here, "views/flights.py"), default_timeout=60).run()
+    at.toggle(key="fl-gq-ATHFRA").set_value(False).run()  # AEGEAN only here: the Sky Express comparison has tests of its own
     at.button_group(key="fl-trip").set_value("Return").run()
     at.slider(key="fl-nights").set_value((7, 7)).run()  # a week away, as the old default
     first = _date.today() + timedelta(1)

@@ -232,8 +232,7 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
-    assert "Sky Express" not in text  # off by default
-    at.toggle(key="ov-gq-ATHFRA").set_value(True).run()
+    assert at.toggle(key="ov-gq-ATHFRA").value is True and "AEGEAN or Sky Express?" in text  # on by default, under the pass
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
     # the pass: AEGEAN €60 out on day 10 + €150 back = €210; Sky Express €45 out on day 10 + €120 back = €165, the same filters
@@ -246,7 +245,8 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     assert days.count("<td>Sky Express, €15 less</td>") == 1  # day 10: €60 against €45
     assert not [b for b in at.button if "fetch" in b.key]  # nothing to fetch: the fares are there
     at.button_group(key="ov-grid-cabin").set_value("business").run()
-    assert not at.exception and "Sky Express" not in " ".join(m.value for m in at.markdown)  # economy only for now
+    assert not at.exception and "AEGEAN or Sky Express?" not in " ".join(m.value for m in at.markdown)  # economy only for now
+    assert "No Sky Express comparison: Sky Express sells economy only." in " ".join(c.value for c in at.caption)
 
 
 def test_overview_offers_to_fetch_sky_express_fares_on_github_when_none_are_saved(tmp_path, monkeypatch):
@@ -287,9 +287,7 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = open_page("flights.py").run()
-    assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is False
-    assert "Sky Express fares can be fetched too" not in " ".join(c.value for c in at.caption)  # fares saved: the toggle is in the card
-    at.toggle(key="fl-gq-ATHFRA").set_value(True).run()
+    assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is True  # on by default, in sight
     assert not at.exception
     assert "The dashed line is Sky Express economy: cheapest €45" in " ".join(c.value for c in at.caption)
     cards = next(m.value for m in at.markdown if 'class="fares"' in m.value)  # the cards: AEGEAN's two lines, then Sky Express's, then the verdict
@@ -308,13 +306,12 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     assert "Sky Express fares appear here" in " ".join(i.value for i in at.info)
 
 
-def test_flights_page_keeps_the_sky_express_toggle_under_options_until_its_fares_are_saved(tmp_path, monkeypatch):
+def test_flights_page_shows_the_sky_express_toggle_on_even_before_its_fares_are_saved(tmp_path, monkeypatch):
     open_page = pages(tmp_path, monkeypatch)
     seed(tmp_path / "tracker.db", gq=False)
     at = open_page("flights.py").run()
-    assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is False  # still there, under Options
-    assert "Sky Express fares can be fetched too: Options → Compare with Sky Express" in " ".join(c.value for c in at.caption)
-    at.toggle(key="fl-gq-ATHFRA").set_value(True).run()
-    assert not at.exception and "No Sky Express fares saved for these days yet" in " ".join(c.value for c in at.caption)
-    at.selectbox(key="dest").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle, no caption
-    assert not at.exception and not at.toggle and "Sky Express" not in " ".join(c.value for c in at.caption)
+    assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is True  # in sight and on: Update prices fetches Sky Express too
+    assert "No Sky Express fares saved for these days yet" in " ".join(c.value for c in at.caption)
+    at.selectbox(key="dest").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle, one line saying so
+    assert not at.exception and not at.toggle
+    assert "No Sky Express comparison: Sky Express does not fly ATH to ZRH." in " ".join(c.value for c in at.caption)

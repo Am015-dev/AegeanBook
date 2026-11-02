@@ -192,7 +192,7 @@ def test_update_prices_fetches_on_github_and_shows_the_results(tmp_path, monkeyp
     t.commit()
     started, state = [], {"run": None}
     monkeypatch.setattr(gh, "token", lambda: "tok")
-    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
+    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop, airline="A3": (started.append(legs) if airline == "A3" else None) or "abcd1234")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = AppTest.from_file(os.path.join(HERE, "views", "flights.py"), default_timeout=60).run()
@@ -350,7 +350,7 @@ def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, mon
     p = tp.period(p.start, p.end, today, today)  # picked as two dates in "Leaving between"
     started = []
     monkeypatch.setattr(gh, "token", lambda: "tok")
-    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop: started.append(legs) or "abcd1234")
+    monkeypatch.setattr(gh, "fetch", lambda tok, legs, nonstop, airline="A3": (started.append(legs) if airline == "A3" else None) or "abcd1234")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     monkeypatch.setattr(ex, "briefing", lambda f, cfg, day: ("- ok", None))
