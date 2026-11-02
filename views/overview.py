@@ -333,7 +333,7 @@ else:
                  "when": f"{p.start},{p.end}"}
         if ret:
             alert["back"] = best["back"].isoformat()
-        c = st.columns(3)
+        c = st.columns(2)
         for col, page, label, icon, params in (
                 (c[0], "views/alerts.py", "Alert me if it gets cheaper", ":material/notifications:", alert),
                 (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
@@ -342,8 +342,9 @@ else:
                 col.page_link(page, label=label, icon=icon, query_params=params)
             except Exception:  # the page runs on its own (tests), outside the app's navigation
                 pass
-        with c[2]:  # the third quiet link in the row: the flight times, fetched on request
-            flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
+        # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
+        # button fetches any other day
+        flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
         hotels = tp.hotels(db, dest) if ret else []
         if hotels and pay == "cash":
             h = hotels[0]

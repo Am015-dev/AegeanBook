@@ -4,6 +4,8 @@ data/flight_details.csv, which the app reads from GitHub (flight_times.py).
 
     LEGS="ATH,IST,2026-12-08;IST,ATH,2026-12-14" CABIN=economy python fetch_details.py new_rows.csv
     python fetch_details.py --merge new_rows.csv   # add those rows to the current data/flight_details.csv (the workflow's save step)
+    python fetch_details.py --cheapest fares.csv details.csv   # the flights of the 3 cheapest economy days of each leg in a fare
+                                                                 # file, in the same job that fetched the fares (fetch-route, daily)
 """
 import csv
 import os
@@ -97,8 +99,26 @@ def main(legs, cabin, new, pause=30):
     return 0 if rows or not failed else 1
 
 
+def cheapest_legs(rows, n=3, soon=2, today=None):
+    """"ATH,FRA,2026-11-19;..." for the n cheapest economy days ahead of each leg in fare rows (fetch_route's columns), and the `soon`
+    cheapest of the next 30 days (the Overview's first window): the days a traveller is most likely to book, so their flights are known
+    before anyone asks."""
+    today = today or date.today()
+    month = (today + timedelta(30)).isoformat()
+    today = today.isoformat()
+    by_leg = {}
+    for r in rows:
+        if r.get("cabin") == "economy" and r.get("price") and r["day"] > today and str(r.get("nonstop", "1")) in ("1", "1.0", "True"):
+            by_leg.setdefault((r["orig"], r["dest"]), {})[r["day"]] = float(r["price"])
+    pick = lambda days: list(dict.fromkeys(sorted(days, key=days.get)[:n] + sorted((x for x in days if x <= month), key=days.get)[:soon]))
+    return ";".join(f"{o},{d},{day}" for (o, d), days in sorted(by_leg.items()) for day in pick(days))
+
+
 if __name__ == "__main__":
     if sys.argv[1] == "--merge":
         save(read(sys.argv[2]))
+    elif sys.argv[1] == "--cheapest":
+        legs = cheapest_legs(read(sys.argv[2]))
+        sys.exit(main(legs, "economy", sys.argv[3]) if legs else 0)
     else:
         sys.exit(main(os.environ["LEGS"], os.environ["CABIN"], sys.argv[1]))

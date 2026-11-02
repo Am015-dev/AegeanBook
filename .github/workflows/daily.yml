@@ -36,6 +36,9 @@ jobs:
       - run: AIRLINE=GQ python fetch_route.py --daily "$RUNNER_TEMP/gq_rows.csv"  # Sky Express economy on the daily legs it serves
         if: steps.budget.outputs.stop != 'true'
         continue-on-error: true  # a bonus: it must never stop the daily commit below
+      - run: python fetch_details.py --cheapest "$RUNNER_TEMP/daily_rows.csv" "$RUNNER_TEMP/details.csv"  # the daily legs' 3 cheapest days' flights
+        if: steps.budget.outputs.stop != 'true'
+        continue-on-error: true
       - name: Commit results
         if: steps.budget.outputs.stop != 'true'
         run: |
@@ -50,7 +53,8 @@ jobs:
             cp "$RUNNER_TEMP"/keep/* data/ 2>/dev/null || true
             [ ! -f "$RUNNER_TEMP/daily_rows.csv" ] || python fetch_route.py --merge-history "$RUNNER_TEMP/daily_rows.csv"
             [ ! -f "$RUNNER_TEMP/gq_rows.csv" ] || AIRLINE=GQ python fetch_route.py --merge-refresh "$RUNNER_TEMP/gq_rows.csv"
-            git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/skyexpress.csv data/history_skyexpress.csv
+            [ ! -f "$RUNNER_TEMP/details.csv" ] || python fetch_details.py --merge "$RUNNER_TEMP/details.csv"
+            git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/skyexpress.csv data/history_skyexpress.csv data/flight_details.csv
             git diff --cached --quiet && break
             git commit -q -m "Daily fares $(date -u +%F)"
             git push -q origin HEAD:main && break
