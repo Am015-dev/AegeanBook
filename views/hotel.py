@@ -1,3 +1,4 @@
+import os
 import time
 from datetime import date, datetime, timedelta
 
@@ -6,7 +7,7 @@ import streamlit as st
 
 import gh
 from collector import gaps
-from db import RETENTION_DAYS, connect, cutoff, saved_hotel_days
+from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from hotels import fetch_range
 from jobs import record, start_job, track
 from par import parallel
@@ -24,17 +25,52 @@ STYLE = """<style>
 st.markdown(STYLE, unsafe_allow_html=True)
 HORIZON = 330  # Google Hotels prices about a year ahead
 
+# --- the hotels collected so far: pick one to open it with its saved dates, or download every price ------------------------------
+saved = pd.read_sql("SELECT query, filt, nights, adults, COUNT(DISTINCT day) nights_saved, MIN(day) first, MAX(day) last, MAX(fetched) checked "
+                    "FROM hotel WHERE price IS NOT NULL AND day >= ? GROUP BY query, filt, nights, adults ORDER BY checked DESC",
+                    db, params=(today.isoformat(),))
+keys = {}  # (query, filt) -> TripAdvisor key, from the files the searches were saved to (the database does not keep it)
+for path in (db_path for db_path in (DAILY_HOTEL, HOTEL_SEARCHES, gh.data_file("data/daily_hotel.csv"), gh.data_file("data/hotel_searches.csv"))
+             if db_path and os.path.exists(db_path)):
+    for r in pd.read_csv(path, dtype=str, usecols=["query", "filt", "hkey"]).dropna(subset=["hkey"]).itertuples():
+        keys.setdefault((r.query, r.filt), r.hkey)
+
+
+def open_saved():
+    """Fill the search with the hotel picked under Saved hotels, and the calendar with the check-in days it has prices for."""
+    i = st.session_state.get("ho-saved")
+    if i is None:
+        return
+    r = saved.iloc[i]
+    st.session_state.update({"ho-query": r.query, "ho-filt": r.filt, "ho-nights": int(r.nights), "ho-adults": int(r.adults),
+                             "ho-link": keys.get((r.query, r.filt), ""),
+                             "ho-when": (max(today, date.fromisoformat(r["first"])), date.fromisoformat(r["last"]))})
+
+
+if len(saved):
+    label = lambda i: (f"{saved.filt[i]} · {saved.nights_saved[i]} check-in days saved, {pd.Timestamp(saved['first'][i]):%d %b}–"
+                       f"{pd.Timestamp(saved['last'][i]):%d %b} · {int(saved.nights[i])} night{'s' * (int(saved.nights[i]) > 1)}, {int(saved.adults[i])} adults")
+    c = st.columns([3, 1], vertical_alignment="bottom")
+    c[0].selectbox("Saved hotels", range(len(saved)), index=None, format_func=label, key="ho-saved", on_change=open_saved,
+                   placeholder=f"{len(saved)} hotel{'s' * (len(saved) > 1)} with prices saved: pick one to open it")
+    every = pd.read_sql("SELECT day, query, filt, nights, adults, hotel, price, fetched FROM hotel WHERE price IS NOT NULL "
+                        "ORDER BY query, filt, nights, adults, day, fetched", db).drop_duplicates(["day", "query", "filt", "nights", "adults"], keep="last")
+    every = every.rename(columns={"day": "Check-in", "query": "Search", "filt": "Hotel name contains", "nights": "Nights", "adults": "Adults",
+                                  "hotel": "Hotel", "price": "€ per night (Google Hotels)", "fetched": "Checked"}).set_index("Check-in")
+    c[1].download_button("Download all (Excel)", excel_bytes(every), "hotels_collected.xlsx", width="stretch",
+                         help="Every hotel price saved, one row per check-in day. The Database page has the full history, with every change.")
+
 with st.container(border=True, key="search"):
     c = st.columns([3, 2, 1, 1])
-    query = c[0].text_input("Hotel", "Steigenberger Frankfurt", help="The hotel and its city, as you would type them into Google Hotels.")
-    filt = c[1].text_input("Hotel name contains", "Frankfurter Hof", help="Picks your hotel out of the search results: part of its name is enough.")
-    nights = c[2].number_input("Nights", 1, 14, 1, help="How many nights each stay lasts.")
-    adults = c[3].number_input("Adults", 1, 6, 2, help="How many adults share the room.")
+    query = c[0].text_input("Hotel", "Steigenberger Frankfurt", key="ho-query", help="The hotel and its city, as you would type them into Google Hotels.")
+    filt = c[1].text_input("Hotel name contains", "Frankfurter Hof", key="ho-filt", help="Picks your hotel out of the search results: part of its name is enough.")
+    nights = c[2].number_input("Nights", 1, 14, 1, key="ho-nights", help="How many nights each stay lasts.")
+    adults = c[3].number_input("Adults", 1, 6, 2, key="ho-adults", help="How many adults share the room.")
     start, end = window_picker(st, "ho", today, HORIZON, "Check-in between")
     fetch = st.button("Update prices", type="primary", width="stretch",
                       help="Fetches the price of a stay starting on every check-in day shown, and saves them. Days already saved are skipped.")
     with st.expander("Options"):
-        link = st.text_input("TripAdvisor link or key", "g187337-d202275",
+        link = st.text_input("TripAdvisor link or key", "g187337-d202275", key="ho-link",
                              help="Open the hotel on TripAdvisor and paste its address, or just the part like g187337-d202275. "
                                   "It adds the cheap-day calendar and Booking.com prices, and keeps prices coming when Google "
                                   "Hotels is unavailable. Leave empty for Google prices only.")

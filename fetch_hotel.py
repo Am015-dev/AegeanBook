@@ -13,6 +13,7 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import history
 import hotels
 from par import parallel
 from xotelo import booking_rate, heatmap_range, hotel_key
@@ -63,6 +64,9 @@ def save(rows, path=None):
     key = lambda r: (r["source"], r["day"], r["query"], r["filt"], r["hkey"], str(r["nights"]), str(r["adults"]))
     newest = {key(r): r for r in keep + rows}
     write(sorted(newest.values(), key=lambda r: (r["query"], r["filt"], r["day"], r["source"])), path)
+    # kept for good, like the daily hotel: every price a visitor fetched stays in the history the Database page shows and exports
+    history.append_changes(Path(path).with_name("history_hotel.csv"), rows, ("source", "day", "query", "filt", "nights", "adults"),
+                           ("price", "tier", "hotel"))
 
 
 def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_range):
