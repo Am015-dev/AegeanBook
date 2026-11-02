@@ -1,4 +1,6 @@
 source,day,hotel,price,tier,fetched,query,filt,hkey,nights,adults
+google,2026-12-03,Amrâth Grand Hotel de l'Empereur,138,,2026-11-02T17:24:06,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-03,,,high,2026-11-02T17:24:06,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 google,2026-12-04,Amrâth Grand Hotel de l'Empereur,130,,2026-11-02T16:36:53,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 heat,2026-12-04,,,high,2026-11-02T16:36:53,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 google,2026-12-05,Amrâth Grand Hotel de l'Empereur,101,,2026-11-02T16:36:53,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
@@ -416,8 +418,6 @@ google,2027-04-26,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:
 heat,2027-04-26,,,high,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2027-04-27,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 heat,2027-04-27,,,high,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
-google,2026-11-02,Kempinski Palace Engelberg,451,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
-heat,2026-11-02,,,average,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 google,2026-11-03,Kempinski Palace Engelberg,456,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 heat,2026-11-03,,,average,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 google,2026-11-04,Kempinski Palace Engelberg,460,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2

@@ -1,4 +1,24 @@
 query,nights,adults,day,hotel,price,fetched
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Alex Maastricht,223,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Amrâth Grand Hotel de l'Empereur,138,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Amrâth Hotel Bigarré,163,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Amrâth Hotel DuCasque,226,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,"Crowne Plaza Maastricht, an IHG Hotel",153,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Derlon Hotel Maastricht,175,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Exclusive Residence - Two-Bedroom Apartment,622,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Garner Hotel Maastricht by IHG,125,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Hotel Beaumont,329,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Hotel Maison Maastricht Centrum - Handwritten Collection,277,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Hotel NH Maastricht,116,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Hotel Sansa,175,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Kaboom Hotel,146,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Kruisherenhotel Maastricht,175,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Leonardo Boutique Hotel Maastricht City Center,185,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Maison Haas Hustinx & Sanctum Spa,264,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,The Green Elephant Hostel & Spa,68,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,Van der Valk Hotel Maastricht-Maas,217,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,W Y C K - E N D boutique hotel - Three-Bedroom Apartment,425,2026-11-02T17:24:08
+Amrâth Grand Hotel De L'Empereur,3,2,2026-12-03,WYCK-END boutique hotel,175,2026-11-02T17:24:08
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-04,Alex Maastricht,197,2026-11-02T16:48:59
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-04,Amrâth Grand Hotel de l'Empereur,130,2026-11-02T16:48:59
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-04,Amrâth Hotel Bigarré,159,2026-11-02T16:48:59
@@ -345,25 +365,6 @@ Grand Resort Bad Ragaz,1,2,2026-11-16,Palais Bad Ragaz,300,2026-11-02T16:48:59
 Grand Resort Bad Ragaz,1,2,2026-11-16,Schlaffass Marchhof Flums,300,2026-11-02T16:48:59
 Grand Resort Bad Ragaz,1,2,2026-11-16,Sorell Hotel Tamina Bad Ragaz,196,2026-11-02T16:48:59
 Grand Resort Bad Ragaz,1,2,2026-11-16,Walsersiedlung Sankt Martin,300,2026-11-02T16:48:59
-Kempinski Palace Engelberg,1,2,2026-11-02,'DAHElM',319,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,ALP APARTMENTS centre location with traditional design and self check-in - One-Bedroom Apartment,169,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,ALP APARTMENTS with self check-in,159,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Anstatthotel Goldau - self-check-in - Superior Studio (7 Adults),165,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,BERG BERG Hotel - Hellbühl Self-Check-in - Standard Single Room,124,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Beautiful apartment in the center of Switzerland - Three-Bedroom Apartment with Mountain View,227,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Chalet ALPEN LOTUS,537,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Eiger Guest House - Grindelwald - Three-Bedroom Apartment - Ground Floor - Chalet Eiger,271,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Eiger Guest House Grindelwald,259,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,"Eigerblick in Grindelwald: Apartment with mountain views, a garden, and a ski lift just 10 minutes away",170,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Gasthof Krone Blatten - Standard Twin Room,146,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Gästehaus Schäfli - Quadruple Room with Private Bathroom,199,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Kempinski Palace Engelberg,451,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,"Lucerne Lake View Apartments - City Apartment, 3 Bedrooms, City View, Lakeside",554,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Titlis Studio Engelberg with Balcony great View - Apartment,166,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,"Titlis Studio Engelberg | Balcony, View & Parking",184,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,Yeti Lodge - Apartment - Ground Floor,475,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,bella Romantica - Three-Bedroom House,630,2026-11-02T17:21:06
-Kempinski Palace Engelberg,1,2,2026-11-02,privates Ferienhaus Lungern see-you - One-Bedroom Apartment with Balcony,182,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-03,'DAHElM',140,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-03,ALP APARTMENTS centre location with traditional design and self check-in - One-Bedroom Apartment,169,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-03,Alpen Apartment I Andermatt I Ski I Parkplatz I Familien - Two-Bedroom Apartment with Mountain View,205,2026-11-02T17:21:06
