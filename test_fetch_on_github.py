@@ -337,7 +337,7 @@ def test_overview_fetches_a_month_with_no_fares_on_github(tmp_path, monkeypatch)
     at.selectbox(key="ov-grid-dest-ATH").set_value("ZRH").run()  # Zurich has nothing that far either
     at.date_input(key="ov-when").set_value((p.start, p.end)).run()
     assert not at.exception and not [b for b in at.button if b.key.startswith("fetch-ahead")]
-    assert f"{p.name.capitalize()} from Athens to Zurich is not fetched yet. Search those dates in the fare calendar (under Data)" in " ".join(c.value for c in at.caption)
+    assert f"{p.name.capitalize()} from Athens to Zurich is not fetched yet. Search those dates on the Flights page" in " ".join(c.value for c in at.caption)
 
 
 def test_expert_and_anywhere_fetch_a_month_with_no_fares_on_github(tmp_path, monkeypatch):

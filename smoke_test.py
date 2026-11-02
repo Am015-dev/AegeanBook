@@ -21,7 +21,7 @@ pytestmark = pytest.mark.smoke
 playwright = pytest.importorskip("playwright.sync_api", reason="the smoke test needs Playwright (pip install playwright)")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAGES = {"Flights": "/", "Ask the expert": "/expert", "Fare calendar": "/flights", "Hotels": "/hotel", "Alerts": "/alerts", "Database": "/database"}
+PAGES = {"Overview": "/", "Expert": "/expert", "Flights": "/flights", "Hotels": "/hotel", "Alerts": "/alerts", "Database": "/database"}
 VIEWPORTS = {"laptop": (1366, 900), "phone": (390, 844)}
 MIN_FONT_PX = 12
 # Streamlit's own: on a page URL like /expert the frontend first probes /expert/_stcore/health and host-config (404) to find its base path

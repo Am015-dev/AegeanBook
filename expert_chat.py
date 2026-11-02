@@ -28,7 +28,7 @@ from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 from trip_plan import city
 
-VERSION = 6  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 7  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -201,7 +201,7 @@ def sentences(f):
     where = f"{city(f['orig'])} to {city(f['dest'])}"
     if best is None:
         return [f"No {f['cabin']} {kind} are saved from {where} for these days and nights. Try other weekdays or nights, or search the route "
-                "in the fare calendar (under Data)."]
+                "on the Flights page."]
     ret = best["back"] is not None
     trip = f"{f['cabin']} {'return' if ret else 'one-way'}"
     price = _money(f, best["price"])
@@ -400,7 +400,7 @@ def _business_answer(f):
 def _sky_answer(f):
     best, gq, same, mine = f["best"], f["skyexpress"], f["skyexpress_same"], f["aegean_same"]
     if gq is None:
-        return (f"No {sx.NAME} fare is saved for these days yet. Search the route in the fare calendar (under Data) and the two airlines appear side by side.")
+        return (f"No {sx.NAME} fare is saved for these days yet. Search the route on the Flights page and the two airlines appear side by side.")
     on_mine = f"On AEGEAN's dates {sx.NAME} costs €{same:,.0f}" if same is not None else f"{sx.NAME} has no flight on AEGEAN's dates"
     on_gq = f"; on {sx.NAME}'s dates AEGEAN costs €{mine:,.0f}" if mine is not None else f"; AEGEAN has no flight on {sx.NAME}'s dates"
     if gq["price"] < best["price"]:

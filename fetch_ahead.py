@@ -13,7 +13,7 @@ from db import saved_flight_days
 from trip_plan import HORIZON
 from ui import github_note, github_progress
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 
 
 def missing(db, legs, today, nonstop=True):
@@ -36,7 +36,7 @@ def button(key, label, legs, what, nonstop=True):
     and the page reloads with the fares when the run is done."""
     tok = gh.token()
     if not tok:
-        st.caption(f"{what} is not fetched yet. Search those dates in the fare calendar (under Data) to fetch the fares.")
+        st.caption(f"{what} is not fetched yet. Search those dates on the Flights page to fetch the fares.")
         return
     if gh.paused():  # the month's free GitHub minutes are nearly spent: no new run until the month resets (budget.py)
         st.caption(f"{what} is not fetched yet. Searches are paused until the GitHub minutes reset at the start of next month.")
