@@ -16,6 +16,7 @@ from hotels import fetch_range, km, matches, plain
 from jobs import record, start_job, track
 from par import parallel
 from plain import checked_sentence, nearly, options_filters
+from insights import FULL, weekday_chart, weekday_stats
 from ui import (BOOKING, ECONOMY, FONT, INK, MUTED, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
                 price_chart, route, window_picker, github_progress, github_note)
 from xotelo import booking_rate, heatmap_range, hotel_key
@@ -198,6 +199,17 @@ checked = checked_sentence([("Google Hotels", p.groupby("day").fetched.max(), n)
                             if hkey else []), unit="nights")
 if checked:
     st.caption(checked)
+# --- the hotels around it, read once: their place (data/hotel_places.csv) and price each check-in day (data/hotel_nearby.csv) ----------
+places_path = gh.data_file("data/hotel_places.csv") or str(PLACES)
+pl = pd.read_csv(places_path) if os.path.exists(places_path) else pd.DataFrame()
+by_day_path = gh.data_file("data/hotel_nearby.csv") or str(NEARBY)
+by_day = pd.read_csv(by_day_path) if os.path.exists(by_day_path) else pd.DataFrame(columns=["query", "nights", "adults", "day", "hotel", "price", "fetched"])
+by_day = by_day[(by_day["query"].map(plain) == plain(query)) & (by_day.nights == nights) & (by_day.adults == adults)
+                & (by_day.day >= start.isoformat()) & (by_day.day <= end.isoformat()) & by_day.price.notna()]
+by_day = by_day.sort_values("fetched").drop_duplicates(["day", "hotel"], keep="last")
+others = by_day[[not matches(n, filt) for n in by_day.hotel]] if len(by_day) else by_day
+# the middle price a night of the hotels around it, each check-in day (none when no neighbour was saved for this stay)
+area = others.groupby("day").price.median() if len(others) else pd.Series(dtype=float)
 ts = lambda i: f"{pd.Timestamp(i):%a %d %b}"
 s = on_weekdays(s, weekdays)  # cards, chips and chart only look at the chosen weekdays
 has_booking = "booking" in s and s.booking.notna().any()
@@ -212,6 +224,8 @@ if not main and not heat and not st.session_state.get(f"gh-{key}"):  # nothing s
     empty = True  # the map below still shows where the hotel is and what is around it
 if not empty:
     near = {c: near_cheapest(s[c], tol) for c in ("price", "booking") if c in s}
+    name = s.hotel.dropna().iloc[0] if "hotel" in s and s.hotel.notna().any() else filt
+    st.markdown(f'<p class="group">{name}: the price of a night, check-in by check-in</p>', unsafe_allow_html=True)
     if main:
         col, n = s[main], len(near[main])
         low, high = near[main].index[0], col.idxmax()
@@ -233,11 +247,69 @@ if not empty:
     if main:
         best_days(near[main], ECONOMY if main == "price" else BOOKING,
                   "The cheapest nights are" if main == "price" else "The cheapest nights on Booking.com are")
+        series = {"price": ("Google Hotels", ECONOMY)} if s.price.notna().any() else {}
+        if has_booking:
+            series["booking"] = ("Booking.com", BOOKING)
+        chart = s.join(area.rename("area"), how="left") if len(area) else s
+        st.markdown('<p class="card-title">The price each night; the cheapest nights are circled'
+                    + ("; the dashed line is the middle price of the hotels around it" if len(area) else "") + "</p>", unsafe_allow_html=True)
+        st.plotly_chart(price_chart(chart, series, near={c: list(near[c].index) for c in near},
+                                    extra={"area": ("Hotels around it (middle price)", MUTED)} if len(area) else None),
+                        width="stretch", config={"displayModeBar": False})
+    if heat:
+        st.markdown('<p class="card-title">Cheap, average and expensive nights, as TripAdvisor rates them</p>', unsafe_allow_html=True)
+        st.plotly_chart(heat_strip(heat), width="stretch", config={"displayModeBar": False})
 
-# --- where it is, and the hotels around it: every hotel Google listed in this hotel's searches (data/hotel_places.csv) ---------------
+    # --- when to stay: what the saved nights say, each as one sentence -------------------------------------------------------------
+    if main:
+        col = pd.to_numeric(s[main], errors="coerce").dropna()
+        wd = weekday_stats(col).dropna()
+        notes = []
+        days = pd.to_datetime(col.index)
+        wkend, wkday = col[days.dayofweek.isin([4, 5])], col[~days.dayofweek.isin([4, 5])]
+        if len(wkend) >= 2 and len(wkday) >= 2:
+            d = wkend.mean() - wkday.mean()
+            notes.append(f"Friday and Saturday nights average €{wkend.mean():.0f}, €{abs(d):.0f} {'more' if d > 0 else 'less'} than "
+                         f"Sunday to Thursday (€{wkday.mean():.0f}).")
+        both = pd.concat([col.rename("me"), area.rename("area")], axis=1).dropna()
+        if len(both) >= 3:
+            ratio = both.me.mean() / both.area.mean()
+            dearer = (others.groupby("hotel").price.mean() < both.me.mean()).sum()
+            notes.append(f"On the same nights it costs €{both.me.mean():.0f} on average against €{both.area.mean():.0f} for the middle hotel "
+                         f"around it ({ratio:.1f}×); {dearer} of the {others.hotel.nunique()} hotels around it are cheaper on average.")
+        if len(area) >= 7:
+            busy = area[area > 1.4 * area.median()]
+            if len(busy):
+                notes.append(f"The whole area is dear on {', '.join(f'{pd.Timestamp(d):%a %-d %b}' for d in busy.index[:4])} (middle price "
+                             f"€{busy.max():.0f} against €{area.median():.0f} usually): most likely a fair or an event in town.")
+        if has_booking and main == "price":
+            pair = s[["price", "booking"]].dropna()
+            if len(pair) >= 3:
+                g = (pair.price < pair.booking).sum()
+                notes.append(f"Google Hotels found a cheaper rate than Booking.com on {g} of {len(pair)} nights, by "
+                             f"€{(pair.booking - pair.price).mean():.0f} a night on average.")
+        if len(wd) >= 3 or notes:
+            st.markdown('<p class="group">When to stay</p>', unsafe_allow_html=True)
+            c = st.columns([1, 1.25], gap="medium")
+            if len(wd) >= 3:
+                cheap, dear = wd["mean"].idxmin(), wd["mean"].idxmax()
+                with c[0]:
+                    st.markdown(f'<p class="card-title">{FULL[cheap]} check-ins are the cheapest: €{wd.loc[cheap, "mean"]:.0f} a night on '
+                                f'average, €{wd["mean"].max() - wd["mean"].min():.0f} less than {FULL[dear]}.</p>', unsafe_allow_html=True)
+                    st.plotly_chart(weekday_chart(wd, ECONOMY).update_layout(height=220), width="stretch", config={"displayModeBar": False})
+            with c[1 if len(wd) >= 3 else 0]:
+                st.markdown("\n".join(f"- {n}" for n in notes))
+        with st.expander("Every night, as a table, and the Excel file"):
+            out = s.rename(columns={"hotel": "Hotel", "price": "Google Hotels € per night", "booking": "Booking.com € per night"})
+            if len(area):
+                out["Hotels around it, middle € per night"] = area
+            if heat:
+                out["TripAdvisor says"] = pd.Series(heat)
+            st.dataframe(out, width="stretch")
+            st.download_button("Download Excel", excel_bytes(out), "hotel_prices.xlsx")
+
+# --- where it is, and the hotels around it: every hotel Google listed in this hotel's searches ------------------------------------------
 RADIUS, CHEAPER = 3, "#0E7A53"  # km around the hotel; the green of a cheaper night elsewhere on the site
-places_path = gh.data_file("data/hotel_places.csv") or str(PLACES)
-pl = pd.read_csv(places_path) if os.path.exists(places_path) else pd.DataFrame()
 here = pl[pl["query"].map(plain) == plain(query)] if len(pl) else pl  # the same search, however its apostrophes were typed
 if len(here):
     same = here[(here.nights == nights) & (here.adults == adults)]
@@ -273,7 +345,7 @@ if len(here):
 
     title = (f"{me.hotel} and the {len(near_by)} hotels within {RADIUS} km" if me is not None
              else f"The {len(near_by)} hotels Google listed for {query}")
-    st.markdown(f'<p class="group">Where it is: {title}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="group">The hotels around it: {title}</p>', unsafe_allow_html=True)
     fig = go.Figure()
     cheaper = near_by.low < own if own is not None else pd.Series(False, index=near_by.index)
     for rows, name, colour in ((near_by[~cheaper], "Other hotels", MUTED), (near_by[cheaper], f"Cheaper than {me.hotel if me is not None else 'it'}", CHEAPER)):
@@ -301,11 +373,6 @@ if len(here):
                f"{me.hotel if me is not None else 'this hotel'} on the same check-in days. Hover a hotel for its price, rating and distances.")
 
     # --- the cheapest hotels for one stay: a check-in day, the nights and adults above, and what the whole stay costs ---------------
-    by_day_path = gh.data_file("data/hotel_nearby.csv") or str(NEARBY)
-    by_day = pd.read_csv(by_day_path) if os.path.exists(by_day_path) else pd.DataFrame(columns=["query", "nights", "adults", "day", "hotel", "price"])
-    by_day = by_day[(by_day["query"].map(plain) == plain(query)) & (by_day.nights == nights) & (by_day.adults == adults)
-                    & (by_day.day >= start.isoformat()) & (by_day.day <= end.isoformat()) & by_day.price.notna()]
-    by_day = by_day.sort_values("fetched").drop_duplicates(["day", "hotel"], keep="last")
     st.markdown(f'<p class="group">Cheapest hotels for your stay: {int(nights)} night{"s" * (nights > 1)}, {int(adults)} adult{"s" * (adults > 1)}</p>',
                 unsafe_allow_html=True)
     if not len(by_day):
@@ -340,32 +407,20 @@ if len(here):
             else:
                 sentence += "."
             st.markdown(sentence)
+            mine_by_day = (s[main] if main else pd.Series(dtype=float)) * nights  # this hotel's own total, each check-in day
             out = stay.assign(**{"Check-in": stay.day.map(lambda d: f"{pd.Timestamp(d):%a %-d %b}"),
-                                 "Stars": stay.stars.map(lambda v: f"{int(v)}" if pd.notna(v) else ""),
-                                 "Rating": stay.rating.map(lambda v: f"{v:.1f}" if pd.notna(v) else "")})
-            out = out.rename(columns={"hotel": "Hotel", "price": "€ a night", "total": f"€ for {int(nights)} night{'s' * (nights > 1)}",
-                                      "km": "km away", "to_station": "km to station"})
-            cols = ["Hotel", "Check-in", f"€ for {int(nights)} night{'s' * (nights > 1)}", "€ a night", "Rating"] + \
-                   (["Stars"] if (out.Stars != "").any() else []) + [c_ for c_ in ("km away", "km to station") if c_ in out and out[c_].notna().any()]
-            st.dataframe(out[list(dict.fromkeys(cols))], hide_index=True, width="stretch", height=min(36 * len(out) + 38, 400),
-                         column_config={c_: st.column_config.NumberColumn(format="€%d") for c_ in cols if c_.startswith("€")} |
+                                 "Rating": stay.rating.map(lambda v: f"{v:.1f}" if pd.notna(v) else ""),
+                                 "saves": [mine_by_day.get(d) - t if pd.notna(mine_by_day.get(d)) else None for d, t in zip(stay.day, stay.total)]})
+            total = f"€ for {int(nights)} night{'s' * (nights > 1)}"
+            short = me.hotel.split(",")[0] if me is not None else "this hotel"
+            out = out.rename(columns={"hotel": "Hotel", "price": "€ a night", "total": total, "km": "km away", "to_station": "km to station",
+                                      "saves": "You save"})
+            cols = ["Hotel", "Check-in", total] + (["€ a night"] if nights > 1 else []) + \
+                   (["You save"] if out["You save"].notna().any() else []) + ["Rating"] + \
+                   [c_ for c_ in ("km away", "km to station") if c_ in out and out[c_].notna().any()]
+            st.dataframe(out[cols], hide_index=True, width="stretch", height=min(36 * len(out) + 38, 400),
+                         column_config={c_: st.column_config.NumberColumn(format="€%d") for c_ in cols if c_.startswith("€") or c_ == "You save"} |
                                        {c_: st.column_config.NumberColumn(format="%.1f") for c_ in ("km away", "km to station")})
-            st.caption(f"The room for {int(adults)} adult{'s' * (adults > 1)} as Google Hotels priced it on the day it was checked; the "
+            st.caption(f"You save: how much less the stay costs than at {short} checking in the same day (negative: it costs more). "
+                       f"The room for {int(adults)} adult{'s' * (adults > 1)} as Google Hotels priced it on the day it was checked; the "
                        "total is the price a night times the nights. Taxes and fees the hotel adds at booking may not be included.")
-
-if heat:
-    st.markdown('<p class="card-title">Cheap, average and expensive nights, as TripAdvisor rates them</p>', unsafe_allow_html=True)
-    st.plotly_chart(heat_strip(heat), width="stretch", config={"displayModeBar": False})
-if main:
-    st.markdown('<p class="card-title">The price each night; the cheapest nights are circled</p>', unsafe_allow_html=True)
-    series = {"price": ("Google Hotels", ECONOMY)} if s.price.notna().any() else {}
-    if has_booking:
-        series["booking"] = ("Booking.com", BOOKING)
-    st.plotly_chart(price_chart(s, series, near={c: list(near[c].index) for c in near}), width="stretch",
-                    config={"displayModeBar": False})
-    with st.expander("Table and export"):
-        out = s.rename(columns={"hotel": "Hotel", "price": "Google Hotels € per night", "booking": "Booking.com € per night"})
-        if heat:
-            out["TripAdvisor says"] = pd.Series(heat)
-        st.dataframe(out, width="stretch")
-        st.download_button("Download Excel", excel_bytes(out), "hotel_prices.xlsx")
