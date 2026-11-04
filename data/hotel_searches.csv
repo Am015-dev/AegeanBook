@@ -57,8 +57,6 @@ google,2026-12-07,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amr
 google,2026-12-07,Amrâth Grand Hotel de l'Empereur,70,,2026-11-02T16:36:41,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188575-d230890,3,2
 heat,2026-12-07,,,average,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
 heat,2026-12-07,,,cheap,2026-11-02T16:36:41,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188575-d230890,3,2
-google,2026-11-04,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
-heat,2026-11-04,,,average,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2026-11-05,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 heat,2026-11-05,,,average,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
 google,2026-11-06,Ergänzungsvorsorge Grand Resort Bad Ragaz,300,,2026-11-01T14:04:04,Grand Resort Bad Ragaz,Grand Resort Bad Ragaz,g198797-d2070866,1,2
@@ -714,10 +712,217 @@ heat,2027-03-28,,,high,2026-11-03T08:38:15,Hotel Krallerhof,Hotel Krallerhof,g64
 google,2027-03-29,Hotel Krallerhof,175,,2026-11-03T08:38:15,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
 google,2027-03-30,Hotel Krallerhof,175,,2026-11-03T08:38:15,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
 google,2027-03-31,Hotel Krallerhof,175,,2026-11-03T08:38:15,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-01,Hotel Krallerhof,175,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-01,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-02,Hotel Krallerhof,175,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-02,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-03,Hotel Krallerhof,175,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-03,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-04,Hotel Krallerhof,175,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-04,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-05,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-05,Hotel Krallerhof,582,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-05,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-06,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-06,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-07,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-07,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-08,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-08,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-09,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-09,Hotel Krallerhof,585,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-09,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-10,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-10,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-10,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-11,Hotel Krallerhof,666,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-11,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-12,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-12,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-12,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-13,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-13,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-13,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-14,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-14,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-15,Hotel Krallerhof,638,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-15,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-16,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-16,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-17,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-17,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-18,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-18,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-19,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-19,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-20,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-20,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-21,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-21,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-22,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-22,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-23,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-23,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-24,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-24,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-25,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-25,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-26,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-26,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-27,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-27,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-28,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-28,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-29,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-29,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-30,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-30,Hotel Krallerhof,585,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-30,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-05-31,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-05-31,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-05-31,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-01,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-01,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-01,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-02,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-02,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-03,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-03,Hotel Krallerhof,570,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-03,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-04,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-04,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-05,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-05,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-06,Hotel Krallerhof,585,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-06,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-07,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-07,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-07,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-08,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-08,Hotel Krallerhof,570,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-08,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-09,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-09,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-10,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-10,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-11,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-11,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-12,Hotel Krallerhof,736,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-12,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-13,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-13,Hotel Krallerhof,585,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-13,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-14,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-14,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-15,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-15,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-16,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-16,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-16,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-17,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-17,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-17,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-18,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-18,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-19,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-19,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-20,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-20,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-21,Hotel Krallerhof,585,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-21,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-22,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-22,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-22,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-23,Hotel Krallerhof,666,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-23,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-24,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-24,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-24,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-25,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-25,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-26,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-26,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-27,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-27,Hotel Krallerhof,584,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-27,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-28,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-28,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-28,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-29,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-29,Hotel Krallerhof,582,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-29,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-06-30,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-06-30,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-06-30,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-01,,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-01,Hotel Krallerhof,586,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-01,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-02,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-02,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-03,Hotel Krallerhof,686,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-03,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-04,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-04,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-04,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-05,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-05,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-06,Hotel Krallerhof,650,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-06,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-07,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-07,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-07,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-08,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-08,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-09,Hotel Krallerhof,686,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-09,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-10,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-10,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-11,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-11,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-11,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-12,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-12,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-13,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-13,Hotel Krallerhof,654,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-13,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-14,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-14,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-14,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+booking,2027-07-15,,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-15,Hotel Krallerhof,656,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-15,,,cheap,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-16,Hotel Krallerhof,686,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-16,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-17,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-17,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-18,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-18,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-19,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-19,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-20,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-20,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-21,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-21,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-22,Hotel Krallerhof,686,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-22,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-23,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-23,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-24,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-24,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-25,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-25,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-26,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-26,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-27,Hotel Krallerhof,686,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-27,,,high,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-28,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-28,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-29,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-29,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+google,2027-07-30,Hotel Krallerhof,688,,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
+heat,2027-07-30,,,average,2026-11-04T18:57:33,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
 google,2027-07-31,Hotel Krallerhof,683,,2026-11-03T08:37:00,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
 heat,2027-07-31,,,average,2026-11-03T08:37:00,Hotel Krallerhof,Hotel Krallerhof,g641736-d638248,1,2
-google,2026-11-04,Kempinski Palace Engelberg,460,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
-heat,2026-11-04,,,average,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 google,2026-11-05,Kempinski Palace Engelberg,443,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 heat,2026-11-05,,,average,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 google,2026-11-06,Kempinski Palace Engelberg,460,,2026-11-02T17:20:48,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
@@ -1024,8 +1229,6 @@ heat,2027-03-30,,,average,2026-11-02T15:42:06,Kempinski Palace Engelberg,Kempins
 booking,2027-03-31,,648,,2026-11-02T17:30:35,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 google,2027-03-31,Kempinski Palace Engelberg,525,,2026-11-02T15:42:06,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
 heat,2027-03-31,,,cheap,2026-11-02T15:42:06,Kempinski Palace Engelberg,Kempinski Palace Engelberg,g188063-d23286800,1,2
-google,2026-11-04,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
-heat,2026-11-04,,,high,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 google,2026-11-05,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 heat,2026-11-05,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 google,2026-11-06,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
@@ -1086,8 +1289,6 @@ heat,2026-11-30,,,average,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202
 booking,2026-12-01,,258,,2026-11-02T17:30:35,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 google,2026-12-01,,,,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
 heat,2026-12-01,,,cheap,2026-11-01T17:44:52,Ragaz,Frankfurter Hof,g187337-d202275,1,2
-google,2026-11-04,,,,2026-11-01T17:45:10,Ragaz,Ragaz,g187337-d202275,1,2
-heat,2026-11-04,,,high,2026-11-01T17:45:10,Ragaz,Ragaz,g187337-d202275,1,2
 google,2026-11-05,,,,2026-11-01T17:45:10,Ragaz,Ragaz,g187337-d202275,1,2
 heat,2026-11-05,,,average,2026-11-01T17:45:10,Ragaz,Ragaz,g187337-d202275,1,2
 google,2026-11-06,,,,2026-11-01T17:45:10,Ragaz,Ragaz,g187337-d202275,1,2
