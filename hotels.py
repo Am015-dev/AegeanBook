@@ -7,6 +7,7 @@ import time
 import unicodedata
 from datetime import date, timedelta
 
+import pandas as pd
 import stays
 
 from par import parallel
@@ -78,6 +79,37 @@ def best_value(rating, total, reviews=None, min_rating=4.0, min_reviews=20):
     ok = [(r / t, i) for i, (r, t, n) in enumerate(zip(rating, total, reviews))
           if r == r and t == t and t > 0 and r >= min_rating and (n is None or n != n or n >= min_reviews)]
     return max(ok)[1] if ok else None
+
+
+SOLD_OUT = 2.5  # a night dearer than this many times the hotel's median: Google/Booking only had suites left (a fair, an event)
+SMALL = 0.5  # a listing without a star class under this share of the area's middle price that night: likely a bed or a tiny room
+
+
+def basis(adults):
+    """What every hotel price on the page is: Google's and Booking.com's nightly rate for the whole room, city tax not included."""
+    return f"a night for the room, {int(adults)} adult{'s' * (int(adults) > 1)}, before city tax"
+
+
+def sold_out(prices):
+    """Boolean Series, same index: the nights priced above SOLD_OUT times the hotel's median night. When a hotel is nearly full the
+    searches return only its suites, so those nights say "busy" rather than what a room costs, and would wreck any average."""
+    p = pd.to_numeric(pd.Series(prices), errors="coerce")
+    return p > SOLD_OUT * p.median()
+
+
+def small_room(stars, price, area):
+    """One bool per listing: no star class and priced under SMALL times the area's middle price that night (`area`, NaN when
+    unknown). Such a price is often a bed in a shared room or a tiny room, so it should not headline "cheapest" or "best value"."""
+    return [bool(pd.isna(s) or s == "") and pd.notna(a) and pd.notna(p) and p < SMALL * a for s, p, a in zip(stars, price, area)]
+
+
+def checked_on(fetched):
+    """When a set of prices was checked, from their ISO timestamps: "2 Nov", or "2–5 Nov" when they span days; "" when unknown."""
+    days = pd.to_datetime(pd.Series(fetched), errors="coerce").dropna().dt.normalize()
+    if days.empty:
+        return ""
+    lo, hi = days.min(), days.max()
+    return f"{lo:%-d %b}" if lo == hi else f"{lo:%-d %b}–{hi:%-d %b}" if lo.month != hi.month else f"{lo:%-d}–{hi:%-d %b}"
 
 
 def fetch_day(query, name_filter, day, nights=1, adults=2, places=None):

@@ -1097,7 +1097,8 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     places = {"Grand Hotel Here": dict(lat=50.110, lng=8.676, stars=5, rating=4.6, reviews=900, prices={day(5): 300, day(6): 250}),
               "Cheap Inn": dict(lat=50.112, lng=8.678, stars=None, rating=3.9, reviews=40, prices={day(5): 70, day(6): 90}),
               "Good Value": dict(lat=50.108, lng=8.672, stars=None, rating=4.7, reviews=300, prices={day(6): 95}),
-              "Far Away": dict(lat=50.300, lng=8.900, stars=None, rating=4.8, reviews=10, prices={day(5): 20})}
+              "Far Away": dict(lat=50.300, lng=8.900, stars=None, rating=4.8, reviews=10, prices={day(5): 20}),
+              "Bed In A Dorm": dict(lat=50.111, lng=8.677, stars=None, rating=3.1, reviews=500, prices={day(6): 30})}  # < half of €90
     monkeypatch.setattr(fetch_hotel, "PLACES", tmp_path / "hotel_places.csv")
     fetch_hotel.save_places(hotels.place_rows(places, "Test Query", 3, 2, now), tmp_path / "hotel_places.csv")
     fetch_hotel.save_nearby(hotels.day_rows(places, "Test Query", 3, 2, now), tmp_path / "hotel_nearby.csv")
@@ -1111,7 +1112,23 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     at.run()
     assert not at.exception
     said = [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
-    assert "**Cheap Inn**, €210 for the 3 nights (€70 a night)" in said and "Grand Hotel Here is €750" in said  # far away hotel left out
+    assert "**Cheap Inn**, €210 for the 3 nights (€70 a night for the room, 2 adults, before city tax)" in said  # far away hotel left out
+    assert "Grand Hotel Here is €750" in said and "1 cheaper listing without a star class is left out" in said  # the dorm bed: listed only
+    table = at.dataframe[-1].value
+    assert table.set_index("Hotel").Note["Bed In A Dorm"] == "may be a shared or small room, check it"
+    # the hotel's own fresher prices replace the neighbours' snapshot everywhere, and a suites-only night stays out of the statistics
+    t = db.connect(str(tmp_path / "tracker.db"))
+    for i, price in ((5, 240.0), (6, 900.0), (7, 250.0), (8, 260.0)):
+        t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", (day(i), "Test Query", "Grand Hotel Here", 3, "Grand Hotel Here", price, now, 2))
+    t.commit()
+    at.run()
+    assert not at.exception
+    said = [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
+    assert "Grand Hotel Here is €720" in said  # €240 a night from its own prices, not €250 from the older snapshot
+    cards = " ".join(m.value for m in at.markdown)
+    assert "Only expensive rooms left" in cards and "€900" in cards and "Typical night" in cards and "Average night" not in cards
+    assert "Dearest night" in cards and "€260" in cards
+    assert any("Prices of the hotels around it checked" in c.value for c in at.caption)
     at.button_group(key="ho-stay-rating").set_value(4.5).run()
     assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
 
