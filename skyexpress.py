@@ -9,7 +9,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CODE, NAME, FILE, TABLE = "GQ", "Sky Express", "data/skyexpress.csv", "gq_prices"
 COLOUR = "#C2255C"  # Sky Express's pink, dark enough for a line and a label on white
 
@@ -37,6 +37,12 @@ def saved_days(db, orig, dest, start, end):
     """Iso days with a Sky Express answer saved (priced or no flight) for this route and range; a fetch skips them."""
     return {r[0] for r in db.execute(f"SELECT DISTINCT day FROM {TABLE} WHERE orig=? AND dest=? AND nonstop=1 AND day BETWEEN ? AND ?",
                                      (orig, dest, start.isoformat(), end.isoformat()))}
+
+
+def no_flight_days(db, table, orig, dest, start, end):
+    """Iso days the airline's table (TABLE, or "prices" for AEGEAN) answered "no flight" for: a saved row with an empty price."""
+    return {r[0] for r in db.execute(f"SELECT DISTINCT day FROM {table} WHERE orig=? AND dest=? AND cabin='economy' AND nonstop=1 AND price IS NULL "
+                                     "AND day BETWEEN ? AND ?", (orig, dest, start.isoformat(), end.isoformat()))}
 
 
 def compare(a3, gq):
@@ -70,6 +76,16 @@ def trip_price(out, back, depart, ret):
     return None if b is None or pd.isna(b) else float(o + b)
 
 
+def gap(out, back, depart, ret, gone=None):
+    """Why trip_price() is None, as (long, short) text: names the first leg without a fare. "no flight" only when `gone` (that airline's
+    (outbound, return) sets of iso days it answered "no flight" for) says so; otherwise the fare is just not saved."""
+    for i, (series, day, leg) in enumerate(((out, depart, "outbound"), (back, ret, "return"))):
+        if day is not None and trip_price(series, None, day, None) is None:
+            d = f"{day:%a %-d %b}"
+            return (f"no flight on {d}", "no flight") if gone and day.isoformat() in gone[i] else (f"no fare saved for the {leg} on {d}", f"no fare saved for {d}")
+    return "no fare saved", "no fare saved"
+
+
 def span(b):
     """A trip's dates in a few characters: "19–21 Nov", "28 Nov–2 Dec", "19 Nov" for a one-way."""
     if b["back"] is None:
@@ -79,11 +95,11 @@ def span(b):
     return f"{b['depart']:%-d %b}–{b['back']:%-d %b}"
 
 
-def head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
+def head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1, gone=None):
     """The comparison a traveller can read in one look: a DataFrame with the airlines as columns and short rows: each airline's cheapest
     price, its dates, then both airlines priced on AEGEAN's dates and both on Sky Express's dates. a3/gq are deals.best_trip answers
     (None when an airline has no trip); the series are cash_by_day's. Cells are short text: "€159", "Thu 19 → Sat 21 Nov, 2 nights"."""
-    money = lambda v: "no flight" if v is None else f"€{v * pax:,.0f}"
+    money = lambda v, why="no fare saved": why if v is None else f"€{v * pax:,.0f}"
     def dates(b):
         if b is None:
             return "no fare saved"
@@ -94,7 +110,7 @@ def head_to_head(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
             "Its dates": [dates(a3), dates(gq)]}
     for name, b, series in (("AEGEAN", a3, (gq_out, gq_back)), (NAME, gq, (a3_out, a3_back))):
         if b is not None:
-            other = money(trip_price(*series, b["depart"], b["back"]))
+            other = money(trip_price(*series, b["depart"], b["back"]), gap(*series, b["depart"], b["back"], (gone or {}).get("AEGEAN" if name == NAME else NAME))[1])
             rows[f"Both on {name}'s dates ({span(b)})"] = [money(b["price"]), other] if name == "AEGEAN" else [other, money(b["price"])]
     return pd.DataFrame.from_dict(rows, orient="index", columns=["AEGEAN", NAME])
 
@@ -107,7 +123,7 @@ def html_table(df):
     return f'<table class="h2h">{head}{body}</table>'
 
 
-def verdict(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
+def verdict(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1, gone=None):
     """One sentence that answers the question: which airline, when, and what the other costs on the same dates."""
     if a3 is None and gq is None:
         return "Neither airline has a fare saved for these days."
@@ -123,7 +139,7 @@ def verdict(a3, gq, a3_out, a3_back, gq_out, gq_back, pax=1):
     if a3["price"] == gq["price"]:
         text = f"Both airlines' cheapest trips cost €{a3['price'] * pax:,.0f}"
     if same is None:
-        return text + f". {dear[0]} has no flight on those dates."
+        return text + f". {dear[0]} has {gap(out, back, cheap[1]['depart'], cheap[1]['back'], (gone or {}).get(dear[0]))[0]}."
     diff = (same - cheap[1]["price"]) * pax
     return text + f". On the same dates {dear[0]} costs €{same * pax:,.0f}" + (f", €{diff:,.0f} more." if diff > 0 else ", the same." if diff == 0 else f", €{-diff:,.0f} less.")
 

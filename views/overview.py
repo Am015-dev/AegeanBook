@@ -43,9 +43,9 @@ if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 7:
     deals = importlib.reload(deals)
-if getattr(pi, "VERSION", 0) < 2:
+if getattr(pi, "VERSION", 0) < 3:
     pi = importlib.reload(pi)
-if getattr(sx, "VERSION", 0) < 3:
+if getattr(sx, "VERSION", 0) < 4:
     sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 3:
     fa = importlib.reload(fa)
@@ -423,7 +423,7 @@ else:
         if hist is not None:  # the trip's fare (out + back) at every check since we started watching; nothing under 2 checks
             legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if ret else [])
             hs = pi.trip_series(hist, legs, gcab)
-            if note := pi.moved_note(hs):  # one line: the chart of these dates is in "When to fly" below
+            if note := pi.moved_note(hs, pax):  # one line: the chart of these dates is in "When to fly" below
                 st.caption(f"{note} The chart is under When to fly.")
         # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
         # button fetches any other day
@@ -455,7 +455,9 @@ if gq:
     st.markdown('<p class="group">AEGEAN or Sky Express?</p>', unsafe_allow_html=True)
     span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
     a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
-    args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
+    gone = {"AEGEAN": (sx.no_flight_days(db, "prices", orig, dest, p.start, p.end), sx.no_flight_days(db, "prices", dest, orig, p.start, p.end + timedelta(max(stays)))),
+            sx.NAME: (sx.no_flight_days(db, sx.TABLE, orig, dest, p.start, p.end), sx.no_flight_days(db, sx.TABLE, dest, orig, p.start, p.end + timedelta(max(stays))))}
+    args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax, gone)
     st.markdown(sx.html_table(sx.head_to_head(*args)), unsafe_allow_html=True)
     st.markdown(f"**{e(sx.verdict(*args))}**")
     if (m := mix.cheapest_mix(out_s[span], a3_back, gq_out, gq_back, stays, wdays)):  # AEGEAN one way, Sky Express the other
@@ -463,7 +465,7 @@ if gq:
         st.caption(mix.NOTE)
     st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
     st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
-    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
+    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span] * pax, gq_out * pax))), unsafe_allow_html=True)
 
 # --- when to fly: the weekday, how far ahead, and how this exact fare has moved; in the open, right under the answer ---------------------
 if best is not None and pay == "cash" and len(out_s):

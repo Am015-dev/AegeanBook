@@ -315,3 +315,23 @@ def test_flights_page_shows_the_sky_express_toggle_on_even_before_its_fares_are_
     at.selectbox(key="dest").set_value("ZRH").run()  # Zurich is not in Sky Express's network: no toggle, one line saying so
     assert not at.exception and not at.toggle
     assert "No Sky Express comparison: Sky Express does not fly ATH to ZRH." in " ".join(c.value for c in at.caption)
+
+
+def test_missing_leg_says_no_fare_saved_unless_the_airline_has_no_flight(tmp_path):
+    a3 = dict(depart=date(2026, 12, 2), back=date(2026, 12, 4), nights=2, price=100.0)
+    gq = dict(depart=date(2026, 12, 2), back=date(2026, 12, 4), nights=2, price=150.0)
+    a3_out, a3_back = pd.Series({"2026-12-02": 60.0}), pd.Series({"2026-12-04": 40.0})
+    gq_out, gq_back = pd.Series({"2026-12-02": 70.0}), pd.Series(dtype=float)  # the way back is simply not saved
+    args = (a3, gq, a3_out, a3_back, gq_out, gq_back)
+    assert sx.verdict(*args).endswith("Sky Express has no fare saved for the return on Fri 4 Dec.")
+    assert sx.head_to_head(*args).loc["Both on AEGEAN's dates (2–4 Dec)", "Sky Express"] == "no fare saved for Fri 4 Dec"
+    gone = {"Sky Express": (set(), {"2026-12-04"})}  # a saved empty answer: it really does not fly that day
+    assert sx.verdict(*args, gone=gone).endswith("Sky Express has no flight on Fri 4 Dec.")
+    assert sx.head_to_head(*args, gone=gone).loc["Both on AEGEAN's dates (2–4 Dec)", "Sky Express"] == "no flight"
+    # where the sets come from: only the saved empty answers
+    t = seed(tmp_path / "g.db")
+    t.execute("INSERT INTO gq_prices VALUES(?,?,?,?,?,?,?,?)", (d(31), "ATH", "FRA", "economy", None, "day search", datetime.now().isoformat(), 1))
+    t.commit()
+    assert sx.no_flight_days(t, sx.TABLE, "ATH", "FRA", date.today(), date.today() + timedelta(40)) == {d(31)}
+    assert sx.no_flight_days(t, "prices", "ATH", "FRA", date.today(), date.today() + timedelta(40)) == set()
+    assert sx.VERSION >= 4

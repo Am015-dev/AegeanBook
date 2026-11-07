@@ -106,3 +106,9 @@ def test_trip_series_adds_legs_and_note(tmp_path):
     assert pi.moved_note(both).startswith("Lowest seen") and "(4 checks)" in pi.moved_note(both)
     assert pi.moved_note(both.iloc[:1]) is None
     assert pi.trip_series(h, [("ATH", "FRA", "1999-01-01")], "economy").empty
+
+
+def test_moved_note_is_for_all_the_passengers():
+    s = pd.Series([172.0, 214.0], index=["2026-10-30", "2026-11-02"])
+    assert "Lowest seen €172 on 30 Oct, now €214. " in pi.moved_note(s) and "adults" not in pi.moved_note(s)
+    assert "Lowest seen €344 on 30 Oct, now €428 for 2 adults. " in pi.moved_note(s, 2)

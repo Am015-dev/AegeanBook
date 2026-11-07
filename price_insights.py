@@ -8,7 +8,7 @@ import pandas as pd
 
 import gh
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history_prices.csv")
 WINDOW = 60  # days of snapshots a verdict looks back over, as Google's graph does
@@ -109,12 +109,14 @@ def trip_series(hist, legs, cabin):
     return pd.concat(parts, axis=1).dropna().sum(axis=1) if all(len(x) for x in parts) else pd.Series(dtype=float)
 
 
-def moved_note(s):
-    """The one-line caption for a trip_series(): lowest seen and when, now, and since when / how many checks; None under 2 checks."""
+def moved_note(s, pax=1):
+    """The one-line caption for a trip_series() (fares of one adult, scaled to `pax` adults like the pass): lowest seen and when, now,
+    and since when / how many checks; None under 2 checks."""
     if len(s) < 2:
         return None
+    s = s * pax
     lo = s.idxmin()
-    return (f"Lowest seen €{s[lo]:,.0f} on {pd.Timestamp(lo):%-d %b}, now €{s.iloc[-1]:,.0f}. "
+    return (f"Lowest seen €{s[lo]:,.0f} on {pd.Timestamp(lo):%-d %b}, now €{s.iloc[-1]:,.0f}{f' for {pax} adults' if pax > 1 else ''}. "
             f"Watching since {pd.Timestamp(s.index[0]):%-d %b} ({len(s)} checks).")
 
 
