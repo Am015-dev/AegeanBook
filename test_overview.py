@@ -126,11 +126,11 @@ def test_gemini_is_free_first_falls_back_and_keeps_the_key_out_of_urls(monkeypat
 NO_HISTORY = pd.DataFrame(columns=["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"])  # price_insights.COLUMNS
 
 
-def expert_facts(t, pay="cash", nights=(), wdays=(), cabin="economy", hotel=None, end=30):
+def expert_facts(t, pay="cash", nights=(), wdays=(), cabin="economy", hotel=None, end=30, pax=1):
     """expert_chat.facts over the seeded database for the next `end` days, without the committed price history."""
     today = date.today()
     return ex.facts(t, "ATH", "FRA", cabin, pay, list(nights), list(wdays), (today + timedelta(1), today + timedelta(end)), today, hotel,
-                    hist=NO_HISTORY)
+                    hist=NO_HISTORY, pax=pax)
 
 
 def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_same_trip(tmp_path):
@@ -150,12 +150,22 @@ def test_expert_facts_are_the_overview_pass_and_the_plain_briefing_names_the_sam
     assert f["other"]["price"] > 210 and week(f["other"]["depart"]) != week(f["best"]["depart"])  # the alternative leaves in another week
     a, b, c = ex.sentences(f)
     assert a.startswith("The cheapest economy return from Athens to Frankfurt with these filters is €210: leave ")
-    assert "4 nights" in a and "Steigenberger for those nights adds €800, so €1,010 in all" in a
+    # one adult, a 2-adult room: both bases named, never one silent total (as the Overview's hotel line)
+    assert "4 nights" in a and "Steigenberger for those nights is €800 for a room for 2 adults; with the flights for 1 adult that makes €1,010" in a
     assert f"leaves on a {today + timedelta(10):%A}, 10 days from today" in b and "Trips like this in this period usually cost about €3" in b
     assert c.startswith("If those dates do not suit, the next-cheapest week is €") and f"{f['other']['nights']} nights" in c
     text = ex.text(f)
     assert "Recommended trip (the one the Overview's boarding pass shows): leave" in text and "4 nights, €210." in text
-    assert f"Fares are saved up to {end:%a %d %b %Y}" in text and "Hotel: Steigenberger (2 adults) for those nights €800" in text
+    assert f"Fares are saved up to {end:%a %d %b %Y}" in text and "Hotel: Steigenberger for those nights is €800 for a room for 2 adults" in text
+    assert "Every price is for one adult; AEGEAN nonstop" in text and "Prices are for" not in ex.answer(f, ex.BOOK)
+    # two adults (?pax=2 from the Overview): every fare doubled, the same trip and verdict, the room added up as it is priced for 2
+    two = expert_facts(t, hotel=tp.hotels(t, "FRA")[0], pax=2)
+    assert two["best"] == dict(f["best"], price=420.0) and two["ctx"]["typical"] == f["ctx"]["typical"] * 2 and two["other"]["price"] == f["other"]["price"] * 2
+    assert two["near"]["earlier"]["price"] == f["near"]["earlier"]["price"] * 2 and two["hotel"] == f["hotel"]
+    a2 = ex.sentences(two)[0]
+    assert "with these filters is €420 for 2 adults: leave " in a2 and "adds €800 for a room for 2 adults, so €1,220 in all" in a2
+    assert "Every price is for 2 adults (one adult's fare times 2, as the Overview shows it)" in ex.text(two)
+    assert ex.answer(two, ex.BOOK).endswith(" Prices are for 2 adults.") and "€420" in ex.answer(two, ex.BOOK)
     assert ex.prompt(f).startswith(f"The recommended trip is: {a} Explain it; do not propose a different one unless I ask")
     assert "do not propose a different trip unless" in ex.SYSTEM and "I only have fares up to 29 January" in ex._system(text)  # the chat's rules
     # the Overview's pills narrow the pass; the same filters narrow the facts the same way
@@ -588,6 +598,11 @@ def test_expert_page_reads_the_overview_pass_and_opens_on_the_pass_the_link_name
     assert [at.button_group(key=k).value for k in ("plan-cabin", "plan-pay")] == ["business", "miles"] and at.slider(key="plan-nights").value == (3, 4)
     assert at.date_input(key="plan-when").value == (a, b)  # the same days as the pass
     assert briefed[-1]["dest"] == "ZRH" and briefed[-1]["pay"] == "miles" and briefed[-1]["best"] is None  # no award seats seeded
+    at = open_page("expert.py")  # ?pax=2: every price for 2 adults, the booking links too
+    at.query_params.update({"from": "ATH", "to": "FRA", "pax": "2"})
+    at.run()
+    assert not at.exception and at.number_input(key="plan-pax").value == 2 and briefed[-1]["pax"] == 2 and briefed[-1]["best"]["price"] == 420
+    assert all("AdultsNum=2&" in b.proto.url or "2%20adults" in b.proto.url for b in at.get("link_button"))
 
 
 def test_cheapest_month_table_and_colours():

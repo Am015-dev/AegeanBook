@@ -28,7 +28,7 @@ from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 from trip_plan import city
 
-VERSION = 8  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 9  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -67,7 +67,55 @@ _used = {}
 
 
 # --- the facts: the Overview's numbers for one search ----------------------------------------------------------------------------------
-def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=None, hist=None, oneway=False):
+def facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=None, hist=None, oneway=False, pax=1):
+    """_facts() with every fare (cash or miles, taxes included) for `pax` adults, as the Overview's pass scales them: the fares are
+    collected for one adult and multiplied, so the trips picked and the low/typical/high verdict are the same for any count. The hotel is a
+    room, never multiplied. f["pax"] says for how many."""
+    f = _facts(db, orig, dest, cabin, pay, nights, wdays, period, today, hotel, hist, oneway)
+    f["pax"] = pax
+    if pax == 1:
+        return f
+    def times(d, *keys):
+        if d:
+            for k in keys:
+                if d.get(k) is not None:
+                    d[k] = d[k] * pax
+    for k in ("best", "week", "skyexpress", "other", "cash"):
+        times(f[k], "price")
+    times(f["ctx"], "low", "typical")
+    times(f["insight"], "low", "high")
+    times(f["trend"], "first", "last", "low", "high", "week_ago")
+    times(f["award"], "cash", "taxes")
+    times(f["cabins"], "economy", "business")
+    for side in (f["near"] or {}).values():
+        times(side, "price")
+    times(f, "skyexpress_same", "aegean_same")
+    return f
+
+
+def _for(f):
+    """" for 2 adults" after a price when the search is for more than one; nothing for one adult, as on the Overview."""
+    return f" for {_who(f)}" if f.get("pax", 1) > 1 else ""
+
+
+def _hotel(f):
+    """The hotel for the recommended nights with the flights: added up only when the room was priced for as many adults as the fares are
+    (both bases named otherwise, never one silent total), as overview.hotel_line on the Overview."""
+    h, best, pax = f["hotel"], f["best"], f.get("pax", 1)
+    room = lambda n: "1 adult" if n == 1 else f"{n} adults"
+    total = f"€{best['price'] + h['price']:,.0f}"
+    if h["adults"] == pax:
+        return f"{h['name']} for those nights adds €{h['price']:,.0f} for a room for {room(h['adults'])}, so {total} in all"
+    return (f"{h['name']} for those nights is €{h['price']:,.0f} for a room for {room(h['adults'])}; with the flights for {room(pax)} that "
+            f"makes {total}, but no room for {room(pax)} is priced")
+
+
+def _who(f):
+    n = f.get("pax", 1)
+    return "one adult" if n == 1 else f"{n} adults"
+
+
+def _facts(db, orig, dest, cabin, pay, nights, wdays, period, today=None, hotel=None, hist=None, oneway=False):
     """Everything the briefing and the chat may say about one search, as one dict, from the functions the Overview's pass uses with the
     same filters: `best` is deals.best_trip (depart, back, nights, price; None without a fare), `ctx` deals.trip_context (low, typical,
     days), `insight` price_insights.trip (cash only), `skyexpress` its best trip when it has fares (economy cash only), `hotel` (name,
@@ -200,8 +248,8 @@ def sentences(f):
         award = f["award"] or {}
         price += f" plus €{award['taxes']:,.0f} taxes" if award.get("taxes") is not None else " plus taxes"
         price += f" instead of €{award['cash']:,.0f} in cash" if award.get("cash") is not None else ""
-    hotel = f" ({f['hotel']['name']} for those nights adds €{f['hotel']['price']:,.0f}, so €{best['price'] + f['hotel']['price']:,.0f} in all)" if f["hotel"] else ""
-    first = f"The cheapest {trip} from {where} with these filters is {price}: {_dates(f, best)}{hotel}."
+    hotel = f" ({_hotel(f)})" if f["hotel"] else ""
+    first = f"The cheapest {trip} from {where} with these filters is {price}{_for(f)}: {_dates(f, best)}{hotel}."
     ahead = (best["depart"] - f["today"]).days
     ins, ctx = f["insight"], f["ctx"]
     if ins and ins.get("level"):
@@ -240,7 +288,8 @@ def text(f):
     days = "any day" if len(f["wdays"]) == 7 else "/".join(d for d in DAYS if d in f["wdays"])
     lines = [f"Today: {f['today']:%a %d %b %Y}. Search: {city(f['orig'])} ({f['orig']}) to {city(f['dest'])} ({f['dest']}), {f['cabin']}, "
              f"paying with {PAY[f['pay']].replace(' €', '')}, departures {f['start']:%a %d %b %Y} to {f['end']:%a %d %b %Y}, return of {stays} "
-             f"when fares are saved both ways, leaving {days}. One adult, AEGEAN nonstop; cash fares from Google Flights, award miles from "
+             f"when fares are saved both ways, leaving {days}. Every price is for {_who(f)}"
+             + (" (one adult's fare times " + str(f["pax"]) + ", as the Overview shows it)" if f.get("pax", 1) > 1 else "") + f"; AEGEAN nonstop; cash fares from Google Flights, award miles from "
              "AEGEAN Miles+Bonus (plus taxes).",
              f"Fares are saved up to {f['end']:%a %d %b %Y}; nothing after that is known."]
     if best is None:
@@ -270,8 +319,7 @@ def text(f):
                      f"now {_money(f, t['last'])}, lowest {_money(f, t['low'])} on {t['low_day']:%d %b}, highest {_money(f, t['high'])}, over {t['days']} days"
                      + (f"; a week ago {_money(f, t['week_ago'])}" if t["week_ago"] is not None else "") + ".")
     if f["hotel"]:
-        lines.append(f"Hotel: {f['hotel']['name']} ({f['hotel']['adults']} adults) for those nights €{f['hotel']['price']:,.0f}, "
-                     f"so €{best['price'] + f['hotel']['price']:,.0f} for the whole trip.")
+        lines.append(f"Hotel: {_hotel(f)}.")
     if f["skyexpress"] is not None:
         gq = f["skyexpress"]
         lines.append(f"Sky Express (economy): cheapest {_dates(f, gq)}, €{gq['price']:,.0f}, "
@@ -320,8 +368,9 @@ def questions(f):
 
 def answer(f, q):
     """The plain answer to suggested question `q` (NEAR, WEEK, BUSINESS, SKY or BOOK) from the facts alone: instant, and every number is
-    one the page already has. KeyError for any other question (those go to the model)."""
-    return {NEAR: _near_answer, WEEK: _week_answer, BUSINESS: _business_answer, SKY: _sky_answer, BOOK: _book_answer}[q](f)
+    one the page already has, for f["pax"] adults (said once at the end). KeyError for any other question (those go to the model)."""
+    a = {NEAR: _near_answer, WEEK: _week_answer, BUSINESS: _business_answer, SKY: _sky_answer, BOOK: _book_answer}[q](f)
+    return a + (f" Prices are for {_who(f)}." if f.get("pax", 1) > 1 else "")
 
 
 def _gap(f, diff):

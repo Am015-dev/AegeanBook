@@ -18,7 +18,7 @@ from db import connect
 from insights import DAYS
 from layout import page_head
 
-if getattr(ex, "VERSION", 0) < 8:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ex, "VERSION", 0) < 9:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
 if getattr(ov, "VERSION", 0) < 5:
     ov = importlib.reload(ov)
@@ -55,10 +55,12 @@ if q.get("from") in froms:  # from the Overview's "Ask the expert about it": ope
         st.session_state["plan-nights"] = (min(stays), max(stays))
     if q.get("trip") in ("return", "oneway"):
         st.session_state["plan-trip"] = q["trip"]
+    if q.get("pax", "").isdigit() and 1 <= int(q["pax"]) <= 9:  # ?pax=2 from the Overview: every price for that many adults
+        st.session_state["plan-pax"] = int(q["pax"])
 asked_when = q.get("when")  # the period is matched once the list exists, below
 if q.get("from") in froms:
     q.clear()
-for key, value in (("plan-cabin", "economy"), ("plan-pay", "cash"), ("plan-nights", (2, 7)), ("plan-trip", "return"), ("plan-days", DAYS)):
+for key, value in (("plan-cabin", "economy"), ("plan-pay", "cash"), ("plan-nights", (2, 7)), ("plan-trip", "return"), ("plan-days", DAYS), ("plan-pax", 1)):
     st.session_state.setdefault(key, value)  # the Overview's defaults; set here, not as widget defaults, so a link can preset them
 
 with st.container(border=True, key="search"):
@@ -78,13 +80,14 @@ with st.container(border=True, key="search"):
     when = c[2].date_input("Leaving between", (today + timedelta(1), today + timedelta(30)), min_value=today + timedelta(1),
                            max_value=today + timedelta(tp.HORIZON), key="plan-when", format="DD/MM/YYYY")
     when = tuple(when) if isinstance(when, (tuple, list)) else (when,)
-    c = st.columns([1.3, 1, 1.1, 1.6])  # Economy and Business on one line at 1366px with the platform font
+    c = st.columns([1.3, 1, 1.1, 1.6, 0.7])  # Economy and Business on one line at 1366px with the platform font
     cabin = c[0].pills("Cabin", ["economy", "business"], format_func=str.capitalize, required=True, key="plan-cabin")
     pay = c[1].pills("Pay with", list(ex.PAY), format_func=ex.PAY.get, required=True, key="plan-pay")
     trip = c[2].pills("Trip", ["return", "oneway"], format_func={"return": "Return", "oneway": "One way"}.get, required=True, key="plan-trip")
     nights = (2, 7)
     if trip == "return":
         nights = c[3].slider("Nights", 1, 60, key="plan-nights", help="How long to stay, shortest to longest you would accept.")
+    pax = c[4].number_input("Passengers", 1, 9, key="plan-pax", help="Adults: every price below is for all of them, as on the Overview.")
     wdays = st.pills("Days I can leave", DAYS, selection_mode="multi", key="plan-days")
     saved = tp.hotels(db, dest)
     hotel = st.selectbox("Hotel", [None] + saved, key=f"plan-hotel-{dest}", index=1 if saved else 0,
@@ -100,11 +103,11 @@ with st.container(border=True, key="search"):
         fa.button(f"ahead|{orig}|{dest}|{p.start}", f"Search {p.name} on GitHub", todo,
                   f"{p.name.capitalize()} from {tp.city(orig)} to {tp.city(dest)}")
 
-f = ex.facts(db, orig, dest, cabin, pay, stays, wdays, (p.start, p.end), today, hotel, oneway=trip == "oneway")
+f = ex.facts(db, orig, dest, cabin, pay, stays, wdays, (p.start, p.end), today, hotel, oneway=trip == "oneway", pax=pax)
 # the chat reads the same facts, then every tracked route for follow-ups (without the Overview's Frankfurt trip totals, which include a hotel)
 data = ex.text(f) + "\n\nAll tracked routes, for follow-ups (one-way fares):\n" + ov.facts(summary, fares, {}, hotel_night, awards, today)
 chat = st.session_state.setdefault("expert-chat", [])
-search = (orig, dest, cabin, pay, trip, tuple(stays), tuple(wdays or DAYS), p.start, p.end, hotel and hotel["name"])
+search = (orig, dest, cabin, pay, trip, tuple(stays), tuple(wdays or DAYS), p.start, p.end, hotel and hotel["name"], pax)
 if st.session_state.get("expert-search") not in (None, search):  # a new search: the old answers were about other numbers
     chat.clear()
 st.session_state["expert-search"] = search
@@ -118,7 +121,7 @@ with st.container(border=True, key="brief"):
     if note:
         st.caption(note)
     if f["best"] is not None:  # book it from here: the Overview's two links, for the very trip the briefing names
-        links = dict(depart=f["best"]["depart"], back=f["best"]["back"], cabin=cabin)
+        links = dict(depart=f["best"]["depart"], back=f["best"]["back"], cabin=cabin, adults=pax)
         c = st.columns(2)
         c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch",
                          icon=":material/airplane_ticket:")
