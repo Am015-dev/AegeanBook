@@ -120,12 +120,16 @@ def fetch(legs, nonstop, passes=3, pause=90, airline="A3"):
     Returns (rows, days still failed). airline: A3 (both cabins) or GQ (Sky Express, economy only)."""
     now = datetime.now().isoformat(timespec="seconds")
     rows, failed = [], 0
+    end = time.monotonic() + float(os.environ.get("BUDGET_MIN") or "inf") * 60  # daily.yml: stop before the job's timeout kills it unsaved
     more = {} if airline == "A3" else dict(cabins=CABINS[airline], airline=Airline[airline])
     for o, d, a, b in parse(legs):
         done = set()
         for n in range(passes):
             failed = 0
             for day, cabin, price, source, status, err in fetch_range(a, b, o, d, skip=done, nonstop=nonstop, **more):
+                if time.monotonic() > end:
+                    print(f"out of time: {len(rows)} rows kept, the rest waits for tomorrow")
+                    return rows, failed + 1
                 if status == "error":  # not saved, so the next pass (or the next fetch) tries again
                     failed += 1
                     continue
@@ -133,7 +137,7 @@ def fetch(legs, nonstop, passes=3, pause=90, airline="A3"):
                 rows.append(dict(day=day.isoformat(), orig=o, dest=d, cabin=cabin, price="" if price is None else price,
                                  source=source, fetched=now, nonstop=int(nonstop)))
             print(f"{o}-{d} {a}..{b} pass {n + 1}: {len(done)} saved, {failed} failed")
-            if not failed or n == passes - 1:
+            if not failed or n == passes - 1 or time.monotonic() + pause > end:
                 break
             time.sleep(pause)  # lets a Google rate limit cool down
     return rows, failed

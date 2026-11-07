@@ -1158,3 +1158,15 @@ def test_flights_page_says_no_flight_only_after_every_day_came_back_empty(tmp_pa
     at.run()
     assert not at.exception and any("Google Flights found none" in i.value for i in at.info)
     assert "What should I book?" not in " ".join(m.value for m in at.markdown)  # nothing to advise on
+
+
+def test_fetch_route_stops_at_its_time_budget_and_keeps_what_it_fetched(monkeypatch):
+    import fetch_route
+    clock = iter(range(0, 10_000, 60))  # each call to the clock is a minute later
+    monkeypatch.setattr(fetch_route.time, "monotonic", lambda: next(clock))
+    monkeypatch.setenv("BUDGET_MIN", "3")
+    d0 = date(2026, 12, 1)
+    days = (lambda a, b, o, d, **k: ((d0 + timedelta(i), "economy", 100.0 + i, "calendar", "ok", None) for i in range(10)))
+    monkeypatch.setattr(fetch_route, "fetch_range", days)
+    rows, failed = fetch_route.fetch(f"ATH,FRA,{d0},{d0 + timedelta(9)}", True, passes=1, pause=0)
+    assert 0 < len(rows) < 10 and failed  # stopped early, rows kept, and it says not everything was fetched
