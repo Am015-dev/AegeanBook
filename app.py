@@ -1,6 +1,6 @@
 import streamlit as st
 
-from ui import CSS
+from ui import CSS, footer
 
 st.set_page_config(page_title="FlyCheap · AEGEAN and Sky Express fares, hotels and when to book", page_icon="✈️", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
@@ -14,3 +14,4 @@ st.navigation({"": [st.Page("views/overview.py", title="Overview", icon=":materi
                "Data": [st.Page("views/database.py", title="Database", icon=":material/database:"),
                         st.Page("views/stats.py", title="Statistics", icon=":material/bar_chart:"),
                         st.Page("views/health.py", title="Status", icon=":material/monitor_heart:")]}, position="top").run()
+footer()  # after the page, so it sits under every page's content
