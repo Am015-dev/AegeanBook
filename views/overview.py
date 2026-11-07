@@ -136,7 +136,7 @@ if q.to_dict() != st.session_state.get("ov-url"):  # a shared link, the Expert, 
                 st.session_state[k] = v
         touched()
 # ponytail: the two rows get keys so ui.CSS can lay the second out differently on a phone (Streamlit stacks every column there)
-page_head("Overview", "The cheapest AEGEAN trip for your dates, and when to fly.")
+page_head("Overview", "The cheapest trip for your dates on AEGEAN, Sky Express when it is cheaper, and when to fly.")
 c = st.container(key="ov-bar-route").columns([1.1, 1.3, 1.1])
 orig = c[0].selectbox("From", froms, format_func=place, key="ov-grid-orig", on_change=touched)
 saved = [d for o, d in far if o == orig]
