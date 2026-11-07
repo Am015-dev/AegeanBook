@@ -2,6 +2,8 @@
 import os
 from datetime import date, datetime, timedelta
 
+import pandas as pd
+
 import explore as xp
 import overview
 from test_overview import pages, routes, seed as seed_daily
@@ -57,6 +59,9 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     assert "usually €" in cards[1] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
     assert not [m for m in at.markdown if 'class="pass"' in m.value] and "From Athens, the next 30 days, economy" in " ".join(m.value for m in at.markdown)
     assert routes(at)[0][0] == "ATH → FRA"  # the route table still closes the page
+    wk = at.dataframe(key="xp-wk").value  # the cheapest weekends away: Thessaloniki first, every one Thu/Fri/Sat out
+    assert list(wk.columns) == ["Destination", "Weekend", "Price", "vs usual"] and wk.Destination[0] == "Thessaloniki"
+    assert all(w[:3] in ("Thu", "Fri", "Sat") and w.split("– ")[1][:3] in ("Sun", "Mon") for w in wk.Weekend)
     at.slider(key="ov-nights").set_value((5, 5)).run()
     assert not at.exception and "5 nights" in rows()[1]
     at.button_group(key="ov-grid-cabin").set_value("business").run()
@@ -83,3 +88,20 @@ def test_overview_opens_the_route_from_the_query_params(tmp_path, monkeypatch):
     at.query_params["from"] = "XXX"  # an airport without fares is ignored
     at.run()
     assert not at.exception and at.selectbox(key="ov-grid-orig").value == "ATH"
+
+
+def test_weekends_thu_to_sat_out_sun_or_mon_back_cheapest_per_destination():
+    today = date(2026, 11, 7)  # a Saturday
+    days = [(today + timedelta(i)).isoformat() for i in range(1, 70)]
+    flat = lambda v: pd.Series(v, index=days)
+    legs = {("ATH", "FRA"): {"economy": flat(100.0)}, ("FRA", "ATH"): {"economy": flat(100.0)},
+            ("ATH", "SKG"): {"economy": flat(40.0)}, ("SKG", "ATH"): {"economy": flat(40.0)},
+            ("ATH", "ZRH"): {"economy": flat(50.0)}, ("ZRH", "ATH"): {"economy": flat(50.0)},
+            ("ATH", "CHQ"): {"economy": flat(10.0)}}  # one way only: no weekend
+    legs[("ATH", "FRA")]["economy"]["2026-11-10"] = 1.0  # a Tuesday: never a weekend departure
+    legs[("ATH", "SKG")]["economy"]["2026-11-21"] = 20.0  # the cheapest SKG weekend: Sat 21 out, Sun 22 back
+    w = xp.weekends(legs, "ATH", "economy", today, ok=lambda d: d != "ZRH")  # ZRH: not flown
+    assert list(w.dest) == ["SKG", "FRA"] and list(w.price) == [60.0, 200.0]  # one row each, cheapest first
+    assert w.depart[0] == date(2026, 11, 21) and w.back[0] == date(2026, 11, 22) and w.nights[0] == 1 and w.typical[0] == 80.0
+    assert all(d.weekday() in (3, 4, 5) for d in w.depart) and all(b.weekday() in (6, 0) for b in w.back)
+    assert all(1 <= n <= 3 for n in w.nights) and all(d <= today + timedelta(56) for d in w.depart)

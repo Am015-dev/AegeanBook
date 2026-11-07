@@ -1,11 +1,13 @@
 """Explore: "where can I fly cheaply from Athens in December?" (Google Flights' Explore), answered from the fares saved for every route.
 Pure functions over overview.legs(); the Overview shows them when To is Anywhere.
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
+from datetime import timedelta
+
 import pandas as pd
 
 import deals
 
-VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 NIGHTS = range(2, 8)  # a return of 2 to 7 nights, as the Overview's date grid
 COLUMNS = ["dest", "price", "depart", "back", "nights", "days", "typical"]
 
@@ -48,3 +50,29 @@ def destinations(legs, orig, start, end, cabin, nights=None):
     t = pd.DataFrame(rows, columns=COLUMNS)
     return t.sort_values(["price", "dest"], kind="stable").reset_index(drop=True)
 
+
+WEEKEND = {(3, 3), (4, 2), (4, 3), (5, 1), (5, 2)}  # (departure weekday, nights): Thu/Fri/Sat out, Sun/Mon back, 1 to 3 nights
+
+
+def weekends(legs, orig, cabin, today, weeks=8, ok=None):
+    """Cheapest weekend away per destination over the next `weeks` weekends (Google Flights' weekend trips), from saved fares only:
+    DataFrame with dest, price (both ways added up), depart, back (dates), nights, typical (the median of that destination's weekend trips),
+    cheapest first. ok(dest): False skips a destination (a pair the route network says is not flown)."""
+    end = pd.Timestamp(today + timedelta(weeks * 7))
+    rows = []
+    for (o, d), f in legs.items():
+        back = legs.get((d, o), {}).get(cabin)
+        if o != orig or cabin not in f or back is None or (ok and not ok(d)):
+            continue
+        out = _between(f[cabin], today + timedelta(1), end)
+        out.index = pd.to_datetime(out.index)
+        bk = pd.to_numeric(back, errors="coerce").dropna()
+        bk.index = pd.to_datetime(bk.index)
+        trips = [(out[a] + bk[a + pd.Timedelta(days=n)], a, n) for a in out.index for n in (1, 2, 3)
+                 if (a.dayofweek, n) in WEEKEND and a + pd.Timedelta(days=n) in bk.index]
+        if trips:
+            price, a, n = min(trips)
+            rows.append(dict(dest=d, price=float(price), depart=a.date(), back=(a + pd.Timedelta(days=n)).date(), nights=n,
+                             typical=float(pd.Series([t[0] for t in trips]).median())))
+    t = pd.DataFrame(rows, columns=["dest", "price", "depart", "back", "nights", "typical"])
+    return t.sort_values(["price", "dest"], kind="stable").reset_index(drop=True)

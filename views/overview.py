@@ -45,7 +45,7 @@ if getattr(sx, "VERSION", 0) < 3:
     sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 3:
     fa = importlib.reload(fa)
-if getattr(xp, "VERSION", 0) < 2:
+if getattr(xp, "VERSION", 0) < 3:
     xp = importlib.reload(xp)
 db = connect()
 today = date.today()
@@ -188,6 +188,22 @@ def pick_on_map():
         touched()
 
 
+def pick_weekend(wk):
+    """A row picked in the weekends table: the same page, with that destination in To and that weekend's dates and nights."""
+    sel = (st.session_state.get("xp-wk") or {}).get("selection", {}).get("rows") or []
+    if sel:
+        r = wk.iloc[sel[0]]
+        st.session_state[dkey] = r.dest
+        st.session_state["ov-when"] = (r.depart, r.depart)
+        st.session_state["ov-trip"] = "return"
+        st.session_state["ov-nights"] = (int(r.nights), int(r.nights))
+        touched()
+
+
+def weekend_label(a, b):
+    return f"{a:%a} {a.day}{a.strftime(' %b') if a.month != b.month else ''} – {b:%a} {b.day} {b:%b}"
+
+
 if dest == ANY:
     rows = xp.destinations(src, orig, p.start, p.end, gcab, stays)
     st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(p.name)}, {e(gcab)}, cheapest first</p>', unsafe_allow_html=True)
@@ -226,6 +242,17 @@ if dest == ANY:
         st.pills("See dates for", list(rows.dest), format_func=tp.city, key="xp-see", on_change=see)
         st.caption(f"The cheapest trip to each place {p.name}{', for ' + who if pax > 1 else ''}. A place with fares saved one way only shows "
                    "its one-way. \"Usually\" is the price in the middle of all the trips like it. AEGEAN nonstop, from Google Flights.")
+    wk = xp.weekends(src, orig, gcab, today, ok=lambda d: network.flies(net, "A3", orig, d, home) is not False)
+    if len(wk):
+        st.markdown(f'<p class="group">Cheapest weekends away from {e(tp.city(orig))}, next 8 weekends</p>', unsafe_allow_html=True)
+        vs = lambda r: "usual price" if r.price == r.typical else f"{'−' if r.price < r.typical else '+'}{money(abs(r.price - r.typical) * pax)}"
+        st.dataframe(pd.DataFrame({"Destination": [tp.city(d) for d in wk.dest],
+                                   "Weekend": [weekend_label(r.depart, r.back) for r in wk.itertuples()],
+                                   "Price": [money(v * pax) for v in wk.price],
+                                   "vs usual": [vs(r) for r in wk.itertuples()]}),
+                     hide_index=True, width="stretch", key="xp-wk", on_select=lambda: pick_weekend(wk), selection_mode="single-row")
+        st.caption("Leaving Thursday, Friday or Saturday, back Sunday or Monday, from the fares saved. \"vs usual\" compares with the "
+                   "middle price of that place's weekends. Pick a row to see its dates.")
     every_route()
     st.stop()
 
