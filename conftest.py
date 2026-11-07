@@ -3,6 +3,7 @@ import pytest
 import db
 import gh
 import network
+import price_insights
 
 
 @pytest.fixture(autouse=True)
@@ -14,3 +15,4 @@ def no_real_data(monkeypatch):
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setattr(gh, "data_file", lambda path, tok=None: None)
     monkeypatch.setattr(network, "OUT", network.Path("/nonexistent/network.csv"))  # the route network found so far: no pair hidden in tests
+    monkeypatch.setattr(price_insights, "HISTORY", "/nonexistent/history_prices.csv")  # every fare change ever collected: grows each day
