@@ -1170,3 +1170,14 @@ def test_fetch_route_stops_at_its_time_budget_and_keeps_what_it_fetched(monkeypa
     monkeypatch.setattr(fetch_route, "fetch_range", days)
     rows, failed = fetch_route.fetch(f"ATH,FRA,{d0},{d0 + timedelta(9)}", True, passes=1, pause=0)
     assert 0 < len(rows) < 10 and failed  # stopped early, rows kept, and it says not everything was fetched
+
+
+def test_footer_age():
+    from datetime import datetime
+
+    import ui
+    now = datetime(2026, 11, 7, 12, 0, 0)
+    assert ui.ago("2026-11-07T11:58:30", now) == "1 minute ago"
+    assert ui.ago("2026-11-07T09:00:00", now) == "3 hours ago"
+    assert ui.ago("2026-11-05T11:00:00", now) == "2 days ago"
+    assert ui.ago("2026-11-07T12:00:10", now) == "just now"  # a stamp a little ahead of this clock

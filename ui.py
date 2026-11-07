@@ -101,6 +101,26 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
   .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ width:100% !important; }}
   .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ box-shadow:0 6px 20px rgba(0,0,0,.18); }}
 }}
+/* one type scale: markdown headings written in a page (## in a summary) step down from the page title instead of shouting over it */
+[data-testid="stMarkdownContainer"] h1:not(.page-head h1) {{ font-size:1.45rem; line-height:1.25; margin:1.2rem 0 .5rem; padding:0; }}
+[data-testid="stMarkdownContainer"] h2 {{ font-size:1.2rem; line-height:1.3; margin:1.1rem 0 .4rem; padding:0; }}
+[data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {{ font-size:1.02rem; line-height:1.35; margin:1rem 0 .35rem; padding:0; }}
+/* expanders, tables and notices share the cards' surface: white, a hairline, the same corner */
+[data-testid="stExpander"] {{ box-shadow:none; }}
+[data-testid="stExpander"] details {{ border:1px solid {GRID} !important; border-radius:12px; background:{SURFACE}; }}
+[data-testid="stExpander"] summary {{ padding-top:.7rem; padding-bottom:.7rem; }}
+[data-testid="stExpander"] summary p {{ font-weight:550; }}
+[data-testid="stDataFrame"], [data-testid="stTable"] {{ border:1px solid {GRID}; border-radius:12px; overflow:hidden; background:{SURFACE}; }}
+[data-testid="stAlertContainer"] {{ border-radius:12px; padding:.75rem 1rem; }}
+[data-testid="stAlertContainer"] p, [data-testid="stAlertContainer"] li {{ font-size:.92rem; line-height:1.5; }}
+/* buttons: blue fill for the one main action, a white bordered button for the rest, never two primaries' worth of weight */
+.stButton > button[kind="secondary"], .stDownloadButton > button[kind="secondary"], .stLinkButton > a[kind="secondary"], [data-testid="stBaseButton-secondary"] {{ background:{SURFACE}; border:1px solid #D2D2D7; color:{INK}; }}
+.stButton > button[kind="secondary"]:hover, .stDownloadButton > button[kind="secondary"]:hover, [data-testid="stBaseButton-secondary"]:hover {{ border-color:{ECONOMY}; color:{ECONOMY}; }}
+.stButton > button:disabled, .stDownloadButton > button:disabled {{ opacity:.55; }}
+.stButton > button, .stDownloadButton > button, .stLinkButton > a {{ transition:background-color .15s, border-color .15s, color .15s; }}
+/* the slim line under every page: how fresh the fares are and where they come from */
+.site-foot {{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 16px; margin:3rem 0 0; padding:14px 2px 0; border-top:1px solid {GRID};
+  color:{MUTED}; font-size:.8rem; line-height:1.45; }}
 @media (max-width: 640px) {{ .block-container {{ padding-top: 5rem; }} [data-testid="stButtonGroup"] > div {{ flex-wrap:wrap !important; overflow:visible !important; }} .st-key-search {{ padding:14px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports), .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) {{ flex-wrap:nowrap !important; gap:8px; }} .st-key-search [data-testid="stHorizontalBlock"]:has(.st-key-swap-airports) > [data-testid="stColumn"], .st-key-search [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) > [data-testid="stColumn"] {{ min-width:0 !important; width:auto !important; flex:1 1 0 !important; }} .st-key-search [data-testid="stColumn"]:has(.st-key-swap-airports) {{ flex:0 0 auto !important; }} .st-key-search [data-testid="stColumn"]:has([data-testid="stNumberInput"]) {{ min-width:0 !important; width:auto !important; flex:1 1 calc(50% - 8px) !important; }} .fare {{ padding:12px 14px; }} .fare .price {{ font-size:1.4rem; }} }}
 </style>
 """
@@ -402,3 +422,29 @@ def github_note(key):
     """The note github_progress left when part of a search failed, once."""
     if note := st.session_state.pop(f"gh-note-{key}", None):
         st.warning(note, icon=":material/warning:")
+
+
+def ago(stamp, now):
+    """'12 minutes ago' / '3 hours ago' / '2 days ago' for an ISO `fetched` stamp, measured against `now` (both naive, same clock)."""
+    from datetime import datetime
+    s = max(0, int((now - datetime.fromisoformat(stamp[:19])).total_seconds()))
+    for size, unit in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if s >= size:
+            n = s // size
+            return f"{n} {unit}{'s' if n > 1 else ''} ago"
+    return "just now"
+
+
+@st.cache_data(ttl=600)
+def _newest_fare():
+    from freshness import latest_fetched
+    return latest_fetched(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "daily.csv"))
+
+
+def footer():
+    """The slim line under every page: when the fares were last fetched and where the prices come from."""
+    from datetime import datetime
+    last = _newest_fare()
+    when = f"Fares updated {ago(last, datetime.now())}" if last else "Fares not fetched yet"
+    st.markdown(f'<div class="site-foot"><span>{e(when)}</span><span>Prices are from Google Flights / Google Hotels, check before booking</span></div>',
+                unsafe_allow_html=True)

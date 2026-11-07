@@ -4,7 +4,7 @@ import streamlit as st
 
 from db import RETENTION_DAYS, connect
 from layout import page_head
-from ui import ECONOMY, GRID, MUTED, TIER_COLORS, kpis
+from ui import ECONOMY, FONT, GRID, MUTED, TIER_COLORS, kpis
 
 db = connect()
 page_head("Statistics", f"Every price update of the last 30 days, and what is saved now (prices are kept {RETENTION_DAYS} days).")
@@ -31,7 +31,7 @@ for col, name, colour in (("ok", "Priced", ECONOMY), ("empty", "Nothing found", 
     fig.add_bar(x=pd.to_datetime(r.started).dt.strftime("%d %b %H:%M:%S"), y=r[col], name=name, marker=dict(color=colour, line=dict(color="#F5F7FB", width=1)),
                 customdata=r.label, hovertemplate=f"%{{customdata}}<br>{name}: %{{y}}<extra></extra>")
 fig.update_layout(barmode="stack", height=280, margin=dict(l=8, r=8, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
-                  plot_bgcolor="rgba(0,0,0,0)", font=dict(family="IBM Plex Sans", color=MUTED),
+                  plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, color=MUTED),
                   legend=dict(orientation="h", x=0, y=1.15, traceorder="normal"), yaxis=dict(gridcolor=GRID, title=None),
                   xaxis=dict(showgrid=False, type="category"), bargap=0.5 if len(r) > 3 else 0.85)
 st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
