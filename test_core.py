@@ -904,7 +904,7 @@ def test_insights_say_which_weekday_is_cheapest_and_whether_late_booking_costs_m
     ah = ins.ahead_stats(cash, today)
     assert list(ah.index)[:2] == [1, 2] and ah.loc[1, "days"] == 7
     sentence = ins.ahead_takeaway(ah, "ATH \u2192 FRA")
-    assert "next 2 weeks" in sentence and "book earlier" in sentence and "3.0\u00d7" in sentence
+    assert sentence.startswith("Flights in the next 2 weeks cost more") and "fly later" in sentence and "book earlier" not in sentence
     assert "No big last-minute premium" in ins.ahead_takeaway(ins.ahead_stats(flat, today), "x")
     assert ins.weekday_stats(pd.Series(dtype=float)).empty and "Not enough" in ins.weekday_takeaway(ins.weekday_stats(pd.Series(dtype=float)), "x")
     assert len(ins.weekday_chart(st, "#2563C9").data) == 1 and len(ins.ahead_chart(ah, "#2563C9").data) == 1

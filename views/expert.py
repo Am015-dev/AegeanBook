@@ -12,19 +12,22 @@ import booking
 import expert_chat as ex
 import fetch_ahead as fa
 import overview as ov
+import price_insights as pi
 import trip_plan as tp
 from db import connect
 from insights import DAYS
 from layout import page_head
 
-if getattr(ex, "VERSION", 0) < 7:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ex, "VERSION", 0) < 8:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ex = importlib.reload(ex)
-if getattr(ov, "VERSION", 0) < 4:
+if getattr(ov, "VERSION", 0) < 5:
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(fa, "VERSION", 0) < 3:
     fa = importlib.reload(fa)
+if getattr(pi, "VERSION", 0) < 4:  # reloaded in place, so expert_chat sees the new price_insights.trend too
+    pi = importlib.reload(pi)
 db = connect()
 today = date.today()
 page_head("Expert", "Why this is the trip to book, and what else would work.")

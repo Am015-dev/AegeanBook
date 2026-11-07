@@ -242,7 +242,7 @@ def test_expert_facts_for_the_suggested_questions(tmp_path):
     assert o["cabins"] == dict(economy=60.0, business=160.0) and ex.questions(o) == [ex.NEAR, ex.BUSINESS, ex.SKY, ex.BOOK]
     # the trend of the recommended dates: the out fare fell from €100 to €60 over nine fetch days, the back fare stayed €150
     f = ex.facts(t, "ATH", "FRA", "economy", "cash", [], [], (d(1), d(30)), today, None, hist=history_for(today, [100, 95, 90, 85, 80, 75, 70, 65, 60], 150))
-    assert f["trend"] == dict(days=9, first=250.0, last=210.0, low=210.0, high=250.0, since=d(-9), week_ago=245.0)  # a week before the newest: day -8
+    assert f["trend"] == dict(days=9, first=250.0, last=210.0, low=210.0, low_day=d(-1), high=250.0, since=d(-9), week_ago=245.0)  # a week before the newest: day -8
     assert f["insight"]["level"] == "low" and (f["insight"]["low"], f["insight"]["high"]) == (220.0, 240.0)
     assert "The fare of the recommended dates over the saved history: first seen €250 on " in ex.text(f) and "over 9 days; a week ago €245." in ex.text(f)
     # miles: no award seats on the neighbouring days, no business seats, no 7-night trip, Sky Express sells no miles: nothing to suggest
@@ -814,9 +814,9 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
     captions = " ".join(c.value for c in at.caption)
-    assert "The average economy fare by the weekday you leave, over the 30 days" in captions
+    assert "The average economy one-way fare per adult by the weekday you leave, over the 30 days" in captions
     at.button_group(key="ov-grid-cabin").set_value("business").run()
-    assert not at.exception and "The average business fare by the weekday" in " ".join(c.value for c in at.caption)
+    assert not at.exception and "The average business one-way fare per adult by the weekday" in " ".join(c.value for c in at.caption)
     at.button_group(key="ov-grid-pay").set_value("miles").run()
     assert not at.exception and "When to fly: cheapest weekdays and weeks" not in [x.label for x in at.expander]  # miles have no such pattern to show
 
@@ -905,3 +905,11 @@ def test_seasonal_destinations_say_so(tmp_path, monkeypatch):
     at = pages(tmp_path, monkeypatch, None)("overview.py").run()
     assert not at.exception
     assert "Innsbruck (INN) · not searched yet · seasonal" in at.selectbox(key="ov-grid-dest-ATH").options
+
+
+def test_hotel_line_adds_the_room_only_for_the_same_number_of_people():
+    assert overview.hotel_line("Steigenberger", 2, 1504, 7, 214, 2) == (
+        "With Steigenberger for those 7 nights: €1,504 for a room for 2 adults, so €1,932 for the whole trip for 2 adults.")
+    one = overview.hotel_line("Steigenberger", 2, 1504, 7, 214, 1)  # the review's €1,718: one adult's fare + a 2-adult room, unsaid
+    assert "for a room for 2 adults. Flights for 1 adult (€214) + this room = €1,718; no price is saved for a room for 1 adult" in one
+    assert "whole trip" not in one

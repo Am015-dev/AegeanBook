@@ -1,13 +1,11 @@
 """Explore: "where can I fly cheaply from Athens in December?" (Google Flights' Explore), answered from the fares saved for every route.
 Pure functions over overview.legs(); the Overview shows them when To is Anywhere.
 A new module on purpose: Streamlit Cloud can run a page against older, already loaded modules."""
-from datetime import timedelta
-
 import pandas as pd
 
 import deals
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 NIGHTS = range(2, 8)  # a return of 2 to 7 nights, as the Overview's date grid
 COLUMNS = ["dest", "price", "depart", "back", "nights", "days", "typical"]
 
@@ -29,7 +27,8 @@ def destinations(legs, orig, start, end, cabin, nights=None):
     dest, price (the cheapest one-way, or with `nights` the cheapest return of that many nights, both ways added up), depart and back
     (dates; back None one way), nights, days (days with a flight in the period) and typical (the median price of the same kind of trip).
     nights: None for one way, else the nights away to consider (NIGHTS); a destination with no fares back (or no return trip of those nights)
-    is then listed with its cheapest one-way, so a route searched one way still shows up."""
+    is then listed with its cheapest one-way, so a route searched one way still shows up, after every return (like with like: a one-way
+    fare is not ranked against returns)."""
     rows = []
     for (o, d), f in legs.items():
         if o != orig or cabin not in f:
@@ -48,23 +47,23 @@ def destinations(legs, orig, start, end, cabin, nights=None):
         rows.append(dict(dest=d, price=best["price"], depart=best["depart"], back=best["back"], nights=best["nights"], days=len(out),
                          typical=typical))
     t = pd.DataFrame(rows, columns=COLUMNS)
-    return t.sort_values(["price", "dest"], kind="stable").reset_index(drop=True)
+    oneway = t["back"].isna() if nights else pd.Series(False, index=t.index)
+    return t.assign(_ow=oneway).sort_values(["_ow", "price", "dest"], kind="stable").drop(columns="_ow").reset_index(drop=True)
 
 
 WEEKEND = {(3, 3), (4, 2), (4, 3), (5, 1), (5, 2)}  # (departure weekday, nights): Thu/Fri/Sat out, Sun/Mon back, 1 to 3 nights
 
 
-def weekends(legs, orig, cabin, today, weeks=8, ok=None):
-    """Cheapest weekend away per destination over the next `weeks` weekends (Google Flights' weekend trips), from saved fares only:
-    DataFrame with dest, price (both ways added up), depart, back (dates), nights, typical (the median of that destination's weekend trips),
-    cheapest first. ok(dest): False skips a destination (a pair the route network says is not flown)."""
-    end = pd.Timestamp(today + timedelta(weeks * 7))
+def weekends(legs, orig, cabin, start, end, ok=None):
+    """Cheapest weekend away per destination leaving from `start` to `end` (dates: the Overview's "Leaving between"), Google Flights'
+    weekend trips, from saved fares only: DataFrame with dest, price (both ways added up), depart, back (dates), nights, typical (the median
+    of that destination's weekend trips), cheapest first. ok(dest): False skips a destination (a pair the route network says is not flown)."""
     rows = []
     for (o, d), f in legs.items():
         back = legs.get((d, o), {}).get(cabin)
         if o != orig or cabin not in f or back is None or (ok and not ok(d)):
             continue
-        out = _between(f[cabin], today + timedelta(1), end)
+        out = _between(f[cabin], start, end)
         out.index = pd.to_datetime(out.index)
         bk = pd.to_numeric(back, errors="coerce").dropna()
         bk.index = pd.to_datetime(bk.index)

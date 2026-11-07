@@ -37,19 +37,19 @@ from layout import page_head
 from ui import (BUSINESS, ECONOMY, FONT, GRID, INK, MUTED, SHADOW, SURFACE, aegean_rows, github_note, github_progress, grid_frame, html_table,
                 kpis, no_service_note, price_chart, route)
 
-if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ov, "VERSION", 0) < 5:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 7:
     deals = importlib.reload(deals)
-if getattr(pi, "VERSION", 0) < 3:
+if getattr(pi, "VERSION", 0) < 4:
     pi = importlib.reload(pi)
 if getattr(sx, "VERSION", 0) < 4:
     sx = importlib.reload(sx)
 if getattr(fa, "VERSION", 0) < 3:
     fa = importlib.reload(fa)
-if getattr(xp, "VERSION", 0) < 3:
+if getattr(xp, "VERSION", 0) < 4:
     xp = importlib.reload(xp)
 db = connect()
 today = date.today()
@@ -118,7 +118,7 @@ def touched():
 
 def every_route():
     """Every route with fares saved and the cheapest one-way fare on it, as a table that wraps on a phone."""
-    st.markdown('<p class="group">The cheapest one-way fare on every route saved, next 90 days</p>', unsafe_allow_html=True)
+    st.markdown('<p class="group">The cheapest one-way fare on every route saved, next 90 days, per adult</p>', unsafe_allow_html=True)
     cell = lambda v: f"€{v['min']:,.0f} on {pd.Timestamp(v['day']):%a\u00a0%d\u00a0%b}" if v else "no fares"  # a date never breaks mid-way
     t = pd.DataFrame([{"Route": f"{o} → {d}", "Economy": cell(s.get("economy")), "Business": cell(s.get("business"))} for (o, d), s in summary.items()])
     html_table(t.set_index("Route"), cls="h2h scroll")  # many routes: the table scrolls under its header instead of running down the page
@@ -231,7 +231,7 @@ def go_near(end, a):
 
 
 if dest == ANY:
-    rows = xp.destinations(src, orig, p.start, p.end, gcab, stays)
+    rows = xp.destinations(src, orig, p.start, p.end, gcab, stays if trip == "return" else None)  # the chosen trip type only
     st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(p.name)}, {e(gcab)}, cheapest first</p>', unsafe_allow_html=True)
     if rows.empty:
         st.info(f"No {gcab} {'fares' if pay == 'cash' else 'award seats'} saved from {tp.city(orig)} for {p.name}. "
@@ -244,7 +244,8 @@ if dest == ANY:
         on_map = rows[rows.dest.isin(places.index)]
         if len(on_map) and orig in places.index:
             pts = places.loc[list(on_map.dest)]
-            cheap = on_map.price <= on_map.price.quantile(0.34)  # the cheapest third in green, as the hotel map marks cheaper nights
+            kind_ = on_map.back.isna()  # like with like: a one-way is only measured against the other one-ways
+            cheap = on_map.price <= on_map.groupby(kind_).price.transform(lambda v: v.quantile(0.34))  # the cheapest third in green, as the hotel map marks cheaper nights
             fig = go.Figure()
             fig.add_scattermap(lat=[places.lat[orig]], lon=[places.lng[orig]], mode="markers", marker=dict(size=14, color=INK),
                                hovertemplate=f"<b>{e(tp.city(orig))}</b><extra></extra>", showlegend=False)
@@ -272,11 +273,13 @@ if dest == ANY:
         kpis([(f"{tp.city(r.dest)} · {r.dest}", money(r.price * pax), f"{when_(r)} · flights on {r.days} of {ndays} days · usually {money(r.typical * pax)}", colour)
               for r in rows.itertuples()])
         st.pills("See dates for", list(rows.dest), format_func=tp.city, key="xp-see", on_change=see)
-        st.caption(f"The cheapest trip to each place {p.name}{', for ' + who if pax > 1 else ''}. A place with fares saved one way only shows "
-                   "its one-way. \"Usually\" is the price in the middle of all the trips like it. AEGEAN nonstop, from Google Flights.")
-    wk = xp.weekends(src, orig, gcab, today, ok=lambda d: network.flies(net, "A3", orig, d, home) is not False)
-    if len(wk):
-        st.markdown(f'<p class="group">Cheapest weekends away from {e(tp.city(orig))}, next 8 weekends</p>', unsafe_allow_html=True)
+        st.caption(f"The cheapest trip to each place {p.name}{', for ' + who if pax > 1 else ''}. "
+                   + ("A place with fares saved one way only shows its one-way, listed after every return so the two are not ranked "
+                      "together. " if trip == "return" else "")
+                   + "\"Usually\" is the price in the middle of all the trips like it. AEGEAN nonstop, from Google Flights.")
+    wk = xp.weekends(src, orig, gcab, p.start, p.end, ok=lambda d: network.flies(net, "A3", orig, d, home) is not False)
+    if len(wk) and trip == "return":  # weekends away are returns: not shown against one-way fares
+        st.markdown(f'<p class="group">Cheapest weekends away from {e(tp.city(orig))}, leaving {e(p.name)}</p>', unsafe_allow_html=True)
         vs = lambda r: "usual price" if r.price == r.typical else f"{'−' if r.price < r.typical else '+'}{money(abs(r.price - r.typical) * pax)}"
         st.dataframe(pd.DataFrame({"Destination": [tp.city(d) for d in wk.dest],
                                    "Weekend": [weekend_label(r.depart, r.back) for r in wk.itertuples()],
@@ -379,6 +382,10 @@ else:
             + f'</dl></div><div class="pass-stub"><span class="k">{"AEGEAN " if gq else ""}Cheapest {kind} · {e(tp.city(orig))} → {e(tp.city(dest))}</span>'
             f'<span class="price">{price}</span><span class="note">{"plus taxes and fees" if pay == "miles" else who}, leaving in {e(p.name)}</span>'
             + (f'<span class="ctx">{good}{e(" ".join(said))}</span>' if said or good else "") + bar + '</div></div>', unsafe_allow_html=True)
+        if gq_best is not None and gq_best["price"] < best["price"]:  # the pass is AEGEAN's answer: say at once when Sky Express beats it
+            gd = f"{gq_best['depart']:%a %-d}" + (f" → {gq_best['back']:%a %-d %b}" if gq_best["back"] is not None else f" {gq_best['depart']:%b}, one way")
+            st.markdown(f"**{sx.NAME} is {money((best['price'] - gq_best['price']) * pax)} cheaper on {gd}:** "
+                        f"{money(gq_best['price'] * pax)}{f' for {who}' if pax > 1 else ''}. See AEGEAN or Sky Express below.")
         if pax > 1:
             st.caption(f"The price is for {pax} adults, from fares collected for one adult; the airline may price a group differently.")
         # nearby airports (Skyscanner's "include nearby airports"): the same window and stay from or to an airport close by, when cheaper;
@@ -429,20 +436,18 @@ else:
         if hist is not None:  # the trip's fare (out + back) at every check since we started watching; nothing under 2 checks
             legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if ret else [])
             hs = pi.trip_series(hist, legs, gcab)
-            if note := pi.moved_note(hs, pax):  # one line: the chart of these dates is in "When to fly" below
+            if note := pi.moved_note(hs, pax):  # one line; the chart of these dates is under Price history
                 st.caption(f"{note}")
         # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
         # button fetches any other day
         flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
         hotels = tp.hotels(db, dest) if ret else []
         if hotels and pay == "cash":
-            h = hotels[0]
+            h = next((x for x in hotels if x["adults"] == pax), hotels[0])  # a room priced for the passengers chosen, when one was searched
             nights_ = night_prices(db, h["query"], h["filt"], h["adults"], best["depart"], best["back"])
             stay = [(best["depart"] + timedelta(i)).isoformat() for i in range(best["nights"])]
             if all(s in nights_.index for s in stay):
-                cost = sum(nights_[s] for s in stay)
-                st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
-                           f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
+                st.caption(ov.hotel_line(h["name"], h["adults"], sum(nights_[s] for s in stay), best["nights"], best["price"], pax))
 
 # --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
 day_by_day = None
@@ -473,7 +478,7 @@ if dest != ANY:
                                                                             am.get(cab, pd.Series(dtype=float)), at_.get(cab)))
                  for cab in ("economy", "business")]
         st.markdown("\n".join(f"- {e(l)}" for l in lines))
-        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}, {p.name}: AEGEAN Miles+Bonus award seats as last collected, against the cash "
+        st.caption(f"One way, per adult, {tp.city(orig)} → {tp.city(dest)}, {p.name}: AEGEAN Miles+Bonus award seats as last collected, against the cash "
                    f"fare the same day. Miles count as worth €{miles_value.WORTH:.0f} for each 1,000; the Flights page lets you change that.")
 
 # --- the dates behind it ------------------------------------------------------------------------------------------------------------------
@@ -485,7 +490,7 @@ if best is not None and back_s is not None and len(back_s.dropna()):
         at = grid.index.get_loc(f"{best['depart']:%a %d %b}") if f"{best['depart']:%a %d %b}" in grid.index else 0
         start = max(0, min(at - 3, len(grid) - 8))  # the week around the pass's departure first, not the whole month; the pass's cell is in it
         shown = grid if st.session_state.get(f"ov-grid-all-{orig}{dest}") or len(grid) <= 10 else grid.iloc[start:start + 8]
-        grid_frame(deals.grid_html(shown, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format), len(shown))
+        grid_frame(deals.grid_html(shown * pax, ("€{:,.0f}" if pay == "cash" else "{:,.0f}").format), len(shown))
         if len(shown) < len(grid):
             st.button(f"Show all {len(grid)} departure days", key=f"ov-grid-more-{orig}{dest}", type="tertiary",
                       on_click=lambda: st.session_state.__setitem__(f"ov-grid-all-{orig}{dest}", True))
@@ -529,34 +534,37 @@ if best is not None and pay == "cash" and len(out_s):
     wd, ah = weekday_stats(out_s), ahead_stats(out_s, today)
     moved = {}
     if hist is not None:
-        moved = {"out": (f"Out {best['depart']:%a %d %b}", ECONOMY, pi.series(hist, orig, dest, gcab, best["depart"].isoformat()))}
-        if best["back"] is not None:
-            moved["back"] = (f"Back {best['back']:%a %d %b}", MUTED, pi.series(hist, dest, orig, gcab, best["back"].isoformat()))
-        if max(len(x) for _, _, x in moved.values()) < 3:  # one or two points are not a line
-            moved = {}
+        # the whole trip's fare for the passengers (both ways added up, times pax): the numbers of the "Lowest seen" note under the pass
+        # and of the Expert (price_insights.trip_series), not each leg's own fare
+        tl = pi.trip_series(hist, [(orig, dest, best["depart"].isoformat())]
+                            + ([(dest, orig, best["back"].isoformat())] if best["back"] is not None else []), gcab)
+        if len(tl) >= 3:  # one or two points are not a line
+            moved = {"trip": (f"{'Return' if best['back'] is not None else 'One way'}, {who}", ECONOMY, tl * pax)}
     with st.expander("When to fly: cheapest weekdays and weeks"):
         cols = st.columns(2, gap="medium")
         with cols[0]:
             st.markdown(f'<p class="card-title">{e(weekday_takeaway(wd, label))}</p>', unsafe_allow_html=True)
             if len(wd) >= 3:
                 st.plotly_chart(weekday_chart(wd, colour).update_layout(height=220), width="stretch", config=config)
-            st.caption(f"The average {gcab} fare by the weekday you leave, over the {len(out_s)} days with a fare saved.")
+            st.caption(f"The average {gcab} one-way fare per adult by the weekday you leave, over the {len(out_s)} days with a fare saved.")
         with cols[1]:
             st.markdown(f'<p class="card-title">{e(ahead_takeaway(ah, label))}</p>', unsafe_allow_html=True)
             if len(ah) >= 2:
                 st.plotly_chart(ahead_chart(ah, colour).update_layout(height=220), width="stretch", config=config)
-            st.caption("What a flight costs by how many weeks away it is, from today's fares for different dates.")
+            st.caption("What a one-way flight costs per adult by how many weeks away it is, from today's fares for different dates.")
     if moved:
         with st.expander("Price history"):
             first = min(x.index.min() for _, _, x in moved.values() if len(x))
             st.markdown(f'<p class="card-title">How this fare has moved since {pd.Timestamp(first):%-d %b}</p>', unsafe_allow_html=True)
             fig = price_chart(pd.DataFrame({k: x for k, (_, _, x) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
             st.plotly_chart(fig.update_layout(height=220, legend=dict(y=1.25)), width="stretch", config=config)
-            st.caption("The fare for those exact days each time it was checked. The ring marks the lowest it has been.")
+            st.caption(f"The {'return fare, both ways added up' if best['back'] is not None else 'fare'}, for {who}, for those exact days "
+                       "each time it was checked. The ring marks the lowest it has been.")
 
 with st.expander("Every route with fares saved, cheapest one-way in the next 90 days"):  # the long table, out of the way of the answer
     every_route()
 
 if last:
     st.caption(f"AEGEAN nonstop fares from Google Flights, last checked {pd.Timestamp(last):%a %d %b, %H:%M}. Sky Express fares are its "
-               "economy nonstop fares. Prices are per adult; the airline sets the final price when you book.")
+               "economy nonstop fares. " + (f"Prices are for {who}, from fares per adult" if pax > 1 else "Prices are per adult")
+               + "; the airline sets the final price when you book.")
