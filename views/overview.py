@@ -41,7 +41,7 @@ if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)
 if getattr(deals, "VERSION", 0) < 7:
     deals = importlib.reload(deals)
-if getattr(pi, "VERSION", 0) < 1:
+if getattr(pi, "VERSION", 0) < 2:
     pi = importlib.reload(pi)
 if getattr(sx, "VERSION", 0) < 3:
     sx = importlib.reload(sx)
@@ -398,6 +398,14 @@ else:
                 col.page_link(page, label=label, icon=icon, query_params=params)
             except Exception:  # the page runs on its own (tests), outside the app's navigation
                 pass
+        if hist is not None:  # the trip's fare (out + back) at every check since we started watching; nothing under 2 checks
+            legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if ret else [])
+            hs = pi.trip_series(hist, legs, gcab)
+            if note := pi.moved_note(hs):
+                st.plotly_chart(price_chart(pd.DataFrame({"t": hs}), {"t": ("Fare for your dates", colour)}).update_layout(
+                    height=180, showlegend=False, margin=dict(l=28, r=8, t=8, b=0)), width="stretch", config={"displayModeBar": False},
+                    key=f"hist-{orig}{dest}{gcab}")
+                st.caption(note)
         # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
         # button fetches any other day
         flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")

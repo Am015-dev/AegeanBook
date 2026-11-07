@@ -8,7 +8,7 @@ import pandas as pd
 
 import gh
 
-VERSION = 1  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 2  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history_prices.csv")
 WINDOW = 60  # days of snapshots a verdict looks back over, as Google's graph does
@@ -101,6 +101,21 @@ def series(hist, orig, dest, cabin, day):
     s = w[day]
     s = s[s.index >= s.first_valid_index()].dropna()
     return pd.Series(s.where(s >= 0).values, index=[d.strftime("%Y-%m-%d") for d in s.index], dtype=float)
+
+
+def trip_series(hist, legs, cabin):
+    """series() for a whole trip: `legs` [(orig, dest, iso day), ...]; the legs' fares added up on every fetch day all of them had a fare."""
+    parts = [series(hist, o, d, cabin, day) for o, d, day in legs]
+    return pd.concat(parts, axis=1).dropna().sum(axis=1) if all(len(x) for x in parts) else pd.Series(dtype=float)
+
+
+def moved_note(s):
+    """The one-line caption for a trip_series(): lowest seen and when, now, and since when / how many checks; None under 2 checks."""
+    if len(s) < 2:
+        return None
+    lo = s.idxmin()
+    return (f"Lowest seen €{s[lo]:,.0f} on {pd.Timestamp(lo):%-d %b}, now €{s.iloc[-1]:,.0f}. "
+            f"Watching since {pd.Timestamp(s.index[0]):%-d %b} ({len(s)} checks).")
 
 
 if __name__ == "__main__":  # self-check against the committed history

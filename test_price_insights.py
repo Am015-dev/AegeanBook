@@ -95,3 +95,14 @@ def test_overview_shows_the_verdict_and_how_the_fare_moved(tmp_path, monkeypatch
     assert not at.exception and "days of prices" not in " ".join(m.value for m in at.markdown) and not moved()  # two points are not a line
     at.selectbox(key="ov-grid-orig").set_value("ZRH").run()  # a route the history has never seen: nothing is claimed about it
     assert not at.exception and "Usually €" not in " ".join(m.value for m in at.markdown) and not moved()
+
+
+def test_trip_series_adds_legs_and_note(tmp_path):
+    h = pi.history(write_history(tmp_path / "h.csv", 4))
+    day = (date.today() + timedelta(10)).isoformat()
+    one = pi.series(h, "ATH", "FRA", "economy", day)
+    both = pi.trip_series(h, [("ATH", "FRA", day), ("FRA", "ATH", day)], "economy")
+    assert list(both) == [f + 100 for f in one]  # return leg stays at 100
+    assert pi.moved_note(both).startswith("Lowest seen") and "(4 checks)" in pi.moved_note(both)
+    assert pi.moved_note(both.iloc[:1]) is None
+    assert pi.trip_series(h, [("ATH", "FRA", "1999-01-01")], "economy").empty
