@@ -71,6 +71,15 @@ def km(lat1, lng1, lat2, lng2):
     return 12742 * math.asin(math.sqrt(a))
 
 
+def best_value(rating, total, reviews=None, min_rating=4.0, min_reviews=20):
+    """Index of the best value among hotels: the highest guest rating per euro. Lists of equal length; a hotel needs `min_rating` and
+    `min_reviews` (when known) to count, so a cheap unrated room never wins. None when no hotel qualifies."""
+    reviews = reviews if reviews is not None else [None] * len(rating)
+    ok = [(r / t, i) for i, (r, t, n) in enumerate(zip(rating, total, reviews))
+          if r == r and t == t and t > 0 and r >= min_rating and (n is None or n != n or n >= min_reviews)]
+    return max(ok)[1] if ok else None
+
+
 def fetch_day(query, name_filter, day, nights=1, adults=2, places=None):
     r = stays.search_hotels(query, check_in=day.isoformat(), check_out=(day + timedelta(nights)).isoformat(),
                             adults=adults, currency="EUR")

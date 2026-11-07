@@ -18,7 +18,9 @@ if not hasattr(links, "hotel_url"):  # Streamlit Cloud can keep an older booking
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from fetch_hotel import LANDMARKS, NEARBY, PLACES
-from hotels import fetch_range, km, matches, plain
+from html import escape
+
+from hotels import best_value, fetch_range, km, matches, plain
 from jobs import record, start_job, track
 from par import parallel
 from plain import checked_sentence, nearly, options_filters
@@ -33,6 +35,14 @@ today = date.today()
 STYLE = """<style>
 .st-key-search [data-testid="stExpander"] { box-shadow:none; background:#F5F5F7; border-radius:10px; }
 .st-key-search [data-testid="stExpander"] summary { padding:10px 14px; }
+.hcard { background:#fff; border:1px solid #E5E5EA; border-radius:14px; padding:16px 20px; margin:4px 0 8px; }
+.hcard h3 { margin:0 0 4px; font-size:1.25rem; line-height:1.3; }
+.hcard .hmeta { color:#6E6E73; font-size:.9rem; }
+.hcard .hstars { color:#F5A623; letter-spacing:1px; }
+.hcard .hrow { display:flex; flex-wrap:wrap; gap:8px 32px; margin-top:12px; }
+.hcard .hrow div { min-width:120px; }
+.hcard .hrow b { display:block; font-size:1.35rem; }
+.hcard .hrow span { color:#6E6E73; font-size:.8rem; }
 </style>"""
 st.markdown(STYLE, unsafe_allow_html=True)
 HORIZON = 330  # Google Hotels prices about a year ahead
@@ -73,6 +83,8 @@ if len(saved):
     c[1].download_button("Download all (Excel)", excel_bytes(every), "hotels_collected.xlsx", width="stretch",
                          help="Every hotel price saved, one row per check-in day. The Database page has the full history, with every change.")
 
+if not len(saved):
+    st.info("No hotel prices saved yet: type your hotel and its city below, pick the dates and press Update prices.", icon=":material/hotel:")
 with st.container(border=True, key="search"):
     c = st.columns([3, 2, 1, 1])
     query = c[0].text_input("Hotel", "Steigenberger Frankfurt", key="ho-query", help="The hotel and its city, as you would type them into Google Hotels.")
@@ -207,6 +219,8 @@ checked = checked_sentence([("Google Hotels", p.groupby("day").fetched.max(), n)
                             if hkey else []), unit="nights")
 if checked:
     st.caption(checked)
+head = st.container()  # the chosen hotel's summary card, filled at the end once its place and rating are known
+me, spot = None, {}
 # --- the hotels around it, read once: their place (data/hotel_places.csv) and price each check-in day (data/hotel_nearby.csv) ----------
 places_path = gh.data_file("data/hotel_places.csv") or str(PLACES)
 pl = pd.read_csv(places_path) if os.path.exists(places_path) else pd.DataFrame()
@@ -425,19 +439,47 @@ if len(here):
                 sentence += "."
             st.markdown(sentence)
             mine_by_day = (s[main] if main else pd.Series(dtype=float)) * nights  # this hotel's own total, each check-in day
+            star = lambda v: "★" * int(v) if pd.notna(v) else ""
+            top = best_value(stay.rating.tolist(), stay.total.tolist(), stay.reviews.tolist())
             out = stay.assign(**{"Check-in": stay.day.map(lambda d: f"{pd.Timestamp(d):%a %-d %b}"),
                                  "Rating": stay.rating.map(lambda v: f"{v:.1f}" if pd.notna(v) else ""),
+                                 "Stars": stay.stars.map(star),
+                                 "Value": ["Best value" if i == top else "" for i in range(len(stay))],
                                  "saves": [mine_by_day.get(d) - t if pd.notna(mine_by_day.get(d)) else None for d, t in zip(stay.day, stay.total)]})
             total = f"€ for {int(nights)} night{'s' * (nights > 1)}"
             short = me.hotel.split(",")[0] if me is not None else "this hotel"
             out = out.rename(columns={"hotel": "Hotel", "price": "€ a night", "total": total, "km": "km away", "to_station": "km to station",
                                       "saves": "You save"})
             cols = ["Hotel", "Check-in", total] + (["€ a night"] if nights > 1 else []) + \
-                   (["You save"] if out["You save"].notna().any() else []) + ["Rating"] + \
+                   (["You save"] if out["You save"].notna().any() else []) + (["Stars"] if (out.Stars != "").any() else []) + ["Rating", "Value"] + \
                    [c_ for c_ in ("km away", "km to station") if c_ in out and out[c_].notna().any()]
             st.dataframe(out[cols], hide_index=True, width="stretch", height=min(36 * len(out) + 38, 400),
                          column_config={c_: st.column_config.NumberColumn(format="€%d") for c_ in cols if c_.startswith("€") or c_ == "You save"} |
                                        {c_: st.column_config.NumberColumn(format="%.1f") for c_ in ("km away", "km to station")})
+            st.caption("Best value: the highest guest rating per euro of the stay, among hotels rated 4.0 or more by at least 20 guests.")
             st.caption(f"You save: how much less the stay costs than at {short} checking in the same day (negative: it costs more). "
                        f"The room for {int(adults)} adult{'s' * (adults > 1)} as Google Hotels priced it on the day it was checked; the "
                        "total is the price a night times the nights. Taxes and fees the hotel adds at booking may not be included.")
+
+# --- summary card of the chosen hotel (top of the page) ----------------------------------------------------------------------------
+with head:
+    h_name = me.hotel if me is not None else (s.hotel.dropna().iloc[0] if "hotel" in s and s.hotel.notna().any() else filt.title())
+    meta = []
+    if me is not None and pd.notna(me.stars):
+        meta.append(f'<span class="hstars">{"★" * int(me.stars)}</span> {int(me.stars)}-star')
+    if me is not None and pd.notna(me.rating):
+        meta.append(f"{me.rating:.1f}/5 guest rating" + (f" ({int(me.reviews):,} reviews)" if pd.notna(me.reviews) else ""))
+    if me is not None and pd.notna(me.get("to_centre")):
+        meta.append(f"{me.to_centre:.1f} km to the centre")
+    if main:
+        col = pd.to_numeric(s[main], errors="coerce").dropna()
+        h_day, h_price = col.idxmin(), col.min()
+        facts = (f'<div class="hrow"><div><b>€{h_price:.0f}</b><span>cheapest night, checking in {ts(h_day)}</span></div>'
+                 f'<div><b>€{h_price * nights:,.0f}</b><span>whole stay: {int(nights)} night{"s" * (nights > 1)}, {int(adults)} adult{"s" * (adults > 1)}</span></div></div>')
+    else:
+        facts = '<div class="hmeta" style="margin-top:8px">No prices saved for these dates yet: press Update prices.</div>'
+    st.markdown(f'<div class="hcard"><h3>{escape(h_name)}</h3><div class="hmeta">{" · ".join(meta) or escape(query)}</div>{facts}</div>',
+                unsafe_allow_html=True)
+    if main:
+        st.link_button(f"Check it on Booking.com: {date.fromisoformat(h_day):%a %-d %b}",
+                       links.hotel_url(h_name, date.fromisoformat(h_day), int(nights), int(adults)), icon=":material/open_in_new:")
