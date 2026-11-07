@@ -20,6 +20,7 @@ import fetch_ahead as fa
 import flight_times
 import gh
 import miles_value
+import mix
 import network
 import overview as ov
 import price_insights as pi
@@ -402,6 +403,9 @@ if gq:
     args = (best, gq_best, out_s[span], a3_back, gq_out, gq_back, pax)
     st.markdown(sx.html_table(sx.head_to_head(*args)), unsafe_allow_html=True)
     st.markdown(f"**{e(sx.verdict(*args))}**")
+    if (m := mix.cheapest_mix(out_s[span], a3_back, gq_out, gq_back, stays, wdays)):  # AEGEAN one way, Sky Express the other
+        st.markdown(f"**{e(mix.sentence(m, pax))}**")
+        st.caption(mix.NOTE)
     st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
     st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
     st.markdown(sx.html_table(sx.table(sx.compare(out_s[span], gq_out))), unsafe_allow_html=True)
