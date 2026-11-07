@@ -430,7 +430,7 @@ else:
             legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if ret else [])
             hs = pi.trip_series(hist, legs, gcab)
             if note := pi.moved_note(hs, pax):  # one line: the chart of these dates is in "When to fly" below
-                st.caption(f"{note} The chart is under Price history.")
+                st.caption(f"{note}")
         # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
         # button fetches any other day
         flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
