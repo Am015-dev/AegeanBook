@@ -136,6 +136,9 @@ if rend and rend > today + timedelta(HORIZON):
 stay = (f"return, {min(nights)}–{max(nights)} nights" if len(nights) > 1 else f"return, {nights[0]} nights") if nights else "one way"
 route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
+sec_summary = st.container()  # filled once the figures below exist
+sec_prices = st.container()  # the chart, filled further down but shown first
+
 # both directions, always: Bilbao -> Athens also fetches Athens -> Bilbao (the way back of a return, or the same days for a one-way)
 legs = [(orig, dest, start, end), (dest, orig, rstart, rend) if nights else (dest, orig, start, end)]
 key = f"flights|{orig}|{dest}|{start}|{end}|{nonstop}|{rend}"
@@ -274,6 +277,7 @@ if pay == "miles" or collected:
 else:
     cash_col = st.container()
 with cash_col:
+    st.subheader("Compare airlines", anchor=False)
     st.markdown('<p class="group">Cash fares</p>', unsafe_allow_html=True)
     rows = [(f"Cheapest {kind} economy".replace("  ", " "), ev, es, ECONOMY), (f"Cheapest {kind} business".replace("  ", " "), bv, bs, BUSINESS)]
     if "skyexpress" in cabins:  # the same line for Sky Express, so the three read side by side
@@ -290,6 +294,7 @@ with cash_col:
         st.caption(mix.NOTE)
 if award_col:
     with award_col:
+        st.subheader("Award miles", anchor=False)
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
         st.caption("Miles+Bonus award seats, collected on the owner's computer; taxes not included.")
         award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
@@ -305,6 +310,26 @@ if award_col:
             award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
                                f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
         kpis(award_rows)
+with sec_summary:  # top row: the three numbers people come for, one line of context each
+    acab = st.session_state.get("cal-cabin", "economy")
+    av, asub = (eav, eas) if acab == "economy" else (bav, bas)
+    gqv, gqs = (best_trip("skyexpress") if nights else best("skyexpress")) if "skyexpress" in cabins else \
+        ("—", "Sky Express does not fly this route" if not gq_route else "Comparison is switched off")
+    span = f"lowest of the next {(end - start).days + 1} days"
+    sc = st.columns(3, gap="small")
+    for col_, (lab, val, sub) in zip(sc, [(f"Cheapest {kind} AEGEAN".replace("  ", " "), ev, f"{es} · {span}" if ev != "—" else es),
+                                          (f"Cheapest {kind} Sky Express".replace("  ", " "), gqv, gqs),
+                                          (f"Cheapest award, {acab}", av, asub if collected else "No award seats collected yet")]):
+        with col_.container(border=True):  # delta pills clip long text, so the context line is a plain caption
+            st.metric(lab, val)
+            st.caption(sub)
+    one = db.execute("SELECT nonstop, MIN(price) FROM prices WHERE orig=? AND dest=? AND cabin='economy' AND price IS NOT NULL AND day BETWEEN ? AND ? "
+                     "GROUP BY nonstop", (orig, dest, start.isoformat(), end.isoformat())).fetchall()
+    fares = {int(n): m for n, m in one}
+    st.caption("Nonstop vs with stops (economy, cheapest one way): "
+               + (f"nonstop from €{fares[1]:.0f}" if 1 in fares else "no nonstop fare saved")
+               + " · " + (f"with stops from €{fares[0]:.0f}" if 0 in fares else "no fare with stops saved (untick Nonstop only under Options, then Update prices)")
+               + f". Showing {'nonstop flights only' if nonstop else 'flights with or without stops'}.")
 pick = trips[trips.cabin == "economy"] if nights else near["economy"]  # the cheapest economy fare above, ready to book
 if len(pick):
     dep, ret = (date.fromisoformat(pick.iloc[0].depart), date.fromisoformat(pick.iloc[0].back)) if nights else (date.fromisoformat(pick.index[0]), None)
@@ -324,7 +349,8 @@ else:
 has_advice = bool(out[["economy", "business", "econ_miles", "biz_miles"]].notna().any().any())  # fares or award seats saved
 if has_advice:  # nothing saved yet (a search still running, or not started): no advice made of empty cards
     # What should I book? One answer per cabin for the trip type chosen at the top (one way or return): cash, miles or an Aegean Pass.
-    st.markdown('<p class="group">What should I book? Cash, miles or an Aegean Pass</p>', unsafe_allow_html=True)
+    st.markdown("### What should I book?")  # markdown (not st.subheader): tests look for this text there
+    st.markdown('<p class="group">Cash, miles or an Aegean Pass</p>', unsafe_allow_html=True)
     with st.expander("Assumptions: what a mile and each pass are worth"):
         per_k = st.number_input("My miles are worth (€ per 1,000)", min_value=1.0, max_value=50.0, value=10.0, step=0.5, key="mile_value",
                                 help="Miles are recommended when they save more than this per 1,000, cash otherwise. Set it to what you would "
@@ -391,9 +417,11 @@ if note := schedule_note(seen, orig, dest, nonstop):
     st.info(note, icon=":material/event_busy:")
 # only the tabs that apply: the award seats when paying with miles, the trip cost for a return once a hotel has prices saved
 saved_hotels = hotel_options(db) if nights else []
-names = ["Price chart"] + (["Award seats"] if pay == "miles" or collected else []) + ["Day by day"] + (["Trip cost"] if saved_hotels else [])
+names = (["Award seats"] if pay == "miles" or collected else []) + ["Day by day"] + (["Trip cost"] if saved_hotels else [])
+st.subheader("Award seats and day-by-day tables", anchor=False)
 tabs = dict(zip(names, st.tabs(names)))
-with tabs["Price chart"]:
+with sec_prices:
+    st.subheader("Prices", anchor=False)
     if view[["economy", "business"]].notna().any().any():
         st.markdown(f'<p class="card-title">{orig} → {dest}: the fare each day, the cheapest days are circled</p>' if nights else
                     '<p class="card-title">The AEGEAN fare each day; the cheapest days are circled</p>', unsafe_allow_html=True)
@@ -476,6 +504,8 @@ with tabs["Day by day"]:
         st.markdown(f'<p class="card-title">{orig} → {dest} by day</p>', unsafe_allow_html=True)
     st.dataframe(table, width="stretch")
     st.download_button("Download Excel", excel_bytes(table), f"aegean_{orig}_{dest}.xlsx")
+    st.download_button("Download CSV", table.to_csv().encode(), f"aegean_{orig}_{dest}.csv", mime="text/csv", key="fl-csv",
+                       help="The day-by-day fares shown above, as a CSV file.")
 if saved_hotels:
     with tabs["Trip cost"]:
         pick = st.selectbox("Hotel", range(len(saved_hotels)), key="trip-hotel", help="Only hotels with one-night prices saved are listed.",
