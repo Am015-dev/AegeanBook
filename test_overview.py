@@ -659,7 +659,7 @@ def test_overview_alert_link_carries_the_pass(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     assert not at.exception
     d10, d14 = date.today() + timedelta(10), date.today() + timedelta(14)
-    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Track this price: tell me when it drops")
+    alert = next(q for page, label, q in seen if page == "views/alerts.py" and label == "Track this price")
     when = f"{date.today() + timedelta(1)},{date.today() + timedelta(30)}"
     assert alert == {"route": "ATH-FRA", "cabin": "economy", "unit": "eur", "price": "210", "depart": d10.isoformat(), "back": d14.isoformat(),
                      "nights": "2-7", "trip": "return", "when": when}  # €60 out on day 10, €150 back 4 nights later, per adult; the bar's nights
@@ -809,7 +809,7 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     at = open_page("overview.py").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)
-    assert "When to fly" in text and not [x for x in at.expander if x.label in ("Best weekday to fly", "How far ahead to book")]  # in the open
+    assert "When to fly: cheapest weekdays and weeks" in [x.label for x in at.expander]  # folded under the dates
     text = " ".join(m.value for m in at.markdown)
     assert re.search(r"is the cheapest day to fly Athens → Frankfurt|No strong weekday pattern on Athens → Frankfurt", text)
     assert "next 2 weeks" in text or "Not enough weeks saved yet" in text
@@ -818,7 +818,7 @@ def test_overview_folds_the_insights_under_the_answer(tmp_path, monkeypatch):
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert not at.exception and "The average business fare by the weekday" in " ".join(c.value for c in at.caption)
     at.button_group(key="ov-grid-pay").set_value("miles").run()
-    assert not at.exception and "When to fly" not in " ".join(m.value for m in at.markdown)  # miles have no such pattern to show
+    assert not at.exception and "When to fly: cheapest weekdays and weeks" not in [x.label for x in at.expander]  # miles have no such pattern to show
 
 
 def test_overview_grid_in_miles(tmp_path, monkeypatch):

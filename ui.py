@@ -101,6 +101,9 @@ h1, h2, h3 {{ font-family: {FONT} !important; letter-spacing: -0.02em; color: {I
   .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ width:100% !important; }}
   .st-key-ov-answer .stLinkButton a[href*="aegeanair"] {{ box-shadow:0 6px 20px rgba(0,0,0,.18); }}
 }}
+/* on a phone the page links fold into the sidebar behind a bare "»": give it a name */
+@media (max-width: 640px) {{ [data-testid="stExpandSidebarButton"] {{ width:auto !important; padding:0 12px !important; }}
+  [data-testid="stExpandSidebarButton"]::after {{ content:"Menu"; margin-left:6px; font:600 .95rem {FONT}; color:{INK}; }} }}
 /* one type scale: markdown headings written in a page (## in a summary) step down from the page title instead of shouting over it */
 [data-testid="stMarkdownContainer"] h1:not(.page-head h1) {{ font-size:1.45rem; line-height:1.25; margin:1.2rem 0 .5rem; padding:0; }}
 [data-testid="stMarkdownContainer"] h2 {{ font-size:1.2rem; line-height:1.3; margin:1.1rem 0 .4rem; padding:0; }}

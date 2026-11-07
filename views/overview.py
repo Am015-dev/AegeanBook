@@ -130,7 +130,7 @@ if q.to_dict() != st.session_state.get("ov-url"):  # a shared link, the Expert, 
     if got:
         o = got.get("from") or st.session_state.get("ov-grid-orig") or froms[0]
         for k, v in (("ov-grid-orig", got.get("from")), (f"ov-grid-dest-{o}", got.get("to")), ("ov-when", got.get("when")),
-                     ("ov-trip", got.get("trip")), ("ov-nights", got.get("nights")), ("ov-grid-cabin", got.get("cabin")),
+                     ("ov-trip", got.get("trip")), ("ov-nights", got.get("nights") and tuple(min(n, 21) for n in got["nights"])), ("ov-grid-cabin", got.get("cabin")),
                      ("ov-grid-pay", got.get("pay")), ("ov-pax", got.get("pax"))):
             if v is not None:
                 st.session_state[k] = v
@@ -164,7 +164,7 @@ trip = c[0].pills("Trip", ["return", "oneway"], default="return", format_func={"
                   key="ov-trip", on_change=touched)
 nights = (2, 7)
 if trip == "return":
-    nights = c[1].slider("Nights", 1, 60, (2, 7), key="ov-nights", on_change=touched,
+    nights = c[1].slider("Nights", 1, 21, (2, 7), key="ov-nights", on_change=touched,
                          help="How long to stay, from the shortest to the longest you would accept: 2 to 7 for a city break, 14 to 21 for a holiday.")
 gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="ov-grid-cabin",
                   on_change=touched)
@@ -248,18 +248,25 @@ if dest == ANY:
             fig = go.Figure()
             fig.add_scattermap(lat=[places.lat[orig]], lon=[places.lng[orig]], mode="markers", marker=dict(size=14, color=INK),
                                hovertemplate=f"<b>{e(tp.city(orig))}</b><extra></extra>", showlegend=False)
-            fig.add_scattermap(lat=pts.lat, lon=pts.lng, mode="markers+text", customdata=list(on_map.dest),
-                               text=[f"{tp.city(d)} {money(v * pax)}" for d, v in zip(on_map.dest, on_map.price)], textposition="top center",
-                               textfont=dict(size=12, color=INK), marker=dict(size=13, color=["#0E7A53" if c else colour for c in cheap]),
-                               hovertemplate="<b>%{text}</b><br>click to see the dates<extra></extra>", showlegend=False)
+            # ponytail: crowded labels overlapped and ran off a phone's edge: only the 8 cheapest places carry a label, alternately above and
+            # below their dot; every place keeps its hover (and tap) text
+            full = [f"{tp.city(d)} {money(v * pax)}" for d, v in zip(on_map.dest, on_map.price)]
+            rank = on_map.price.rank(method="first").tolist()
+            for odd, pos in ((True, "top center"), (False, "bottom center")):  # one trace per label side (textposition is per trace)
+                m = [bool(int(r) % 2) == odd for r in rank]
+                fig.add_scattermap(lat=pts.lat[m], lon=pts.lng[m], mode="markers+text", customdata=list(on_map.dest[m]),
+                                   hovertext=[t for t, k in zip(full, m) if k], text=[t if r <= 8 else "" for t, r, k in zip(full, rank, m) if k],
+                                   textposition=pos, textfont=dict(size=11, color=INK),
+                                   marker=dict(size=13, color=["#0E7A53" if c else colour for c, k in zip(cheap, m) if k]),
+                                   hovertemplate="<b>%{hovertext}</b><br>click to see the dates<extra></extra>", showlegend=False)
             lat, lng = list(pts.lat) + [places.lat[orig]], list(pts.lng) + [places.lng[orig]]
             span = max(max(lat) - min(lat), (max(lng) - min(lng)) / 1.6, 1)
             fig.update_layout(height=430, margin=dict(l=0, r=0, t=0, b=0), font=dict(family=FONT),
                               map=dict(style="carto-positron", center=dict(lat=(max(lat) + min(lat)) / 2, lon=(max(lng) + min(lng)) / 2),
-                                       zoom=max(1.5, min(7, 7.6 - math.log2(span * 1.3)))))
+                                       zoom=max(1.5, min(7, 7.3 - math.log2(span * 1.3)))))
             st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "scrollZoom": True}, key="xp-map", on_select=pick_on_map,
                             selection_mode="points")
-            st.caption("Green: the cheapest third of the places. Click a place to see its dates.")
+            st.caption("Green: the cheapest third of the places. The eight cheapest are labelled; tap any dot for its price and dates.")
         when_ = lambda r: (f"{r.depart:%a %d %b} → {r.back:%a %d %b} · {int(r.nights)} nights" if pd.notna(r.back) else f"{r.depart:%a %d %b} · one way")
         ndays = (p.end - p.start).days + 1
         kpis([(f"{tp.city(r.dest)} · {r.dest}", money(r.price * pax), f"{when_(r)} · flights on {r.days} of {ndays} days · usually {money(r.typical * pax)}", colour)
@@ -400,21 +407,20 @@ else:
                  "when": f"{p.start},{p.end}"}
         if ret:
             alert["back"] = best["back"].isoformat()
-        c = st.columns(2)
+        c = st.columns(4)  # Share, calendar, track, expert: one compact row under the two main buttons
         try:
             link = st.context.url.split("?")[0] + "?" + urlencode(url_q)
         except Exception:  # no browser URL (tests): the part after the address still works
             link = "?" + urlencode(url_q)
-        c[0].popover("Share this search", icon=":material/share:", width="stretch").code(link, language=None, wrap_lines=True)
+        c[0].popover("Share", icon=":material/share:", width="stretch").code(link, language=None, wrap_lines=True)
         trip_days = [(best["depart"], f"{orig} → {dest}")] + ([(best["back"], f"{dest} → {orig}")] if ret else [])
-        c[1].download_button("Add to calendar", share.ics([(d, f"Flight {r} (AEGEAN, from {money(best['price'] * pax)})",
+        c[1].download_button("Calendar", share.ics([(d, f"Flight {r} (AEGEAN, from {money(best['price'] * pax)})",
                                                           f"Book: {booking.aegean_url(orig, dest, **links)}") for d, r in trip_days]),
                              file_name=f"flight-{orig}-{dest}-{best['depart']:%Y%m%d}.ics", mime="text/calendar", width="stretch",
                              icon=":material/event:")
-        c = st.columns(2)
         for col, page, label, icon, params in (
-                (c[0], "views/alerts.py", "Track this price: tell me when it drops", ":material/notifications_active:", alert),
-                (c[1], "views/expert.py", "Ask the expert about it", ":material/forum:",  # every filter the pass used, so the Expert opens on it
+                (c[2], "views/alerts.py", "Track this price", ":material/notifications_active:", alert),
+                (c[3], "views/expert.py", "Ask the expert", ":material/forum:",  # every filter the pass used, so the Expert opens on it
                  {"from": orig, "to": dest, "cabin": gcab, "pay": pay, "nights": f"{nights[0]}-{nights[1]}", "trip": trip, "when": f"{p.start},{p.end}"})):
             try:
                 col.page_link(page, label=label, icon=icon, query_params=params)
@@ -424,7 +430,7 @@ else:
             legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if ret else [])
             hs = pi.trip_series(hist, legs, gcab)
             if note := pi.moved_note(hs, pax):  # one line: the chart of these dates is in "When to fly" below
-                st.caption(f"{note} The chart is under When to fly.")
+                st.caption(f"{note} The chart is under Price history.")
         # the flights of the pass's days, Google Flights' list with a time-of-day filter: saved with the fares for the cheapest days, the
         # button fetches any other day
         flight_times.render(orig, dest, gcab, best["depart"], best["back"], f"details-{orig}{dest}{gcab}")
@@ -438,20 +444,10 @@ else:
                 st.caption(f"With {h['name']} ({h['adults']} adults) for those {best['nights']} nights: €{cost:,.0f}, "
                            f"so €{best['price'] * pax + cost:,.0f} for the whole trip.")
 
-# --- cash or miles: for each cabin, the day an award seat replaces the most cash in the period, and whether that beats paying ---------------
-if dest != ANY:
-    am, at_, _ = load_award(db, orig, dest, True, p.start, p.end)
-    if len(am):
-        st.markdown('<p class="group">Cash or miles?</p>', unsafe_allow_html=True)
-        lines = [miles_value.sentence(cab.capitalize(), miles_value.best_use(cash_by_day(db, orig, dest, cab, True, p.start, p.end),
-                                                                            am.get(cab, pd.Series(dtype=float)), at_.get(cab)))
-                 for cab in ("economy", "business")]
-        st.markdown("\n".join(f"- {e(l)}" for l in lines))
-        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}, {p.name}: AEGEAN Miles+Bonus award seats as last collected, against the cash "
-                   f"fare the same day. Miles count as worth €{miles_value.WORTH:.0f} for each 1,000; the Flights page lets you change that.")
-
 # --- Sky Express against AEGEAN (the toggle under the bar), economy only: one table a traveller can read in one look -----------------
+day_by_day = None
 if gq:
+    st.markdown('<p class="group">Compare</p>', unsafe_allow_html=True)
     st.markdown('<p class="group">AEGEAN or Sky Express?</p>', unsafe_allow_html=True)
     span = (out_s.index >= p.start.isoformat()) & (out_s.index <= p.end.isoformat())  # iso days sort as text
     a3_back = back_s[(back_s.index >= p.start.isoformat()) & (back_s.index <= (p.end + timedelta(max(stays))).isoformat())] if back_s is not None else None
@@ -464,39 +460,21 @@ if gq:
         st.markdown(f"**{e(mix.sentence(m, pax))}**")
         st.caption(mix.NOTE)
     st.caption(f"Economy, nonstop, {who}, as last checked. Pick other nights or days above and both airlines follow.")
-    st.markdown(f'<p class="group">Day by day, one way {e(orig)} → {e(dest)}</p>', unsafe_allow_html=True)
-    st.markdown(sx.html_table(sx.table(sx.compare(out_s[span] * pax, gq_out * pax))), unsafe_allow_html=True)
+    day_by_day = (f"Day by day, one way {orig} → {dest}", sx.html_table(sx.table(sx.compare(out_s[span] * pax, gq_out * pax))))  # shown folded, below
 
-# --- when to fly: the weekday, how far ahead, and how this exact fare has moved; in the open, right under the answer ---------------------
-if best is not None and pay == "cash" and len(out_s):
-    label, config = f"{tp.city(orig)} → {tp.city(dest)}", {"displayModeBar": False}
-    wd, ah = weekday_stats(out_s), ahead_stats(out_s, today)
-    moved = {}
-    if hist is not None:
-        moved = {"out": (f"Out {best['depart']:%a %d %b}", ECONOMY, pi.series(hist, orig, dest, gcab, best["depart"].isoformat()))}
-        if best["back"] is not None:
-            moved["back"] = (f"Back {best['back']:%a %d %b}", MUTED, pi.series(hist, dest, orig, gcab, best["back"].isoformat()))
-        if max(len(x) for _, _, x in moved.values()) < 3:  # one or two points are not a line
-            moved = {}
-    st.markdown('<p class="group">When to fly</p>', unsafe_allow_html=True)
-    cols = st.columns(3 if moved else 2, gap="medium")
-    with cols[0]:
-        st.markdown(f'<p class="card-title">{e(weekday_takeaway(wd, label))}</p>', unsafe_allow_html=True)
-        if len(wd) >= 3:
-            st.plotly_chart(weekday_chart(wd, colour).update_layout(height=220), width="stretch", config=config)
-        st.caption(f"The average {gcab} fare by the weekday you leave, over the {len(out_s)} days with a fare saved.")
-    with cols[1]:
-        st.markdown(f'<p class="card-title">{e(ahead_takeaway(ah, label))}</p>', unsafe_allow_html=True)
-        if len(ah) >= 2:
-            st.plotly_chart(ahead_chart(ah, colour).update_layout(height=220), width="stretch", config=config)
-        st.caption("What a flight costs by how many weeks away it is, from today's fares for different dates.")
-    if moved:
-        with cols[2]:
-            first = min(x.index.min() for _, _, x in moved.values() if len(x))
-            st.markdown(f'<p class="card-title">How this fare has moved since {pd.Timestamp(first):%-d %b}</p>', unsafe_allow_html=True)
-            fig = price_chart(pd.DataFrame({k: x for k, (_, _, x) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
-            st.plotly_chart(fig.update_layout(height=220, legend=dict(y=1.25)), width="stretch", config=config)
-            st.caption("The fare for those exact days each time it was checked. The ring marks the lowest it has been.")
+# --- cash or miles: for each cabin, the day an award seat replaces the most cash in the period, and whether that beats paying ---------------
+if dest != ANY:
+    am, at_, _ = load_award(db, orig, dest, True, p.start, p.end)
+    if len(am):
+        if not gq:
+            st.markdown('<p class="group">Compare</p>', unsafe_allow_html=True)
+        st.markdown('<p class="group">Cash or miles?</p>', unsafe_allow_html=True)
+        lines = [miles_value.sentence(cab.capitalize(), miles_value.best_use(cash_by_day(db, orig, dest, cab, True, p.start, p.end),
+                                                                            am.get(cab, pd.Series(dtype=float)), at_.get(cab)))
+                 for cab in ("economy", "business")]
+        st.markdown("\n".join(f"- {e(l)}" for l in lines))
+        st.caption(f"One way {tp.city(orig)} → {tp.city(dest)}, {p.name}: AEGEAN Miles+Bonus award seats as last collected, against the cash "
+                   f"fare the same day. Miles count as worth €{miles_value.WORTH:.0f} for each 1,000; the Flights page lets you change that.")
 
 # --- the dates behind it ------------------------------------------------------------------------------------------------------------------
 if best is not None and back_s is not None and len(back_s.dropna()):
@@ -539,6 +517,42 @@ elif best is not None and trip == "oneway":
 elif best is not None:
     st.caption(f"Only {tp.city(orig)} → {tp.city(dest)} is saved, so return trips can't be priced. Search {tp.city(dest)} → {tp.city(orig)} on the "
                "Flights page to add them.")
+
+if day_by_day:
+    with st.expander("Every day's fare"):
+        st.markdown(f'<p class="group">{e(day_by_day[0])}</p>', unsafe_allow_html=True)
+        st.markdown(day_by_day[1], unsafe_allow_html=True)
+
+# --- when to fly: the weekday, how far ahead, and how this exact fare has moved; folded under the dates ---------------------
+if best is not None and pay == "cash" and len(out_s):
+    label, config = f"{tp.city(orig)} → {tp.city(dest)}", {"displayModeBar": False}
+    wd, ah = weekday_stats(out_s), ahead_stats(out_s, today)
+    moved = {}
+    if hist is not None:
+        moved = {"out": (f"Out {best['depart']:%a %d %b}", ECONOMY, pi.series(hist, orig, dest, gcab, best["depart"].isoformat()))}
+        if best["back"] is not None:
+            moved["back"] = (f"Back {best['back']:%a %d %b}", MUTED, pi.series(hist, dest, orig, gcab, best["back"].isoformat()))
+        if max(len(x) for _, _, x in moved.values()) < 3:  # one or two points are not a line
+            moved = {}
+    with st.expander("When to fly: cheapest weekdays and weeks"):
+        cols = st.columns(2, gap="medium")
+        with cols[0]:
+            st.markdown(f'<p class="card-title">{e(weekday_takeaway(wd, label))}</p>', unsafe_allow_html=True)
+            if len(wd) >= 3:
+                st.plotly_chart(weekday_chart(wd, colour).update_layout(height=220), width="stretch", config=config)
+            st.caption(f"The average {gcab} fare by the weekday you leave, over the {len(out_s)} days with a fare saved.")
+        with cols[1]:
+            st.markdown(f'<p class="card-title">{e(ahead_takeaway(ah, label))}</p>', unsafe_allow_html=True)
+            if len(ah) >= 2:
+                st.plotly_chart(ahead_chart(ah, colour).update_layout(height=220), width="stretch", config=config)
+            st.caption("What a flight costs by how many weeks away it is, from today's fares for different dates.")
+    if moved:
+        with st.expander("Price history"):
+            first = min(x.index.min() for _, _, x in moved.values() if len(x))
+            st.markdown(f'<p class="card-title">How this fare has moved since {pd.Timestamp(first):%-d %b}</p>', unsafe_allow_html=True)
+            fig = price_chart(pd.DataFrame({k: x for k, (_, _, x) in moved.items()}).sort_index(), {k: (l, c) for k, (l, c, _) in moved.items()})
+            st.plotly_chart(fig.update_layout(height=220, legend=dict(y=1.25)), width="stretch", config=config)
+            st.caption("The fare for those exact days each time it was checked. The ring marks the lowest it has been.")
 
 with st.expander("Every route with fares saved, cheapest one-way in the next 90 days"):  # the long table, out of the way of the answer
     every_route()
