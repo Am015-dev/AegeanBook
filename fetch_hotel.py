@@ -33,8 +33,8 @@ KEEP = 30  # days a fetch is kept, as long as the app keeps it (db.RETENTION_DAY
 def search(env):
     """The search from the environment, checked: dict(query, filt, hkey, nights, adults, ranges=[(first, last)], booking)."""
     query, filt = env.get("QUERY", "").strip()[:120], env.get("FILT", "").strip()[:120]
-    if not query or not filt:
-        raise ValueError("QUERY and FILT are needed")
+    if not query:  # FILT may be empty: a city search, every hotel Google lists there (hotel_places.csv, hotel_nearby.csv)
+        raise ValueError("QUERY is needed")
     nights, adults = int(env.get("NIGHTS", "1")), int(env.get("ADULTS", "2"))
     if not (1 <= nights <= 14 and 1 <= adults <= 6):
         raise ValueError("nights 1-14, adults 1-6")
@@ -172,7 +172,7 @@ def fetch(s, passes=3, pause=90, google=None, rate=booking_rate, heat=heatmap_ra
             if not failed or n == passes - 1:
                 break
             time.sleep(pause)  # lets a Google rate limit cool down
-    if not s["hkey"] and places:
+    if not s["hkey"] and places and s["filt"]:  # a city search names no hotel to look up
         s["hkey"] = tripadvisor_key(s, places, find=find) or ""
         for r in rows:
             r["hkey"] = s["hkey"]

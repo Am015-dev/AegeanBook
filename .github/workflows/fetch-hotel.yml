@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       query: {description: "What you would type into Google Hotels", required: true}
-      filt: {description: "Part of the hotel's name", required: true}
+      filt: {description: "Part of the hotel's name; empty for every hotel of a city search", default: ""}
       hkey: {description: "TripAdvisor key, e.g. g187337-d202275 (optional)", default: ""}
       nights: {description: "Nights", default: "1"}
       adults: {description: "Adults", default: "2"}
