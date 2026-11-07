@@ -10,6 +10,7 @@ import streamlit as st
 import booking
 import gh
 import miles_value
+import mix
 import network
 import skyexpress as sx
 from collector import Airline, fetch_range, gaps
@@ -284,6 +285,9 @@ with cash_col:
             rows.append(("Cheapest of the two" if saving else "Same price", f"{'Sky Express' if saving > 0 else 'AEGEAN'}" if saving else "—",
                          f"€{abs(saving):,.0f} less than {'AEGEAN' if saving > 0 else 'Sky Express'}" if saving else "AEGEAN and Sky Express cost the same", MUTED))
     kpis(rows)
+    if nights and "skyexpress" in cabins and "skyexpress" in back and (m := mix.cheapest_mix(view.economy, back.economy, view.skyexpress, back.skyexpress, nights)):
+        st.markdown(f"**{mix.sentence(m)}**")  # AEGEAN one way, Sky Express the other, when it beats both
+        st.caption(mix.NOTE)
 if award_col:
     with award_col:
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
