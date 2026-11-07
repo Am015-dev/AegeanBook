@@ -17,12 +17,18 @@ if runs.empty:
 answered = runs.ok + runs["empty"]
 lookups = runs.ok + runs["empty"] + runs.failed
 rate = answered.sum() / max(1, lookups.sum())
-kpis([("Updates", f"{len(runs)}", f"Flights {(runs.page == 'flights').sum()} · Hotels {(runs.page == 'hotel').sum()} · Daily {(runs.page == 'daily').sum()}", ECONOMY),
-      ("Lookups", f"{int(lookups.sum()):,}", f"{int(runs.ok.sum()):,} priced · {int(runs['empty'].sum()):,} nothing found", MUTED),
-      ("Answered", f"{rate:.0%}", f"{int(runs.failed.sum()):,} failed (Google or Xotelo did not answer)",
-       ECONOMY if rate >= 0.9 else TIER_COLORS["high"]),
-      ("Typical update", f"{runs.seconds.median():.0f} s" if runs.seconds.notna().any() else "—",
-       f"slowest {runs.seconds.max():.0f} s" if runs.seconds.notna().any() else "only daily runs so far", MUTED)])
+names = {"flights": "Flights searches", "hotel": "Hotel searches", "daily": "Morning runs"}
+by_page = [f"{names.get(page, 'Other searches')} {n}" for page, n in runs.page.map(lambda x: x if x in names else "other").value_counts()
+           .reindex(["flights", "hotel", "daily", "other"]).dropna().astype(int).items()]  # only kinds that happened, none as "Flights 0"
+timed = runs.seconds[runs.seconds > 0]  # morning runs record no duration, and a 0 is "not measured", never "0 seconds"
+items = [("Updates", f"{len(runs)}", " · ".join(by_page), ECONOMY),
+         ("Lookups", f"{int(lookups.sum()):,}", f"{int(runs.ok.sum()):,} priced · {int(runs['empty'].sum()):,} nothing found", MUTED),
+         ("Answered", f"{rate:.0%}", f"{int(runs.failed.sum()):,} failed (Google or Xotelo did not answer)",
+          ECONOMY if rate >= 0.9 else TIER_COLORS["high"])]
+if len(timed):
+    items.append(("Typical search time", (f"{timed.median():.0f} s" if timed.median() >= 0.5 else "under 1 s"),
+                  (f"slowest {timed.max():.0f} s" if timed.max() >= 0.5 else "slowest under 1 s") + " (searches started on this site)", MUTED))
+kpis(items)
 
 st.markdown('<p class="card-title">Each update: priced, nothing found, failed</p>', unsafe_allow_html=True)
 r = runs.sort_values("started")

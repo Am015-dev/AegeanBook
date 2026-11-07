@@ -400,7 +400,7 @@ def test_return_search_end_to_end_and_statistics(tmp_path, monkeypatch):
     assert not at.exception
     st_page = AppTest.from_file(os.path.join(here, "views/stats.py"), default_timeout=60).run()
     text = " ".join(m.value for m in st_page.markdown)
-    assert not st_page.exception and "Updates" in text and "Flights 1" in text
+    assert not st_page.exception and "Updates" in text and "Flights searches 1" in text
     jobs.JOBS.clear()
 
 
@@ -756,7 +756,10 @@ def test_digest_lists_changes_and_ignores_first_sightings(tmp_path):
                  "2026-11-21,ATH,FRA,economy,,1,2026-10-30T07:00:00\n"                  # the seats went
                  "2026-11-22,ATH,FRA,economy,9032,1,2026-10-29T07:00:00\n"
                  "2026-11-22,ATH,FRA,economy,9032,1,2026-10-30T07:00:00\n")             # same miles, only the taxes changed: not news
+    p.write_text(p.read_text() + "2026-10-01,ATH,FRA,economy,50,calendar,2026-10-29T07:00:00,1\n"
+                 "2026-10-01,ATH,FRA,economy,40,calendar,2026-10-30T07:00:00,1\n")     # a past day: never listed
     md = digest.build(str(tmp_path))
+    assert "01 Oct" not in md
     assert "Sat 21 Nov, economy: was 9,032 miles" in md and "Sun 22 Nov" not in md
     assert md.startswith("# What changed on 30 Oct 2026")
     assert "Wed 18 Nov, economy: \u20ac86 \u2192 \u20ac79 (\u2212\u20ac7)" in md and "\u20ac100 \u2192 \u20ac120 (+\u20ac20)" in md

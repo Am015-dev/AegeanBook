@@ -14,10 +14,12 @@ import streamlit as st
 import alert_store as store
 import alerts
 import deals
+import network
 import overview as ov
 import trip_plan as tp
 from db import connect
 from layout import page_head
+from ui import aegean_rows
 
 if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
@@ -127,9 +129,35 @@ if "route" in q:  # from the Overview's boarding pass ("Alert me if it gets chea
     q.clear()
 day = lambda d: f"{d:%a %d %b}"
 
+if not token:  # say so first, before anyone fills in a form that cannot be saved
+    st.warning("Price alerts aren't switched on for this site yet, so an alert can't be created here. "
+               "The current cheapest prices are on the Overview page and below.")
+    soon = ov.legs(db, today, 30)  # the Overview's default window: the next 30 days
+    rows = sorted(((min(float(x.min()) for x in f_.values() if len(x)), k) for k, f_ in soon.items() if any(len(x) for x in f_.values())))
+    if rows:
+        st.markdown('<p class="group">Cheapest one-way fares now, next 30 days</p>', unsafe_allow_html=True)
+        st.markdown("\n".join(f"- {tp.city(k[0])} → {tp.city(k[1])}: from €{v:,.0f}" for v, k in rows[:12]))
+    with st.expander("For the site owner: how to switch alerts on"):
+        st.markdown("The app's owner adds a GitHub token once (see the README, “Price alerts”). Until then the owner can still create an alert "
+                    "as a GitHub issue with the link below.")
+        try:  # names only, never values: tells the owner whether the app sees the secret at all
+            names = ", ".join(sorted(st.secrets.keys())) or "none"
+        except Exception:
+            names = "none (no secrets saved)"
+        st.caption(f"Secrets this app can see: {names}. The token goes in the app's Streamlit secrets (not GitHub's), as GITHUB = \"github_pat_...\".")
+        v0, k0 = rows[0] if rows else (100, next(iter(far)))
+        st.link_button("Create an example alert on GitHub", alerts.new_issue_link(k0[0], k0[1], "economy", "eur", int(v0 // 10 * 10) or 10, "", "", "oneway"))
+    st.stop()
+
+
 with st.container(border=True, key="search"):
     c = st.columns([2, 1, 1])
-    leg = c[0].selectbox("Route", list(far), format_func=lambda k: f"{tp.city(k[0])} → {tp.city(k[1])}", key="al-leg")
+    net, home = network.current(), network.home_airports("A3")  # like the Overview: every pair AEGEAN is not known to skip
+    known = {r["iata"] for r in aegean_rows()}
+    more = [(o, d) for o in dict.fromkeys(o for o, _ in far) for d in sorted(known, key=tp.city)
+            if d != o and (o, d) not in far and network.flies(net, "A3", o, d, home) is not False]
+    leg = c[0].selectbox("Route", list(far) + more, key="al-leg",
+                         format_func=lambda k: f"{tp.city(k[0])} → {tp.city(k[1])}" + ("" if k in far else " · no fares saved yet"))
     cabin = c[1].pills("Cabin", ["economy", "business"], default="economy", format_func=str.capitalize, required=True, key="al-cabin")
     unit = c[2].pills("Pay with", ["eur", "miles"], default="eur", format_func={"eur": "Cash €", "miles": "Miles"}.get, required=True, key="al-unit")
     c = st.columns([1, 1.5, 1.5])
@@ -167,8 +195,11 @@ with st.container(border=True, key="search"):
     limit = c[0].number_input("Alert me below", min_value=1, step=step, value=max(value, 1), key=f"al-limit-{leg[0]}{leg[1]}-{cabin}-{unit}-{trip}")
     kind = "return" if trip == "return" else "one way"
     if now:
-        c[1].caption(f"Cheapest now: {money(now['price'])} {kind}, leave {day(now['depart'])}"
+        c[1].caption(f"Cheapest {kind} {when_text(start, end)} now: {money(now['price'])}, leave {day(now['depart'])}"
                      + (f", back {day(now['back'])} ({now['nights']} nights)" if now["back"] else "") + ".")
+    elif leg not in far:
+        c[1].caption("No fares are saved for this route yet, so nothing can be compared and the alert can't fire until they are: "
+                     "search it on the Flights page first.")
     elif trip == "return":
         c[1].caption("No return trips saved for those dates and nights yet, so there is nothing to compare with. "
                      "The alert still runs every morning.")
@@ -193,18 +224,9 @@ with st.container(border=True, key="search"):
         st.code(topic, language=None)
         st.caption("Keep it to yourself: anyone who knows the topic can read its notifications. "
                    f"On a computer you can also open ntfy.sh/{topic} in the browser.")
-    go = st.button("Create the alert", type="primary", icon=":material/notifications:", disabled=not token)
+    go = st.button("Create the alert", type="primary", icon=":material/notifications:")
 
-if not token:
-    st.info("Alerts for visitors are not switched on yet. The app's owner adds a GitHub token once (see the README, “Price alerts”). "
-            "Until then the owner can still create this alert as a GitHub issue:")
-    try:  # names only, never values: tells the owner whether the app sees the secret at all
-        names = ", ".join(sorted(st.secrets.keys())) or "none"
-    except Exception:
-        names = "none (no secrets saved)"
-    st.caption(f"Secrets this app can see: {names}. The token goes in the app's Streamlit secrets (not GitHub's), as GITHUB = \"github_pat_...\".")
-    st.link_button("Create the alert on GitHub", alerts.new_issue_link(leg[0], leg[1], cabin, unit, limit, start, end, trip, nights))
-elif go:
+if go:
     try:
         n, code = store.create(token, leg[0], leg[1], cabin, unit, limit, start, end, email=email, ntfy=topic, trip=trip, nights=nights)
     except store.AlertError as err:

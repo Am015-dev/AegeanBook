@@ -350,8 +350,7 @@ def test_briefing_is_asked_once_per_search_and_day_and_falls_back_to_the_plain_s
     assert len(asked) == 2  # another search, another briefing
     ex.briefing(f, ("gemini", "g"), "2026-10-31")
     assert len(asked) == 3  # a new day, a new briefing
-    assert ex.briefing(f, None, "2026-10-31") == (plain, "Written from the saved fares. With an AI key the expert puts it in its own words "
-                                                          "and answers questions.")
+    assert ex.briefing(f, None, "2026-10-31") == (plain, "Written from the saved fares.")
     assert len(asked) == 3  # without a key the plain sentences cost nothing
 
     def broken(history, facts, cfg):
@@ -464,10 +463,11 @@ def test_expert_page_setup_briefing_and_a_follow_up_conversation(tmp_path, monke
     open_page = pages(tmp_path, monkeypatch, None)
     seed(tmp_path / "tracker.db")
     at = open_page("expert.py").run()
-    assert not at.exception and "needs an AI key" in at.info[0].value and not at.chat_input
+    assert not at.exception and "Typed questions are off on this site; pick a question" in at.info[0].value and not at.chat_input
+    assert "For the site owner: how to switch typed questions on" in [x.label for x in at.expander]
     text = " ".join(m.value for m in at.markdown)  # no key: the briefing is still there, built in Python from the Overview's numbers
     assert "The cheapest economy return from Athens to Frankfurt with these filters is €210: leave " in text and "4 nights" in text
-    assert "Written from the saved fares. With an AI key" in at.caption[0].value
+    assert "Written from the saved fares." in at.caption[0].value
     # the suggested questions are there without a key, answered from the facts the moment one is clicked, and the pill clears again
     today = date.today()
     pills = at.button_group(key="expert-ask")

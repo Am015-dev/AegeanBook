@@ -148,7 +148,9 @@ def picked():
 
 asks = ex.questions(f)
 if asks:
-    st.markdown('<p class="group">Ask about it</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="group">{"Ask about it" if cfg else "Pick a question"}</p>', unsafe_allow_html=True)
+    if not cfg:
+        st.info("Typed questions are off on this site; pick a question. Each is answered from the prices saved by the daily run.")
     st.pills("Suggested questions", asks, key="expert-ask", on_change=picked, label_visibility="collapsed")
 for m in chat:
     show(m["role"], m["content"])
@@ -164,11 +166,12 @@ if cfg:
     if q:
         answer(q, data)
 else:
-    st.info("The expert needs an AI key, set once by the app's owner, to explain in its own words and answer typed questions.")
-    st.markdown("**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
-                "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
-                "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are set, "
-                f"the free Gemini key is used. Either way the app stops after {ex.MAX_PER_DAY} questions a day.")
+    with st.expander("For the site owner: how to switch typed questions on"):
+        st.markdown("Typed questions and the AI-written briefing need an API key, set once in the app's secrets.\n\n"
+                    "**Free:** create a Google Gemini key at aistudio.google.com (no card needed) and add `GEMINI_API_KEY = \"...\"` under "
+                    "**Settings → Secrets** of this app on Streamlit Cloud.\n\n"
+                    "**Paid alternative:** Claude Haiku, about €0.001 a question: add `ANTHROPIC_API_KEY = \"...\"` instead. When both are set, "
+                    f"the free Gemini key is used. Either way the app stops after {ex.MAX_PER_DAY} questions a day.")
 if chat and st.button("New conversation", icon=":material/refresh:"):
     chat.clear()
     st.rerun()

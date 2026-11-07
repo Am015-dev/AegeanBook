@@ -32,7 +32,7 @@ def find_changes(rows, value):
     last, out = {}, []
     for r in rows:
         k = (r.get("day"), r.get("orig"), r.get("dest"), r.get("cabin"), r.get("nonstop"))
-        if r["fetched"][:10] == latest and k in last:
+        if r["fetched"][:10] == latest and k in last and (r.get("day") or "") >= latest:  # a day before the run is already flown: not news
             out.append((r, last[k], _num(r.get(value))))
         last[k] = _num(r.get(value))
     return out

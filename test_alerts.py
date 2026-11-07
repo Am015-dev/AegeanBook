@@ -248,7 +248,9 @@ def page(tmp_path, monkeypatch):
 def test_alerts_page_without_and_with_a_token(page, monkeypatch):
     import alert_store as store
     at = page(token=None).run()
-    assert not at.exception and "not switched on yet" in at.info[0].value  # no token: the owner's GitHub link instead
+    assert not at.exception and "Price alerts aren't switched on for this site yet" in at.warning[0].value  # said first, no form
+    assert not at.button and not at.text_input and "For the site owner: how to switch alerts on" in [x.label for x in at.expander]
+    assert "from €" in " ".join(m.value for m in at.markdown)  # what still works: the current cheapest prices
     made = []
     monkeypatch.setattr(store, "create", lambda token, *a, **k: (made.append((a, k)), (12, "c0de"))[1])
     monkeypatch.setattr(store, "mine", lambda token, kind, contact: [] if not made else [
@@ -262,7 +264,7 @@ def test_alerts_page_without_and_with_a_token(page, monkeypatch):
     assert not at.exception and "Made alerts before?" in at.caption[-1].value  # nothing proven yet: no list
     sentence = [m.value for m in at.markdown if "Tell me when" in m.value][0]
     assert "Tell me when Athens → Frankfurt economy drops below €210 return (2–7 nights), leaving in the next 90 days." in sentence
-    assert "Cheapest now: €210 return" in " ".join(c.value for c in at.caption)  # €60 out on day 10, €150 back 4 nights later
+    assert "Cheapest return in the next 90 days now: €210" in " ".join(c.value for c in at.caption)  # €60 out on day 10, €150 back 4 nights later
     at.text_input(key="al-email").input("me@example.com")
     at.button[0].click().run()
     assert not at.exception and made[-1][1]["email"] == "me@example.com" and made[-1][0][:3] == ("ATH", "FRA", "economy")

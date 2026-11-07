@@ -565,7 +565,7 @@ def briefing(f, cfg, day):
     if f["best"] is None:
         return plain, None
     if cfg is None:
-        return plain, "Written from the saved fares. With an AI key the expert puts it in its own words and answers questions."
+        return plain, "Written from the saved fares."
     data = text(f)
     k = (data, day)
     if k in _failed and time.time() - _failed[k][0] < 900:

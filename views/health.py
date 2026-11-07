@@ -11,7 +11,14 @@ page_head("Status", "Whether each data source answers right now, and the GitHub 
 st.markdown('<p class="card-title">GitHub minutes</p>', unsafe_allow_html=True)
 import budget as _budget
 import gh as _gh
-st.caption(_budget.line(_gh.budget()))
+_usage = _gh.budget()
+if _usage:
+    st.caption(_budget.line(_usage))
+else:
+    st.caption("The monthly allowance of free automatic updates can't be shown on this site.")
+    with st.expander("For the site owner: how to show it"):
+        st.markdown("Add a GitHub token with the *Plan: read* permission to the app's secrets (see the README, “GitHub minutes”). "
+                    "Without it the app cannot read the usage; the daily updates are not affected.")
 st.markdown('<p class="card-title">Data freshness</p>', unsafe_allow_html=True)
 for name, last, age, level, how in freshness(DATA):
     when = "no data yet" if last is None else f"last collected {last[:10]} ({'today' if age == 0 else 'yesterday' if age == 1 else f'{age} days ago'})"
