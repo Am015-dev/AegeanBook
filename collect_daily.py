@@ -77,7 +77,7 @@ def save(got, path=OUT):
         w.writerows(r for k, r in sorted(rows.items()) if k[0] > today)  # past days are dropped
 
 
-def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_range, today=None, pause=PAUSE):
+def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_range, today=None, pause=PAUSE, places=None):
     """{(source, iso day): (hotel name, price, tier)} for Google Hotels, Booking.com and the cheap-day calendar, plus the
     number of check-in days still missing from Google or Booking.com."""
     h, today = HOTEL, today or date.today()
@@ -92,7 +92,8 @@ def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_ran
             except Exception as e:
                 print(f"  heatmap: {type(e).__name__}: {e}")
         skip = {d for src, d in got if src == "google"}
-        for d, name, price, status, err in google(start, end, h["query"], h["filt"], h["nights"], h["adults"], skip=skip):
+        more = {} if places is None else dict(places=places)  # every hotel of each answer: the hotels around it, for the Hotels page
+        for d, name, price, status, err in google(start, end, h["query"], h["filt"], h["nights"], h["adults"], skip=skip, **more):
             if status != "error":
                 got[("google", d.isoformat())] = (name, price, None)
             elif err:
@@ -141,7 +142,13 @@ if __name__ == "__main__":
     save(got)
     priced = sum(p is not None for p, _ in got.values())
     print(f"flights done: {priced} prices, {len(got) - priced} days with no flight, {len(missing)} missing")
-    hgot, hmissing = collect_hotel()
+    places = {}
+    hgot, hmissing = collect_hotel(places=places)
     save_hotel(hgot)
+    if around := os.environ.get("HOTEL_AROUND"):  # daily.yml merges these into hotel_places.csv / hotel_nearby.csv on the newest main
+        import fetch_hotel
+        stamp, h = datetime.now().isoformat(timespec="seconds"), HOTEL
+        fetch_hotel.write(hotels.place_rows(places, h["query"], h["nights"], h["adults"], stamp), around + ".places", fetch_hotel.PLACE_FIELDS)
+        fetch_hotel.write(hotels.day_rows(places, h["query"], h["nights"], h["adults"], stamp), around + ".nearby", fetch_hotel.NEARBY_FIELDS)
     print(f"hotel done: {sum(p is not None for _, p, _ in hgot.values())} prices, {hmissing} missing")
     sys.exit(1 if missing or hmissing else 0)

@@ -1198,3 +1198,18 @@ def test_footer_age():
     assert ui.ago("2026-11-07T09:00:00", now) == "3 hours ago"
     assert ui.ago("2026-11-05T11:00:00", now) == "2 days ago"
     assert ui.ago("2026-11-07T12:00:10", now) == "just now"  # a stamp a little ahead of this clock
+
+
+def test_daily_hotel_run_also_saves_the_hotels_around_it(tmp_path, monkeypatch):
+    import collect_daily
+    from datetime import date as _d
+    def google(start, end, q, f, n, a, skip=(), places=None):
+        for i in range((end - start).days + 1):
+            d = start + timedelta(i)
+            if places is not None:
+                places.setdefault("Near Inn", dict(lat=50.1, lng=8.6, stars=3, rating=4.2, reviews=90, prices={}))["prices"][d.isoformat()] = 80
+            yield d, "Steigenberger Frankfurter Hof", 150, "ok", None
+    places = {}
+    got, missing = collect_daily.collect_hotel(google=google, rate=lambda *a, **k: 160, heat=lambda *a: {}, today=_d(2026, 12, 1),
+                                               pause=0, places=places)
+    assert places["Near Inn"]["prices"] and not missing

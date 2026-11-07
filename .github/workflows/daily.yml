@@ -33,6 +33,7 @@ jobs:
         continue-on-error: true  # save what was collected even if some days are still missing
         env:
           DAILY_NEW_ROWS: ${{ runner.temp }}/daily_rows.csv  # today's rows on their own, for the save loop below
+          HOTEL_AROUND: ${{ runner.temp }}/around  # the hotels around the daily hotel, merged into hotel_places/hotel_nearby below
       - run: AIRLINE=GQ python fetch_route.py --daily "$RUNNER_TEMP/gq_rows.csv"  # Sky Express economy on the daily legs it serves
         if: steps.budget.outputs.stop != 'true'
         continue-on-error: true  # a bonus: it must never stop the daily commit below
@@ -54,7 +55,8 @@ jobs:
             [ ! -f "$RUNNER_TEMP/daily_rows.csv" ] || python fetch_route.py --merge-history "$RUNNER_TEMP/daily_rows.csv"
             [ ! -f "$RUNNER_TEMP/gq_rows.csv" ] || AIRLINE=GQ python fetch_route.py --merge-refresh "$RUNNER_TEMP/gq_rows.csv"
             [ ! -f "$RUNNER_TEMP/details.csv" ] || python fetch_details.py --merge "$RUNNER_TEMP/details.csv"
-            git add data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/skyexpress.csv data/history_skyexpress.csv data/flight_details.csv
+            [ ! -f "$RUNNER_TEMP/around.nearby" ] || python -c "import fetch_hotel as f, sys; p = sys.argv[1]; f.save_places(f.read(p + '.places')); f.save_nearby(f.read(p + '.nearby'))" "$RUNNER_TEMP/around"
+            git add data/hotel_places.csv data/hotel_nearby.csv data/daily.csv data/daily_hotel.csv data/history_prices.csv data/history_hotel.csv data/skyexpress.csv data/history_skyexpress.csv data/flight_details.csv
             git diff --cached --quiet && break
             git commit -q -m "Daily fares $(date -u +%F)"
             git push -q origin HEAD:main && break
