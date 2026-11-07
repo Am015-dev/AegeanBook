@@ -21,6 +21,7 @@ import flight_times
 import gh
 import miles_value
 import mix
+import nearby
 import network
 import overview as ov
 import price_insights as pi
@@ -205,6 +206,19 @@ def weekend_label(a, b):
     return f"{a:%a} {a.day}{a.strftime(' %b') if a.month != b.month else ''} – {b:%a} {b.day} {b:%b}"
 
 
+places = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "airport_places.csv")).set_index("iata")
+
+
+def go_near(end, a):
+    """A nearby airport picked under the pass: the same page, that airport in From (keeping To) or in To."""
+    if end == "from":
+        st.session_state["ov-grid-orig"] = a
+        st.session_state[f"ov-grid-dest-{a}"] = dest
+    else:
+        st.session_state[dkey] = a
+    touched()
+
+
 if dest == ANY:
     rows = xp.destinations(src, orig, p.start, p.end, gcab, stays)
     st.markdown(f'<p class="group">From {e(tp.city(orig))}, {e(p.name)}, {e(gcab)}, cheapest first</p>', unsafe_allow_html=True)
@@ -216,7 +230,6 @@ if dest == ANY:
             if todo:
                 fa.button(f"ahead|{orig}|all|{p.start}", f"Search all routes from {tp.city(orig)} on GitHub", todo, f"{p.name.capitalize()} from {tp.city(orig)}")
     else:  # a map of the places with their prices (Google Flights' Explore), then one grouped list, the price trailing (ui.kpis)
-        places = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "airport_places.csv")).set_index("iata")
         on_map = rows[rows.dest.isin(places.index)]
         if len(on_map) and orig in places.index:
             pts = places.loc[list(on_map.dest)]
@@ -350,6 +363,21 @@ else:
             + (f'<span class="ctx">{good}{e(" ".join(said))}</span>' if said or good else "") + bar + '</div></div>', unsafe_allow_html=True)
         if pax > 1:
             st.caption(f"The price is for {pax} adults, from fares collected for one adult; the airline may price a group differently.")
+        # nearby airports (Skyscanner's "include nearby airports"): the same window and stay from or to an airport close by, when cheaper;
+        # only pairs the From/To pickers can show (cash fares saved), never one the network says is not flown
+        near = [r for r in nearby.cheaper(src, places, orig, dest, p.start, p.end, gcab, stays, best["price"], wdays, not ret,
+                                          lambda o, d: network.flies(net, "A3", o, d, home))
+                if ((r["airport"], dest) if r["end"] == "from" else (orig, r["airport"])) in far]
+        if near:
+            st.markdown('<p class="group">Cheaper from a nearby airport</p>', unsafe_allow_html=True)
+            for i, r in enumerate(near):
+                dates = f"{r['depart']:%a %d %b}" + (f" → {r['back']:%a %d %b}" if r["back"] else "")
+                cc = st.columns([5, 1.4], vertical_alignment="center")
+                cc[0].markdown(f"**{r['end'].capitalize()} {e(place(r['airport']))} it's {money(r['saving'] * pax)} less:** "
+                               f"{money(r['price'] * pax)} on {dates}. {r['airport']} is {r['km']} km from "
+                               f"{e(tp.city(orig if r['end'] == 'from' else dest))} in a straight line.")
+                cc[1].button(f"Search {r['airport']}", key=f"ov-near-{i}", type="tertiary", icon=":material/near_me:", on_click=go_near,
+                             args=(r["end"], r["airport"]))
         links = dict(depart=best["depart"], back=best["back"], adults=pax, cabin=gcab)
         c = st.columns(2)
         c[0].link_button("Book on aegeanair.com", booking.aegean_url(orig, dest, **links), type="primary", width="stretch", icon=":material/airplane_ticket:")
