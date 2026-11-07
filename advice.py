@@ -33,7 +33,7 @@ def options(cash, miles, passes, per_k, legs):
         opts.append(dict(name="Use miles", kind="miles", flexible=cost, fixed=cost, detail=f"{miles['miles']:,.0f} miles{taxes}, {miles['when']}"))
     for p in passes:
         opts.append(dict(name=p["name"], kind="pass", flexible=legs * p["eff"], fixed=legs * p["eff"],
-                         detail=f"€{p['price']:,.0f} for {p['flights']} flights, book {p['days']}+ days ahead"))
+                         detail=p.get("detail") or f"€{p['price']:,.0f} for {p['flights']} flights, book {p['days']}+ days ahead"))
     return opts
 
 

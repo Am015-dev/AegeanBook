@@ -16,6 +16,12 @@ def effective_cost(price, flights, taxes):
     return price / max(1, flights) + taxes
 
 
+def breakdown(price, flights, taxes):
+    """'€780 ÷ 12 flights = €65, plus €30 taxes = €95 for each flight': the pass price is spread over its flights, the taxes come on top."""
+    each = price / max(1, flights)
+    return f"€{price:,.0f} ÷ {flights} flights = €{each:,.0f}, plus €{taxes:,.0f} taxes = €{each + taxes:,.0f} for each flight"
+
+
 def assess(cash, price, flights, taxes, min_days, today):
     """How one pass compares with paying cash. cash: Series of the cheapest fare by iso day. Only days at least `min_days` ahead count, because
     the pass cannot be booked closer to departure. None when no such day has a fare."""
