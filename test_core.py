@@ -1270,3 +1270,24 @@ def test_hotel_page_lists_every_hotel_of_a_city_and_the_filters_map_and_table_ag
     assert any("The 1 hotel of the list below" in c.value for c in at.caption)
     assert not any("before city tax" in m.value for m in at.markdown)  # the price basis is said once, in a caption at the top
     assert sum("before city tax" in c.value for c in at.caption) == 2  # at the top, and under the table for its € / night column
+
+
+def test_city_mode_falls_back_to_the_stay_length_that_has_prices(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    import fetch_hotel
+    now, day = datetime.now().isoformat(timespec="seconds"), (date.today() + timedelta(5)).isoformat()
+    places = {"Cheap Inn": dict(lat=50.11, lng=8.67, stars=3, rating=4.1, reviews=80, prices={day: 70})}
+    for name in ("PLACES", "NEARBY", "LANDMARKS"):
+        monkeypatch.setattr(fetch_hotel, name, tmp_path / f"{name.lower()}.csv")
+    fetch_hotel.save_places(hotels.place_rows(places, "Some Hotel Testtown", 1, 2, now), tmp_path / "places.csv")
+    fetch_hotel.save_nearby(hotels.day_rows(places, "Some Hotel Testtown", 1, 2, now), tmp_path / "nearby.csv")
+    page = os.path.abspath("views/hotel.py")
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60).run()
+    at.button_group(key="ho-mode").set_value("city").run()
+    at.text_input(key="ho-query").set_value("testtown").run()  # 2 nights by default, only 1-night prices saved
+    assert not at.exception
+    assert any("showing the prices saved for 1 night" in i.value for i in at.info)
+    assert list(at.dataframe[-1].value.Hotel) == ["Cheap Inn"]

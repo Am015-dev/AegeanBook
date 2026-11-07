@@ -277,8 +277,16 @@ by_day = both_copies("data/hotel_nearby.csv", NEARBY, ["query", "nights", "adult
 # the searches this page reads: a hotel's own search (however its apostrophes were typed), or for a city every saved search that names
 # it ("Frankfurt" reads "Steigenberger Frankfurt"'s hotels too: Google lists the hotels of the whole town for either)
 same_search = (lambda q: matches(q, query)) if city else (lambda q: plain(q) == plain(query))
-by_day = by_day[by_day["query"].map(same_search).astype(bool) & (by_day.nights == nights) & (by_day.adults == adults)
+by_day = by_day[by_day["query"].map(same_search).astype(bool) & (by_day.adults == adults)
                 & (by_day.day >= start.isoformat()) & (by_day.day <= end.isoformat()) & by_day.price.notna()]
+stay_note = ""  # a city with prices saved only for another stay length: show those, said plainly, rather than an empty page
+if city and len(by_day) and not (by_day.nights == nights).any():
+    near_n = int(min(by_day.nights.unique(), key=lambda n: (abs(n - nights), n)))
+    stay_note = (f"No prices saved yet for {int(nights)} night{'s' * (nights > 1)}; showing the prices saved for {near_n} "
+                 f"night{'s' * (near_n > 1)} (a night's price, so the stay total below is approximate). Press Update prices for {int(nights)}.")
+    by_day = by_day[by_day.nights == near_n]
+else:
+    by_day = by_day[by_day.nights == nights]
 by_day = by_day.sort_values("fetched").drop_duplicates(["day", "hotel"], keep="last")
 others = by_day[[city or not matches(n, filt) for n in by_day.hotel]] if len(by_day) else by_day
 # the middle price a night of the hotels around it, each check-in day (none when no neighbour was saved for this stay)
@@ -443,6 +451,8 @@ if len(here):
 
     st.markdown(f'<p class="group">{"Hotels" if city else "Hotels around it"} for your stay: {int(nights)} night{"s" * (nights > 1)}, '
                 f'{int(adults)} adult{"s" * (adults > 1)}</p>', unsafe_allow_html=True)
+    if stay_note:
+        st.info(stay_note)
     pool = by_day
     if me is not None and len(fresh):  # the chosen hotel at its freshest prices, the same as the cards above, not the older snapshot
         pool = pd.concat([others, pd.DataFrame({"day": fresh.index, "hotel": me.hotel, "price": fresh.values})], ignore_index=True)
