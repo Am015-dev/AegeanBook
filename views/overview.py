@@ -8,6 +8,7 @@ import math
 import importlib
 import time
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -24,6 +25,7 @@ import mix
 import nearby
 import network
 import overview as ov
+import share
 import price_insights as pi
 import skyexpress as sx
 import trip_plan as tp
@@ -123,12 +125,16 @@ def every_route():
 
 
 q = st.query_params
-if q.get("from") in froms:  # ?from=SKG&to=ATH (the Expert, an old Explore link): open the page on that route
-    st.session_state["ov-grid-orig"] = q["from"]
-    if q.get("to") in cities or q.get("to") == ANY:
-        st.session_state[f"ov-grid-dest-{q['from']}"] = q["to"]
-    touched()
-    q.clear()
+if q.to_dict() != st.session_state.get("ov-url"):  # a shared link, the Expert, an Explore link: restore the pickers once (our own sync below sets ov-url)
+    got = share.parse_search(q.to_dict(), froms, cities, today, tp.HORIZON, ANY)
+    if got:
+        o = got.get("from") or st.session_state.get("ov-grid-orig") or froms[0]
+        for k, v in (("ov-grid-orig", got.get("from")), (f"ov-grid-dest-{o}", got.get("to")), ("ov-when", got.get("when")),
+                     ("ov-trip", got.get("trip")), ("ov-nights", got.get("nights")), ("ov-grid-cabin", got.get("cabin")),
+                     ("ov-grid-pay", got.get("pay")), ("ov-pax", got.get("pax"))):
+            if v is not None:
+                st.session_state[k] = v
+        touched()
 # ponytail: the two rows get keys so ui.CSS can lay the second out differently on a phone (Streamlit stacks every column there)
 page_head("Overview", "The cheapest AEGEAN trip for your dates, and when to fly.")
 c = st.container(key="ov-bar-route").columns([1.1, 1.3, 1.1])
@@ -165,6 +171,11 @@ gcab = c[2].pills("Cabin", ["economy", "business"], default="economy", format_fu
 pay = c[3].pills("Pay with", ["cash", "miles"], default="cash", format_func={"cash": "Cash €", "miles": "Miles"}.get, required=True,
                  key="ov-grid-pay", on_change=touched)
 pax = c[4].number_input("Passengers", 1, 9, 1, key="ov-pax", on_change=touched)
+# the URL follows the pickers (a link to copy); remembered in ov-url so the block above does not take it for a new link
+url_q = share.build_search(orig, dest, when, trip, nights, gcab, pay, pax)
+if url_q != q.to_dict():
+    st.query_params.from_dict(url_q)
+st.session_state["ov-url"] = url_q
 
 stays = list(range(nights[0], nights[1] + 1))
 src = far if pay == "cash" else awards
@@ -389,6 +400,17 @@ else:
                  "when": f"{p.start},{p.end}"}
         if ret:
             alert["back"] = best["back"].isoformat()
+        c = st.columns(2)
+        try:
+            link = st.context.url.split("?")[0] + "?" + urlencode(url_q)
+        except Exception:  # no browser URL (tests): the part after the address still works
+            link = "?" + urlencode(url_q)
+        c[0].popover("Share this search", icon=":material/share:", width="stretch").code(link, language=None, wrap_lines=True)
+        trip_days = [(best["depart"], f"{orig} → {dest}")] + ([(best["back"], f"{dest} → {orig}")] if ret else [])
+        c[1].download_button("Add to calendar", share.ics([(d, f"Flight {r} (AEGEAN, from {money(best['price'] * pax)})",
+                                                          f"Book: {booking.aegean_url(orig, dest, **links)}") for d, r in trip_days]),
+                             file_name=f"flight-{orig}-{dest}-{best['depart']:%Y%m%d}.ics", mime="text/calendar", width="stretch",
+                             icon=":material/event:")
         c = st.columns(2)
         for col, page, label, icon, params in (
                 (c[0], "views/alerts.py", "Track this price: tell me when it drops", ":material/notifications_active:", alert),
