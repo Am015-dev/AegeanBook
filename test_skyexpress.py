@@ -237,6 +237,7 @@ def test_overview_compares_with_sky_express_when_fares_are_saved(tmp_path, monke
     text = " ".join(m.value for m in at.markdown)
     # the pass: AEGEAN €60 out on day 10 + €150 back = €210; Sky Express €45 out on day 10 + €120 back = €165, the same filters
     assert "€210" in text and "AEGEAN Cheapest return" in text  # the pass is AEGEAN's; the comparison follows
+    assert "**Sky Express is €45 cheaper on " in text and ":** €165. See AEGEAN or Sky Express below." in text  # said right on the pass
     head = next(m.value for m in at.markdown if 'class="h2h"' in m.value)  # the head-to-head table, right under the pass
     assert head.count("<tr>") == 5 and "<th>Each airline&#x27;s cheapest trip</th><td>€210</td><td>€165</td>" in head and "<th>Both on AEGEAN&#x27;s dates" in head
     assert "Cheapest overall: Sky Express, €165" in text and "On the same dates AEGEAN costs €" in text

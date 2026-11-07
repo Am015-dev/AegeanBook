@@ -84,6 +84,9 @@ def test_overview_shows_the_verdict_and_how_the_fare_moved(tmp_path, monkeypatch
     moved = lambda: [m for m in at.markdown if "How this fare has moved" in m.value]  # the price graph, in the open
     assert v["level"] == "low" and f"Usually €{v['low']:,.0f}–€{v['high']:,.0f} return. €210 is cheap." in text  # two plain sentences
     assert moved() and "The ring marks the lowest" in " ".join(c.value for c in at.caption)
+    # one line, the whole return for the passengers: the numbers of the "Lowest seen" note, not two unlabelled per-leg lines
+    chart = at.get("plotly_chart")[-1].proto.spec
+    assert '"hovertemplate":"Return, one adult:' in chart and "Out " not in chart and "both ways added up, for one adult" in " ".join(c.value for c in at.caption)
     use(write_history(tmp_path / "few.csv", 3))
     at = open_page("overview.py").run()
     assert not at.exception
@@ -106,6 +109,18 @@ def test_trip_series_adds_legs_and_note(tmp_path):
     assert pi.moved_note(both).startswith("Lowest seen") and "(4 checks)" in pi.moved_note(both)
     assert pi.moved_note(both.iloc[:1]) is None
     assert pi.trip_series(h, [("ATH", "FRA", "1999-01-01")], "economy").empty
+
+
+def test_trend_is_the_story_the_note_and_the_expert_both_tell():
+    s = pd.Series([191.0, 172.0, 214.0], index=["2026-10-29", "2026-10-30", "2026-11-06"])
+    t = pi.trend(s)
+    assert t == dict(days=3, first=191.0, last=214.0, low=172.0, low_day=date(2026, 10, 30), high=214.0, since=date(2026, 10, 29), week_ago=172.0)
+    assert pi.moved_note(s).startswith("Lowest seen €172 on 30 Oct, now €214.") and pi.trend(s.iloc[:1]) is None
+    import expert_chat as ex
+    f = dict(best=dict(depart=date(2026, 12, 1), back=date(2026, 12, 8), nights=7, price=214.0), insight=None, trend=t, pay="cash",
+             today=date(2026, 11, 7))
+    assert ("has risen from €191 to €214 since Thursday 29 October (3 days of prices); the lowest seen was €172 on Friday 30 October"
+            in ex.answer(f, ex.BOOK))  # the Expert names the same low as the Overview's note
 
 
 def test_moved_note_is_for_all_the_passengers():

@@ -59,7 +59,8 @@ def ahead_takeaway(stats, label):
         return "Not enough weeks saved yet to say how far ahead to book."
     e, l = float((early["median"] * early.days).sum() / early.days.sum()), float(later["median"].median())
     if e >= 1.3 * l:
-        return f"Flights in the next 2 weeks usually cost €{e:.0f} on {label}, {e / l:.1f}× the €{l:.0f} later on: book earlier if you can."
+        return (f"Flights in the next 2 weeks cost more on {label} (€{e:.0f}) than later on (about €{l:.0f}): if your dates are flexible, "
+                "fly later, and book well before the last two weeks.")
     if e <= 0.8 * l:
         return f"Flights in the next 2 weeks are cheaper than later on {label}: €{e:.0f} against about €{l:.0f}."
     return f"No big last-minute premium on {label}: the next 2 weeks cost about €{e:.0f}, later fares about €{l:.0f}."

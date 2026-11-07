@@ -8,7 +8,7 @@ import pandas as pd
 
 import gh
 
-VERSION = 3  # pages reload this module when Streamlit Cloud still has an older copy loaded
+VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded
 
 HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history_prices.csv")
 WINDOW = 60  # days of snapshots a verdict looks back over, as Google's graph does
@@ -109,15 +109,27 @@ def trip_series(hist, legs, cabin):
     return pd.concat(parts, axis=1).dropna().sum(axis=1) if all(len(x) for x in parts) else pd.Series(dtype=float)
 
 
-def moved_note(s, pax=1):
-    """The one-line caption for a trip_series() (fares of one adult, scaled to `pax` adults like the pass): lowest seen and when, now,
-    and since when / how many checks; None under 2 checks."""
+def trend(s):
+    """The story of a trip_series() (one adult's fares), the one the Overview's note and the Expert both tell: dict(days, first, last, low,
+    low_day, high, since, week_ago) with low_day and since as dates and week_ago the last fare at least seven days before the newest (None
+    when the history is shorter); None under 2 checks."""
+    s = s.dropna()
     if len(s) < 2:
         return None
-    s = s * pax
-    lo = s.idxmin()
-    return (f"Lowest seen €{s[lo]:,.0f} on {pd.Timestamp(lo):%-d %b}, now €{s.iloc[-1]:,.0f}{f' for {pax} adults' if pax > 1 else ''}. "
-            f"Watching since {pd.Timestamp(s.index[0]):%-d %b} ({len(s)} checks).")
+    days = pd.to_datetime(pd.Index(s.index))
+    ago = s[days <= days[-1] - pd.Timedelta(days=7)]
+    return dict(days=len(s), first=float(s.iloc[0]), last=float(s.iloc[-1]), low=float(s.min()), low_day=pd.Timestamp(s.idxmin()).date(),
+                high=float(s.max()), since=days[0].date(), week_ago=float(ago.iloc[-1]) if len(ago) else None)
+
+
+def moved_note(s, pax=1):
+    """The one-line caption for a trip_series() (fares of one adult, scaled to `pax` adults like the pass): lowest seen and when, now,
+    and since when / how many checks (trend()); None under 2 checks."""
+    t = trend(s)
+    if t is None:
+        return None
+    return (f"Lowest seen €{t['low'] * pax:,.0f} on {t['low_day']:%-d %b}, now €{t['last'] * pax:,.0f}{f' for {pax} adults' if pax > 1 else ''}. "
+            f"Watching since {t['since']:%-d %b} ({t['days']} checks).")
 
 
 if __name__ == "__main__":  # self-check against the committed history

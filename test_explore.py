@@ -35,11 +35,12 @@ def test_destinations_one_way_and_return_cheapest_first(tmp_path):
     assert one.depart[0] == start and one.back[0] is None and one.nights[0] is None and list(one.days) == [30, 30, 30, 30]
     assert one.typical[2] == 175.0  # the median ATH -> FRA fare, not the one €60 day
     ret = xp.destinations(legs, "ATH", start, end, "economy", xp.NIGHTS)
-    assert list(ret.dest) == ["CHQ", "SKG", "FRA", "ZRH"]  # Chania has no fares back, so its one-way is listed (searched one way only)
-    assert ret.price[0] == 46 and ret.back[0] is None and ret.typical[0] == 60.5
-    assert ret.price[1] == 41 + 43 and ret.depart[1] == start and ret.back[1] == start + timedelta(2) and ret.nights[1] == 2
-    assert ret.price[2] == 60 + 150 and ret.depart[2] == today + timedelta(10) and ret.nights[2] == 4  # the €60 day out, €150 back
-    assert ret.typical[1] > ret.price[1] and ret.price[3] == 300.0
+    # Chania has no fares back, so its one-way is listed (searched one way only), after every return: never ranked against them
+    assert list(ret.dest) == ["SKG", "FRA", "ZRH", "CHQ"]
+    assert ret.price[3] == 46 and ret.back[3] is None and ret.typical[3] == 60.5
+    assert ret.price[0] == 41 + 43 and ret.depart[0] == start and ret.back[0] == start + timedelta(2) and ret.nights[0] == 2
+    assert ret.price[1] == 60 + 150 and ret.depart[1] == today + timedelta(10) and ret.nights[1] == 4  # the €60 day out, €150 back
+    assert ret.typical[0] > ret.price[0] and ret.price[2] == 300.0
     assert list(xp.destinations(legs, "ATH", start, end, "economy", [3]).nights.dropna()) == [3, 3, 3]  # the nights picked in the bar
     biz = xp.destinations(legs, "ATH", start, end, "business")
     assert list(biz.dest) == ["FRA", "ZRH"] and biz.price[0] == 160.0  # SKG and CHQ have economy fares only
@@ -54,19 +55,24 @@ def test_overview_anywhere_lists_the_cheapest_first_and_see_dates_opens_the_rout
     assert not at.exception
     rows = lambda: next(m.value for m in at.markdown if 'class="fares"' in m.value).split('<div class="fare">')[1:]  # one grouped list
     cards = rows()
-    assert len(cards) == 4 and "CHQ" in cards[0] and "€46" in cards[0] and "one way" in cards[0]  # searched one way only
-    assert "Thessaloniki" in cards[1] and "SKG" in cards[1] and "€84" in cards[1] and "2 nights" in cards[1] and "flights on 30 of 30 days" in cards[1]
-    assert "usually €" in cards[1] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
+    assert len(cards) == 4 and "CHQ" in cards[3] and "€46" in cards[3] and "one way" in cards[3]  # searched one way only: after the returns
+    assert "Thessaloniki" in cards[0] and "SKG" in cards[0] and "€84" in cards[0] and "2 nights" in cards[0] and "flights on 30 of 30 days" in cards[0]
+    assert "usually €" in cards[0] and cards.index(next(c for c in cards if "FRA" in c)) < cards.index(next(c for c in cards if "ZRH" in c))
     assert not [m for m in at.markdown if 'class="pass"' in m.value] and "From Athens, the next 30 days, economy" in " ".join(m.value for m in at.markdown)
     assert routes(at)[0][0] == "ATH → FRA"  # the route table still closes the page
     wk = at.dataframe(key="xp-wk").value  # the cheapest weekends away: Thessaloniki first, every one Thu/Fri/Sat out
     assert list(wk.columns) == ["Destination", "Weekend", "Price", "vs usual"] and wk.Destination[0] == "Thessaloniki"
     assert all(w[:3] in ("Thu", "Fri", "Sat") and w.split("– ")[1][:3] in ("Sun", "Mon") for w in wk.Weekend)
     at.slider(key="ov-nights").set_value((5, 5)).run()
-    assert not at.exception and "5 nights" in rows()[1]
+    assert not at.exception and "5 nights" in rows()[0]
     at.button_group(key="ov-grid-cabin").set_value("business").run()
     assert len(rows()) == 2  # business fares are saved to FRA and ZRH only
     at.button_group(key="ov-grid-cabin").set_value("economy").run()
+    at.button_group(key="ov-trip").set_value("oneway").run()  # one way: one-way fares only, Chania's €46 is not under a return any more
+    cards = rows()
+    assert all("one way" in c for c in cards) and "CHQ" in cards[1] and "SKG" in cards[0] and "€41" in cards[0]
+    assert "Cheapest weekends away" not in " ".join(m.value for m in at.markdown)  # weekends are returns
+    at.button_group(key="ov-trip").set_value("return").run()
     at.button_group(key="xp-see").set_value("SKG").run()  # See dates for Thessaloniki: the same page, Thessaloniki in To
     assert not at.exception and at.selectbox(key="ov-grid-dest-ATH").value == "SKG"
     assert 'pass-codes">ATH<span class="line"></span>SKG' in " ".join(m.value for m in at.markdown)  # the pass is Athens → Thessaloniki
@@ -100,8 +106,10 @@ def test_weekends_thu_to_sat_out_sun_or_mon_back_cheapest_per_destination():
             ("ATH", "CHQ"): {"economy": flat(10.0)}}  # one way only: no weekend
     legs[("ATH", "FRA")]["economy"]["2026-11-10"] = 1.0  # a Tuesday: never a weekend departure
     legs[("ATH", "SKG")]["economy"]["2026-11-21"] = 20.0  # the cheapest SKG weekend: Sat 21 out, Sun 22 back
-    w = xp.weekends(legs, "ATH", "economy", today, ok=lambda d: d != "ZRH")  # ZRH: not flown
+    w = xp.weekends(legs, "ATH", "economy", today + timedelta(1), today + timedelta(56), ok=lambda d: d != "ZRH")  # ZRH: not flown
     assert list(w.dest) == ["SKG", "FRA"] and list(w.price) == [60.0, 200.0]  # one row each, cheapest first
     assert w.depart[0] == date(2026, 11, 21) and w.back[0] == date(2026, 11, 22) and w.nights[0] == 1 and w.typical[0] == 80.0
     assert all(d.weekday() in (3, 4, 5) for d in w.depart) and all(b.weekday() in (6, 0) for b in w.back)
     assert all(1 <= n <= 3 for n in w.nights) and all(d <= today + timedelta(56) for d in w.depart)
+    dec = xp.weekends(legs, "ATH", "economy", date(2026, 12, 1), date(2026, 12, 20))  # the "Leaving between" window, not the next 8 weeks
+    assert len(dec) and all(date(2026, 12, 1) <= d <= date(2026, 12, 20) for d in dec.depart) and dec.depart[0].weekday() in (3, 4, 5)

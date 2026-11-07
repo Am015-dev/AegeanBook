@@ -11,7 +11,7 @@ from trip_cost import night_prices, trip_costs
 from trip_plan import city, hotels as searched_hotels
 from ui import round_trips
 
-VERSION = 4  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 5  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 
 LEGS = [("ATH", "FRA"), ("FRA", "ATH"), ("ATH", "ZRH"), ("ZRH", "ATH")]
 CABINS = ("economy", "business")
@@ -58,6 +58,17 @@ def best_trips(fares, dest_back, hotel_night, cabin="economy", nights=NIGHTS):
         r = t.iloc[0]
         res[n] = dict(depart=r.depart, back=r.back, nights=n, flights=float(r.total), hotel=None, total=float(r.total))
     return res
+
+
+def hotel_line(name, adults, cost, nights, fare, pax):
+    """The pass's hotel sentence: the room for `nights` nights (`cost`, priced for `adults`) plus the flights (`fare` per adult, for `pax`).
+    Added up only when the room was priced for the same number of people as the flights; otherwise both bases are named, never mixed."""
+    who = lambda n: "1 adult" if n == 1 else f"{n} adults"
+    head = f"With {name} for those {nights} nights: €{cost:,.0f} for a room for {who(adults)}"
+    if adults == pax:
+        return f"{head}, so €{fare * pax + cost:,.0f} for the whole trip for {who(pax)}."
+    return (f"{head}. Flights for {who(pax)} (€{fare * pax:,.0f}) + this room = €{fare * pax + cost:,.0f}; no price is saved for a room "
+            f"for {who(pax)}: search the hotel on the Hotels page with {who(pax)} to see it.")
 
 
 def briefing(summary, trips, weekday):

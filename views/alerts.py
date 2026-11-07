@@ -19,7 +19,7 @@ import trip_plan as tp
 from db import connect
 from layout import page_head
 
-if getattr(ov, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
+if getattr(ov, "VERSION", 0) < 5:  # Streamlit Cloud keeps an older copy of a module across redeploys
     ov = importlib.reload(ov)
 if getattr(tp, "VERSION", 0) < 6:
     tp = importlib.reload(tp)

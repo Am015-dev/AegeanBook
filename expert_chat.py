@@ -28,7 +28,7 @@ from insights import DAYS, cash_by_day
 from trip_cost import night_prices
 from trip_plan import city
 
-VERSION = 7  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
+VERSION = 8  # pages reload this module when Streamlit Cloud still has an older copy loaded (it keeps modules across redeploys)
 CLAUDE = "claude-haiku-5-5"
 GEMINI = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]  # the second answers when the first is busy or out of free quota
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -162,19 +162,10 @@ def _near(out, back, best):
 
 
 def _trend(hist, orig, dest, cabin, best):
-    """How the fare of exactly the recommended dates moved over the saved history (price_insights.series, the two legs added up on the days
-    both were fetched): dict(days, first, last, low, high, since, week_ago), week_ago the last fare at least seven days before the newest
-    (None when the history is shorter). None when the dates were seen on fewer than two days."""
-    s = pi.series(hist, orig, dest, cabin, best["depart"].isoformat())
-    if best["back"] is not None:
-        s = (s + pi.series(hist, dest, orig, cabin, best["back"].isoformat())).dropna()
-    s = s.dropna()
-    if len(s) < 2:
-        return None
-    last_day = date.fromisoformat(s.index[-1])
-    ago = s[[date.fromisoformat(d) <= last_day - timedelta(7) for d in s.index]]
-    return dict(days=len(s), first=float(s.iloc[0]), last=float(s.iloc[-1]), low=float(s.min()), high=float(s.max()),
-                since=date.fromisoformat(s.index[0]), week_ago=float(ago.iloc[-1]) if len(ago) else None)
+    """How the fare of exactly the recommended dates moved over the saved history: price_insights.trend of price_insights.trip_series (the
+    legs added up on the days all were fetched), the very numbers of the Overview's "Lowest seen" note. None under two days."""
+    legs = [(orig, dest, best["depart"].isoformat())] + ([(dest, orig, best["back"].isoformat())] if best["back"] is not None else [])
+    return pi.trend(pi.trip_series(hist, legs, cabin))
 
 
 def _when(d, today):
@@ -276,7 +267,7 @@ def text(f):
     if f["trend"]:
         t = f["trend"]
         lines.append(f"The fare of the recommended dates over the saved history: first seen {_money(f, t['first'])} on {t['since']:%d %b}, "
-                     f"now {_money(f, t['last'])}, lowest {_money(f, t['low'])}, highest {_money(f, t['high'])}, over {t['days']} days"
+                     f"now {_money(f, t['last'])}, lowest {_money(f, t['low'])} on {t['low_day']:%d %b}, highest {_money(f, t['high'])}, over {t['days']} days"
                      + (f"; a week ago {_money(f, t['week_ago'])}" if t["week_ago"] is not None else "") + ".")
     if f["hotel"]:
         lines.append(f"Hotel: {f['hotel']['name']} ({f['hotel']['adults']} adults) for those nights €{f['hotel']['price']:,.0f}, "
@@ -436,6 +427,8 @@ def _book_answer(f):
     else:
         move = f"has {'fallen' if t['last'] < t['first'] else 'risen'} from {_money(f, t['first'])} to {_money(f, t['last'])}"
     said = f"The fare for these dates {move} since {_when(t['since'], f['today'])} ({t['days']} days of prices)"
+    if t["low"] not in (t["first"], t["last"]):  # the dip the Overview's "Lowest seen" note names
+        said += f"; the lowest seen was {_money(f, t['low'])} on {_when(t['low_day'], f['today'])}"
     if t["week_ago"] is not None and t["week_ago"] != t["last"]:
         said += f", and lately it is {'falling' if t['last'] < t['week_ago'] else 'rising'}"
     elif t["week_ago"] is not None:
