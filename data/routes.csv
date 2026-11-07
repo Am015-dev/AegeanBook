@@ -1,6 +1,4 @@
 day,orig,dest,cabin,price,source,fetched,nonstop
-2026-11-07,AMS,ATH,business,697.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,AMS,ATH,economy,,,2026-11-05T12:21:41,1
 2026-11-08,AMS,ATH,business,697.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,AMS,ATH,economy,166.0,day search,2026-11-05T12:21:41,1
 2026-11-09,AMS,ATH,business,355.0,calendar,2026-11-05T12:21:41,1
@@ -177,8 +175,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,AMS,ATH,economy,146.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,AMS,ATH,business,283.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,AMS,ATH,economy,146.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,AMS,business,625.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,AMS,economy,318.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,AMS,business,625.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,AMS,economy,455.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,AMS,business,625.0,calendar,2026-11-05T12:21:41,1
@@ -355,8 +351,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,AMS,economy,97.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,AMS,business,236.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,AMS,economy,97.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BCN,business,567.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BCN,economy,164.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,BCN,business,567.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,BCN,economy,164.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,BCN,business,567.0,calendar,2026-11-05T12:21:41,1
@@ -533,8 +527,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,BCN,economy,134.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BCN,business,336.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BCN,economy,134.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BER,business,474.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BER,economy,199.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,BER,business,474.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,BER,economy,232.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,BER,business,474.0,calendar,2026-11-05T12:21:41,1
@@ -711,8 +703,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,BER,economy,267.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BER,business,316.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BER,economy,232.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BIO,business,,,2026-11-05T12:21:41,1
-2026-11-07,ATH,BIO,economy,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,BIO,business,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,BIO,economy,,,2026-11-05T12:21:41,1
 2026-11-09,ATH,BIO,business,,,2026-11-05T12:21:41,1
@@ -1289,8 +1279,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-08-21,ATH,BIO,economy,,,2026-10-31T10:17:18,1
 2027-08-22,ATH,BIO,business,475.0,day search,2026-10-31T10:17:18,1
 2027-08-22,ATH,BIO,economy,184.0,day search,2026-10-31T10:17:18,1
-2026-11-07,ATH,BRU,business,586.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,BRU,economy,229.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,BRU,business,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,BRU,economy,,,2026-11-05T12:21:41,1
 2026-11-09,ATH,BRU,business,678.0,calendar,2026-11-05T12:21:41,1
@@ -1467,8 +1455,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,BRU,economy,229.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BRU,business,497.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,BRU,economy,114.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,CDG,business,403.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,CDG,economy,135.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,CDG,business,403.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,CDG,economy,160.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,CDG,business,403.0,calendar,2026-11-05T12:21:41,1
@@ -1645,8 +1631,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,CDG,economy,104.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,CDG,business,296.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,CDG,economy,104.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,ERF,business,,,2026-11-05T12:21:41,1
-2026-11-07,ATH,ERF,economy,,probe,2026-11-05T12:21:41,1
 2026-11-08,ATH,ERF,business,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,ERF,economy,,probe,2026-11-05T12:21:41,1
 2026-11-09,ATH,ERF,business,,,2026-11-05T12:21:41,1
@@ -1823,8 +1807,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,ERF,economy,,probe,2026-11-05T12:21:41,1
 2027-02-03,ATH,ERF,business,,,2026-11-05T12:21:41,1
 2027-02-03,ATH,ERF,economy,,probe,2026-11-05T12:21:41,1
-2026-11-07,ATH,FCO,business,270.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,FCO,economy,141.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,FCO,business,270.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,FCO,economy,141.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,FCO,business,463.0,calendar,2026-11-05T12:21:41,1
@@ -2305,8 +2287,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-06-29,ATH,FRA,economy,61.0,calendar,2026-11-05T12:21:41,1
 2027-06-30,ATH,FRA,business,213.0,calendar,2026-11-05T12:21:41,1
 2027-06-30,ATH,FRA,economy,61.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,GYD,business,,,2026-11-05T12:21:41,1
-2026-11-07,ATH,GYD,economy,,probe,2026-11-05T12:21:41,1
 2026-11-08,ATH,GYD,business,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,GYD,economy,,probe,2026-11-05T12:21:41,1
 2026-11-09,ATH,GYD,business,,,2026-11-05T12:21:41,1
@@ -2483,8 +2463,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,GYD,economy,,probe,2026-11-05T12:21:41,1
 2027-02-03,ATH,GYD,business,,,2026-11-05T12:21:41,1
 2027-02-03,ATH,GYD,economy,,probe,2026-11-05T12:21:41,1
-2026-11-07,ATH,HER,business,163.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,HER,economy,59.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,HER,business,163.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,HER,economy,59.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,HER,business,163.0,calendar,2026-11-05T12:21:41,1
@@ -2661,8 +2639,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,HER,economy,59.0,day search,2026-11-05T12:21:41,1
 2027-02-03,ATH,HER,business,149.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,HER,economy,59.0,day search,2026-11-05T12:21:41,1
-2026-11-07,ATH,INN,business,,,2026-11-05T12:21:41,1
-2026-11-07,ATH,INN,economy,,probe,2026-11-05T12:21:41,1
 2026-11-08,ATH,INN,business,,,2026-11-05T12:21:41,1
 2026-11-08,ATH,INN,economy,,probe,2026-11-05T12:21:41,1
 2026-11-09,ATH,INN,business,,,2026-11-05T12:21:41,1
@@ -2839,8 +2815,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,INN,economy,,probe,2026-11-05T12:21:41,1
 2027-02-03,ATH,INN,business,,,2026-11-05T12:21:41,1
 2027-02-03,ATH,INN,economy,,probe,2026-11-05T12:21:41,1
-2026-11-07,ATH,IST,business,230.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,IST,economy,97.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,IST,business,307.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,IST,economy,123.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,IST,business,230.0,calendar,2026-11-05T12:21:41,1
@@ -3017,8 +2991,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,IST,economy,53.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,IST,business,230.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,IST,economy,53.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,JMK,business,,probe,2026-11-05T12:21:41,1
-2026-11-07,ATH,JMK,economy,59.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,JMK,business,,probe,2026-11-05T12:21:41,1
 2026-11-08,ATH,JMK,economy,50.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,JMK,business,,probe,2026-11-05T12:21:41,1
@@ -3195,8 +3167,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,JMK,economy,50.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,JMK,business,,probe,2026-11-05T12:21:41,1
 2027-02-03,ATH,JMK,economy,59.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,JTR,business,139.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,JTR,economy,50.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,JTR,business,139.0,calendar,2026-11-05T12:21:41,1
 2026-11-08,ATH,JTR,economy,50.0,calendar,2026-11-05T12:21:41,1
 2026-11-09,ATH,JTR,business,139.0,calendar,2026-11-05T12:21:41,1
@@ -3373,8 +3343,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-02,ATH,JTR,economy,50.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,JTR,business,139.0,calendar,2026-11-05T12:21:41,1
 2027-02-03,ATH,JTR,economy,50.0,calendar,2026-11-05T12:21:41,1
-2026-11-07,ATH,LCA,business,244.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,LCA,economy,89.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,LCA,business,336.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,LCA,economy,220.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,LCA,business,336.0,calendar,2026-11-06T12:07:49,1
@@ -3733,8 +3701,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-07-28,ATH,LCY,economy,,,2026-10-31T14:27:15,1
 2027-07-29,ATH,LCY,business,,,2026-10-31T14:27:15,1
 2027-07-29,ATH,LCY,economy,,,2026-10-31T14:27:15,1
-2026-11-07,ATH,LHR,business,712.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,LHR,economy,227.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,LHR,business,712.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,LHR,economy,586.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,LHR,business,712.0,calendar,2026-11-06T12:07:49,1
@@ -3913,8 +3879,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,LHR,economy,84.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,LHR,business,364.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,LHR,economy,84.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MAD,business,646.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MAD,economy,406.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MAD,business,396.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MAD,economy,179.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,MAD,business,646.0,calendar,2026-11-06T12:07:49,1
@@ -4093,8 +4057,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,MAD,economy,255.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MAD,business,301.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MAD,economy,179.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MUC,business,573.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MUC,economy,254.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MUC,business,573.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MUC,economy,320.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,MUC,business,573.0,calendar,2026-11-06T12:07:49,1
@@ -4273,8 +4235,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,MUC,economy,86.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MUC,business,193.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MUC,economy,86.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MXP,business,271.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,MXP,economy,151.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MXP,business,271.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,MXP,economy,151.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,MXP,business,470.0,calendar,2026-11-06T12:07:49,1
@@ -4453,8 +4413,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,MXP,economy,85.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MXP,business,173.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,MXP,economy,103.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,OLB,business,,,2026-11-06T12:07:49,1
-2026-11-07,ATH,OLB,economy,,,2026-11-06T12:07:49,1
 2026-11-08,ATH,OLB,business,,,2026-11-06T12:07:49,1
 2026-11-08,ATH,OLB,economy,,,2026-11-06T12:07:49,1
 2026-11-09,ATH,OLB,business,,,2026-11-06T12:07:49,1
@@ -5049,8 +5007,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-08-30,ATH,OLB,economy,,,2026-11-06T12:07:49,1
 2027-08-31,ATH,OLB,business,,,2026-11-06T12:07:49,1
 2027-08-31,ATH,OLB,economy,,,2026-11-06T12:07:49,1
-2026-11-07,ATH,RHO,business,180.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,RHO,economy,75.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,RHO,business,180.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,RHO,economy,67.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,RHO,business,156.0,calendar,2026-11-06T12:07:49,1
@@ -5229,8 +5185,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,RHO,economy,67.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,RHO,business,180.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,RHO,economy,67.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,SKG,business,163.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,SKG,economy,75.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,SKG,business,163.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,SKG,economy,67.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,SKG,business,194.0,calendar,2026-11-06T12:07:49,1
@@ -5409,8 +5363,132 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,SKG,economy,75.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,SKG,business,163.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,ATH,SKG,economy,75.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,TLV,business,257.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,TLV,economy,161.0,calendar,2026-11-06T12:07:49,1
+2027-04-29,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-04-29,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-04-30,ATH,TBS,business,292.0,calendar,2026-11-07T00:23:33,1
+2027-04-30,ATH,TBS,economy,98.0,calendar,2026-11-07T00:23:33,1
+2027-05-01,ATH,TBS,business,292.0,calendar,2026-11-07T00:23:33,1
+2027-05-01,ATH,TBS,economy,98.0,calendar,2026-11-07T00:23:33,1
+2027-05-02,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-02,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-03,ATH,TBS,business,292.0,calendar,2026-11-07T00:23:33,1
+2027-05-03,ATH,TBS,economy,98.0,calendar,2026-11-07T00:23:33,1
+2027-05-04,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-04,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-05,ATH,TBS,business,292.0,calendar,2026-11-07T00:23:33,1
+2027-05-05,ATH,TBS,economy,85.0,calendar,2026-11-07T00:23:33,1
+2027-05-06,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-06,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-07,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-07,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-08,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-08,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-09,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-09,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-10,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-10,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-11,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-11,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-12,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-12,ATH,TBS,economy,139.0,calendar,2026-11-07T00:23:33,1
+2027-05-13,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-13,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-14,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-14,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-15,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-15,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-16,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-16,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-17,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-17,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-18,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-18,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-19,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-19,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-20,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-20,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-21,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-21,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-22,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-22,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-23,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-23,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-24,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-24,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-25,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-25,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-26,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-26,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-27,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-27,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-28,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-28,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-29,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-29,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-05-30,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-05-30,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-05-31,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-05-31,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-01,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-01,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-02,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-02,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-03,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-03,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-04,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-04,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-05,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-05,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-06,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-06,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-07,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-07,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-08,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-08,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-09,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-09,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-10,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-10,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-11,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-11,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-12,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-12,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-13,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-13,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-14,ATH,TBS,business,210.0,calendar,2026-11-07T00:23:33,1
+2027-06-14,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-15,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-15,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-16,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-16,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-17,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-17,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-18,ATH,TBS,business,307.0,calendar,2026-11-07T00:23:33,1
+2027-06-18,ATH,TBS,economy,152.0,calendar,2026-11-07T00:23:33,1
+2027-06-19,ATH,TBS,business,307.0,calendar,2026-11-07T00:23:33,1
+2027-06-19,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-20,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-20,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-21,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-21,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-22,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-22,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-23,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-23,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-24,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-24,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-25,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-25,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-26,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-26,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-27,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-27,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
+2027-06-28,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-28,ATH,TBS,economy,139.0,calendar,2026-11-07T00:23:33,1
+2027-06-29,ATH,TBS,business,,,2026-11-07T00:23:33,1
+2027-06-29,ATH,TBS,economy,,,2026-11-07T00:23:33,1
+2027-06-30,ATH,TBS,business,225.0,calendar,2026-11-07T00:23:33,1
+2027-06-30,ATH,TBS,economy,126.0,calendar,2026-11-07T00:23:33,1
 2026-11-08,ATH,TLV,business,257.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,TLV,economy,78.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,TLV,business,257.0,calendar,2026-11-06T12:07:49,1
@@ -5589,8 +5667,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ATH,TLV,economy,78.0,day search,2026-11-06T12:07:49,1
 2027-02-04,ATH,TLV,business,204.0,day search,2026-11-06T12:07:49,1
 2027-02-04,ATH,TLV,economy,53.0,day search,2026-11-06T12:07:49,1
-2026-11-07,ATH,VIE,business,473.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,ATH,VIE,economy,196.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,VIE,business,473.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,ATH,VIE,economy,365.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,ATH,VIE,business,473.0,calendar,2026-11-06T12:07:49,1
@@ -6213,8 +6289,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-09-07,ATH,ZRH,economy,89.0,calendar,2026-11-06T12:07:49,1
 2027-09-08,ATH,ZRH,business,297.0,calendar,2026-11-06T12:07:49,1
 2027-09-08,ATH,ZRH,economy,89.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,BCN,ATH,business,327.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,BCN,ATH,economy,125.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,BCN,ATH,business,553.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,BCN,ATH,economy,84.0,calendar,2026-11-06T12:07:49,1
 2026-11-09,BCN,ATH,business,327.0,calendar,2026-11-06T12:07:49,1
@@ -6393,8 +6467,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,BCN,ATH,economy,103.0,day search,2026-11-06T12:07:49,1
 2027-02-04,BCN,ATH,business,327.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,BCN,ATH,economy,103.0,day search,2026-11-06T12:07:49,1
-2026-11-07,BER,ATH,business,241.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,BER,ATH,economy,120.0,day search,2026-11-06T12:07:49,1
 2026-11-08,BER,ATH,business,241.0,calendar,2026-11-06T12:07:49,1
 2026-11-08,BER,ATH,economy,120.0,day search,2026-11-06T12:07:49,1
 2026-11-09,BER,ATH,business,241.0,calendar,2026-11-06T12:07:49,1
@@ -6573,8 +6645,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,BER,ATH,economy,100.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,BER,ATH,business,320.0,calendar,2026-11-06T12:07:49,1
 2027-02-04,BER,ATH,economy,236.0,calendar,2026-11-06T12:07:49,1
-2026-11-07,BIO,ATH,business,,,2026-11-06T12:07:49,1
-2026-11-07,BIO,ATH,economy,,probe,2026-11-06T12:07:49,1
 2026-11-08,BIO,ATH,business,,,2026-11-06T12:07:49,1
 2026-11-08,BIO,ATH,economy,,probe,2026-11-06T12:07:49,1
 2026-11-09,BIO,ATH,business,,,2026-11-06T12:07:49,1
@@ -7151,8 +7221,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-08-21,BIO,ATH,economy,,,2026-10-31T10:17:18,1
 2027-08-22,BIO,ATH,business,458.0,day search,2026-10-31T10:17:18,1
 2027-08-22,BIO,ATH,economy,200.0,day search,2026-10-31T10:17:18,1
-2026-11-07,BRU,ATH,business,509.0,day search,2026-11-06T12:07:49,1
-2026-11-07,BRU,ATH,economy,107.0,day search,2026-11-06T12:07:49,1
 2026-11-08,BRU,ATH,business,421.0,day search,2026-11-06T12:07:49,1
 2026-11-08,BRU,ATH,economy,107.0,day search,2026-11-06T12:07:49,1
 2026-11-09,BRU,ATH,business,421.0,day search,2026-11-06T12:07:49,1
@@ -7330,8 +7398,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,BRU,ATH,economy,131.0,day search,2026-11-06T12:07:49,1
 2027-02-04,BRU,ATH,business,514.0,day search,2026-11-06T12:07:49,1
 2027-02-04,BRU,ATH,economy,131.0,day search,2026-11-06T12:07:49,1
-2026-11-07,CDG,ATH,business,570.0,day search,2026-11-06T12:07:49,1
-2026-11-07,CDG,ATH,economy,255.0,day search,2026-11-06T12:07:49,1
 2026-11-08,CDG,ATH,business,454.0,day search,2026-11-06T12:07:49,1
 2026-11-08,CDG,ATH,economy,183.0,day search,2026-11-06T12:07:49,1
 2026-11-09,CDG,ATH,business,570.0,day search,2026-11-06T12:07:49,1
@@ -7510,8 +7576,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,CDG,ATH,economy,183.0,day search,2026-11-06T12:07:49,1
 2027-02-04,CDG,ATH,business,570.0,day search,2026-11-06T12:07:49,1
 2027-02-04,CDG,ATH,economy,183.0,day search,2026-11-06T12:07:49,1
-2026-11-07,CHQ,SKG,business,220.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,CHQ,SKG,economy,162.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,CHQ,SKG,business,,,2026-11-06T12:07:46,1
 2026-11-08,CHQ,SKG,economy,,,2026-11-06T12:07:46,1
 2026-11-09,CHQ,SKG,business,144.0,calendar,2026-11-06T12:07:46,1
@@ -7690,8 +7754,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,CHQ,SKG,economy,51.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,CHQ,SKG,business,,,2026-11-06T12:07:46,1
 2027-02-04,CHQ,SKG,economy,,,2026-11-06T12:07:46,1
-2026-11-07,ERF,ATH,business,,,2026-11-06T12:07:46,1
-2026-11-07,ERF,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-08,ERF,ATH,business,,,2026-11-06T12:07:46,1
 2026-11-08,ERF,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-09,ERF,ATH,business,,,2026-11-06T12:07:46,1
@@ -7870,8 +7932,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,ERF,ATH,economy,,probe,2026-11-06T12:07:46,1
 2027-02-04,ERF,ATH,business,,,2026-11-06T12:07:46,1
 2027-02-04,ERF,ATH,economy,,probe,2026-11-06T12:07:46,1
-2026-11-07,FCO,ATH,business,275.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,FCO,ATH,economy,146.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,FCO,ATH,business,275.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,FCO,ATH,economy,125.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,FCO,ATH,business,215.0,calendar,2026-11-06T12:07:46,1
@@ -8354,8 +8414,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-06-29,FRA,ATH,economy,155.0,calendar,2026-11-06T12:07:46,1
 2027-06-30,FRA,ATH,business,377.0,calendar,2026-11-06T12:07:46,1
 2027-06-30,FRA,ATH,economy,155.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,FRA,IST,business,,,2026-11-06T12:07:46,1
-2026-11-07,FRA,IST,economy,,probe,2026-11-06T12:07:46,1
 2026-11-08,FRA,IST,business,,,2026-11-06T12:07:46,1
 2026-11-08,FRA,IST,economy,,probe,2026-11-06T12:07:46,1
 2026-11-09,FRA,IST,business,,,2026-11-06T12:07:46,1
@@ -8534,8 +8592,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,FRA,IST,economy,,probe,2026-11-06T12:07:46,1
 2027-02-04,FRA,IST,business,,,2026-11-06T12:07:46,1
 2027-02-04,FRA,IST,economy,,probe,2026-11-06T12:07:46,1
-2026-11-07,GYD,ATH,business,,,2026-11-06T12:07:46,1
-2026-11-07,GYD,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-08,GYD,ATH,business,,,2026-11-06T12:07:46,1
 2026-11-08,GYD,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-09,GYD,ATH,business,,,2026-11-06T12:07:46,1
@@ -8714,8 +8770,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,GYD,ATH,economy,,probe,2026-11-06T12:07:46,1
 2027-02-04,GYD,ATH,business,,,2026-11-06T12:07:46,1
 2027-02-04,GYD,ATH,economy,,probe,2026-11-06T12:07:46,1
-2026-11-07,HER,ATH,business,213.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,HER,ATH,economy,135.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,HER,ATH,business,140.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,HER,ATH,economy,92.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,HER,ATH,business,140.0,calendar,2026-11-06T12:07:46,1
@@ -8894,8 +8948,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,HER,ATH,economy,,,2026-11-06T12:07:46,1
 2027-02-04,HER,ATH,business,140.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,HER,ATH,economy,,,2026-11-06T12:07:46,1
-2026-11-07,HER,SKG,business,204.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,HER,SKG,economy,146.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,HER,SKG,business,204.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,HER,SKG,economy,146.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,HER,SKG,business,204.0,calendar,2026-11-06T12:07:46,1
@@ -9074,8 +9126,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,HER,SKG,economy,45.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,HER,SKG,business,204.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,HER,SKG,economy,117.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,INN,ATH,business,,,2026-11-06T12:07:46,1
-2026-11-07,INN,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-08,INN,ATH,business,,,2026-11-06T12:07:46,1
 2026-11-08,INN,ATH,economy,,probe,2026-11-06T12:07:46,1
 2026-11-09,INN,ATH,business,,,2026-11-06T12:07:46,1
@@ -9254,8 +9304,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,INN,ATH,economy,,probe,2026-11-06T12:07:46,1
 2027-02-04,INN,ATH,business,,,2026-11-06T12:07:46,1
 2027-02-04,INN,ATH,economy,,probe,2026-11-06T12:07:46,1
-2026-11-07,IST,ATH,business,307.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,IST,ATH,economy,117.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,IST,ATH,business,389.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,IST,ATH,economy,140.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,IST,ATH,business,228.0,calendar,2026-11-06T12:07:46,1
@@ -9434,8 +9482,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,IST,ATH,economy,39.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,IST,ATH,business,228.0,calendar,2026-11-06T12:07:46,1
 2027-02-04,IST,ATH,economy,39.0,calendar,2026-11-06T12:07:46,1
-2026-11-07,IST,FRA,business,,,2026-11-06T12:07:46,1
-2026-11-07,IST,FRA,economy,,probe,2026-11-06T12:07:46,1
 2026-11-08,IST,FRA,business,,,2026-11-06T12:07:46,1
 2026-11-08,IST,FRA,economy,,probe,2026-11-06T12:07:46,1
 2026-11-09,IST,FRA,business,,,2026-11-06T12:07:46,1
@@ -9614,8 +9660,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,IST,FRA,economy,,probe,2026-11-06T12:07:46,1
 2027-02-04,IST,FRA,business,,,2026-11-06T12:07:46,1
 2027-02-04,IST,FRA,economy,,probe,2026-11-06T12:07:46,1
-2026-11-07,IST,SKG,business,,,2026-11-06T12:07:46,1
-2026-11-07,IST,SKG,economy,289.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,IST,SKG,business,,,2026-11-06T12:07:46,1
 2026-11-08,IST,SKG,economy,289.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,IST,SKG,business,,,2026-11-06T12:07:46,1
@@ -9794,8 +9838,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,IST,SKG,economy,,,2026-11-06T12:07:46,1
 2027-02-04,IST,SKG,business,,,2026-11-06T12:07:46,1
 2027-02-04,IST,SKG,economy,,,2026-11-06T12:07:46,1
-2026-11-07,JMK,ATH,business,,probe,2026-11-04T12:41:05,1
-2026-11-07,JMK,ATH,economy,73.0,calendar,2026-11-06T12:07:46,1
 2026-11-08,JMK,ATH,business,,probe,2026-11-04T12:41:05,1
 2026-11-08,JMK,ATH,economy,42.0,calendar,2026-11-06T12:07:46,1
 2026-11-09,JMK,ATH,business,,probe,2026-11-04T12:41:05,1
@@ -9973,8 +10015,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-03,JMK,ATH,economy,63.0,day search,2026-11-06T12:07:46,1
 2027-02-04,JMK,ATH,business,,,2026-11-06T12:07:46,1
 2027-02-04,JMK,ATH,economy,,,2026-11-06T12:07:46,1
-2026-11-07,JTR,ATH,business,153.0,calendar,2026-11-04T12:41:05,1
-2026-11-07,JTR,ATH,economy,42.0,calendar,2026-11-04T12:41:05,1
 2026-11-08,JTR,ATH,business,153.0,calendar,2026-11-04T12:41:05,1
 2026-11-08,JTR,ATH,economy,63.0,calendar,2026-11-04T12:41:05,1
 2026-11-09,JTR,ATH,business,134.0,calendar,2026-11-04T12:41:05,1
@@ -10149,8 +10189,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-01,JTR,ATH,economy,42.0,calendar,2026-11-04T12:41:05,1
 2027-02-02,JTR,ATH,business,134.0,calendar,2026-11-04T12:41:05,1
 2027-02-02,JTR,ATH,economy,42.0,calendar,2026-11-04T12:41:05,1
-2026-11-07,LCA,ATH,business,245.0,calendar,2026-11-04T12:41:05,1
-2026-11-07,LCA,ATH,economy,71.0,calendar,2026-11-04T12:41:05,1
 2026-11-08,LCA,ATH,business,245.0,calendar,2026-11-04T12:41:05,1
 2026-11-08,LCA,ATH,economy,63.0,calendar,2026-11-04T12:41:05,1
 2026-11-09,LCA,ATH,business,245.0,calendar,2026-11-04T12:41:05,1
@@ -10325,8 +10363,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-01,LCA,ATH,economy,63.0,calendar,2026-11-04T12:41:05,1
 2027-02-02,LCA,ATH,business,214.0,calendar,2026-11-04T12:41:05,1
 2027-02-02,LCA,ATH,economy,63.0,calendar,2026-11-04T12:41:05,1
-2026-11-07,LCA,SKG,business,320.0,day search,2026-11-04T12:41:05,1
-2026-11-07,LCA,SKG,economy,240.0,calendar,2026-11-04T12:41:05,1
 2026-11-08,LCA,SKG,business,320.0,day search,2026-11-04T12:41:05,1
 2026-11-08,LCA,SKG,economy,240.0,calendar,2026-11-04T12:41:05,1
 2026-11-09,LCA,SKG,business,320.0,day search,2026-11-04T12:41:05,1
@@ -10683,8 +10719,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-07-28,LCY,ATH,economy,,,2026-10-31T14:27:18,1
 2027-07-29,LCY,ATH,business,,,2026-10-31T14:27:18,1
 2027-07-29,LCY,ATH,economy,,,2026-10-31T14:27:18,1
-2026-11-07,LHR,ATH,business,721.0,calendar,2026-11-03T11:58:05,1
-2026-11-07,LHR,ATH,economy,103.0,calendar,2026-11-03T11:58:05,1
 2026-11-08,LHR,ATH,business,551.0,calendar,2026-11-03T11:58:05,1
 2026-11-08,LHR,ATH,economy,154.0,calendar,2026-11-03T11:58:05,1
 2026-11-09,LHR,ATH,business,373.0,calendar,2026-11-03T11:58:05,1
@@ -10857,8 +10891,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,LHR,ATH,economy,107.0,calendar,2026-11-03T11:58:05,1
 2027-02-01,LHR,ATH,business,377.0,calendar,2026-11-03T11:58:05,1
 2027-02-01,LHR,ATH,economy,86.0,calendar,2026-11-03T11:58:05,1
-2026-11-07,MAD,ATH,business,638.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,MAD,ATH,economy,171.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MAD,ATH,business,293.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MAD,ATH,economy,171.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,MAD,ATH,business,293.0,calendar,2026-11-03T11:58:08,1
@@ -11031,8 +11063,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,MAD,ATH,economy,109.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,MAD,ATH,business,247.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,MAD,ATH,economy,109.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,MUC,ATH,business,306.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,MUC,ATH,economy,104.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MUC,ATH,business,236.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MUC,ATH,economy,127.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,MUC,ATH,business,306.0,calendar,2026-11-03T11:58:08,1
@@ -11205,8 +11235,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,MUC,ATH,economy,104.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,MUC,ATH,business,306.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,MUC,ATH,economy,139.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,MXP,ATH,business,266.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,MXP,ATH,economy,98.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MXP,ATH,business,266.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,MXP,ATH,economy,123.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,MXP,ATH,business,266.0,calendar,2026-11-03T11:58:08,1
@@ -11573,8 +11601,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-09-06,OLB,ATH,economy,,,2026-11-04T06:18:16,1
 2027-09-07,OLB,ATH,business,,,2026-11-04T06:18:16,1
 2027-09-07,OLB,ATH,economy,,,2026-11-04T06:18:16,1
-2026-11-07,RHO,ATH,business,212.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,RHO,ATH,economy,212.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,RHO,ATH,business,212.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,RHO,ATH,economy,212.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,RHO,ATH,business,212.0,calendar,2026-11-03T11:58:08,1
@@ -11747,8 +11773,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,RHO,ATH,economy,61.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,RHO,ATH,business,175.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,RHO,ATH,economy,61.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,RHO,SKG,business,222.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,RHO,SKG,economy,164.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,RHO,SKG,business,222.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,RHO,SKG,economy,164.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,RHO,SKG,business,222.0,calendar,2026-11-03T11:58:08,1
@@ -11921,8 +11945,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,RHO,SKG,economy,63.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,RHO,SKG,business,126.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,RHO,SKG,economy,52.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,ATH,business,158.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,ATH,economy,69.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,ATH,business,193.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,ATH,economy,99.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,SKG,ATH,business,193.0,calendar,2026-11-03T11:58:08,1
@@ -12095,8 +12117,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,ATH,economy,61.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,ATH,business,158.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,ATH,economy,61.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,CHQ,business,146.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,CHQ,economy,63.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,CHQ,business,,,2026-11-03T11:58:08,1
 2026-11-08,SKG,CHQ,economy,,,2026-11-03T11:58:08,1
 2026-11-09,SKG,CHQ,business,146.0,calendar,2026-11-03T11:58:08,1
@@ -12269,8 +12289,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,CHQ,economy,,,2026-11-03T11:58:08,1
 2027-02-01,SKG,CHQ,business,146.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,CHQ,economy,53.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,HER,business,167.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,HER,economy,86.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,HER,business,167.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,HER,economy,86.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,SKG,HER,business,146.0,calendar,2026-11-03T11:58:08,1
@@ -12443,8 +12461,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,HER,economy,86.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,HER,business,167.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,HER,economy,86.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,IST,business,736.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,IST,economy,238.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,IST,business,736.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,IST,economy,298.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,SKG,IST,business,169.0,calendar,2026-11-03T11:58:08,1
@@ -12617,8 +12633,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,IST,economy,173.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,IST,business,675.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,IST,economy,173.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,LCA,business,170.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,LCA,economy,95.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,LCA,business,191.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,LCA,economy,114.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,SKG,LCA,business,315.0,calendar,2026-11-03T11:58:08,1
@@ -12791,8 +12805,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,LCA,economy,88.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,LCA,business,191.0,day search,2026-11-03T11:58:08,1
 2027-02-01,SKG,LCA,economy,83.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,RHO,business,167.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,SKG,RHO,economy,96.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,RHO,business,146.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,SKG,RHO,economy,86.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,SKG,RHO,business,222.0,calendar,2026-11-03T11:58:08,1
@@ -12965,8 +12977,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,SKG,RHO,economy,73.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,RHO,business,146.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,SKG,RHO,economy,63.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,TLV,ATH,business,262.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,TLV,ATH,economy,80.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,TLV,ATH,business,262.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,TLV,ATH,economy,133.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,TLV,ATH,business,262.0,calendar,2026-11-03T11:58:08,1
@@ -13139,8 +13149,6 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-01-31,TLV,ATH,economy,83.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,TLV,ATH,business,356.0,calendar,2026-11-03T11:58:08,1
 2027-02-01,TLV,ATH,economy,290.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,VIE,ATH,business,528.0,calendar,2026-11-03T11:58:08,1
-2026-11-07,VIE,ATH,economy,85.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,VIE,ATH,business,325.0,calendar,2026-11-03T11:58:08,1
 2026-11-08,VIE,ATH,economy,127.0,calendar,2026-11-03T11:58:08,1
 2026-11-09,VIE,ATH,business,325.0,calendar,2026-11-03T11:58:08,1
