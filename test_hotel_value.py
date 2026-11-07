@@ -28,3 +28,9 @@ def test_checked_on_says_the_day_or_the_span():
     assert checked_on(["2026-10-30T22:15:17", "2026-11-05T10:00:00"]) == "30 Oct–5 Nov"
     assert checked_on([]) == ""
     assert basis(2) == "a night for the room, 2 adults, before city tax" and basis(1).endswith("1 adult, before city tax")
+
+
+def test_a_well_rated_hotel_without_stars_is_not_called_a_shared_room():
+    from math import nan
+    from hotels import small_room
+    assert small_room([nan, nan], [35, 35], [160, 160], [4.5, 3.1], [900, 104]) == [False, True]

@@ -1010,11 +1010,16 @@ def test_hotel_page_lists_the_hotels_collected_and_opens_one(tmp_path, monkeypat
     for i in range(40, 50):  # a hotel a visitor searched, outside the default 30-day window
         t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "Kempinski Engelberg", "Kempinski", 2,
                                                                  "Kempinski Palace", 300.0 + i, now, 2))
+    # the same hotel typed another way, for one night, checked earlier: one entry in the list, both stays named on it
+    t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(41)).isoformat(), "kempinski engelberg", "KEMPINSKI", 1,
+                                                         "Kempinski Palace", 350.0, (datetime.now() - timedelta(hours=1)).isoformat(), 2))
     t.commit()
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(page, default_timeout=60).run()
     assert not at.exception
+    assert at.number_input(key="ho-nights").value == 2  # no stay came with the visitor: two nights
     pick = at.selectbox(key="ho-saved")
+    assert len(pick.options) == 1 and "2 nights, 2 adults or 1 night, 2 adults" in pick.format_func(0)
     assert "Kempinski · 10 check-in days saved" in pick.format_func(0)
     assert not at.markdown or "Kempinski" not in " ".join(m.value for m in at.markdown)  # the default search is still Frankfurt
     pick.select(0).run()
@@ -1090,7 +1095,8 @@ def test_hotel_map_shows_for_a_name_typed_with_google_s_curly_apostrophe_even_be
     at.run()
     assert not at.exception
     assert any("No prices saved yet" in i.value for i in at.info)
-    assert any("The hotels around it: Amrâth Grand Hotel de" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
+    assert any("Hotels around it for your stay" in m.value for m in at.markdown)  # the committed places file puts it on the map anyway
+    assert any("Amrâth Grand Hotel de" in c.value for c in at.caption)  # the map's caption names it: it is on the map
 
 
 def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, monkeypatch):
@@ -1116,11 +1122,11 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     at.number_input(key="ho-nights").set_value(3)
     at.run()
     assert not at.exception
-    said = [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
-    assert "**Cheap Inn**, €210 for the 3 nights (€70 a night for the room, 2 adults, before city tax)" in said  # far away hotel left out
+    said = [m.value for m in at.markdown if "Cheapest:" in m.value][0]
+    assert "Cheapest: **Cheap Inn**, €210 for the 3 nights (€70 a night)" in said  # far away hotel left out
     assert "Grand Hotel Here is €750" in said and "1 cheaper listing without a star class is left out" in said  # the dorm bed: listed only
     table = at.dataframe[-1].value
-    assert table.set_index("Hotel").Note["Bed In A Dorm"] == "may be a shared or small room, check it"
+    assert table.set_index("Hotel").Note["Bed In A Dorm"] == "shared or small room?"
     # the hotel's own fresher prices replace the neighbours' snapshot everywhere, and a suites-only night stays out of the statistics
     t = db.connect(str(tmp_path / "tracker.db"))
     for i, price in ((5, 240.0), (6, 900.0), (7, 250.0), (8, 260.0)):
@@ -1128,14 +1134,14 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     t.commit()
     at.run()
     assert not at.exception
-    said = [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
+    said = [m.value for m in at.markdown if "Cheapest:" in m.value][0]
     assert "Grand Hotel Here is €720" in said  # €240 a night from its own prices, not €250 from the older snapshot
     cards = " ".join(m.value for m in at.markdown)
     assert "Only expensive rooms left" in cards and "€900" in cards and "Typical night" in cards and "Average night" not in cards
     assert "Dearest night" in cards and "€260" in cards
     assert any("Prices of the hotels around it checked" in c.value for c in at.caption)
     at.button_group(key="ho-stay-rating").set_value(4.5).run()
-    assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if m.value.startswith("Cheapest:")][0]
+    assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if "Cheapest:" in m.value][0]
 
 
 def test_hotel_fetch_finds_the_tripadvisor_key_itself_when_none_is_given(tmp_path):
@@ -1229,3 +1235,38 @@ def test_pass_per_flight_maths_is_spelled_out():
     assert pass_plan.effective_cost(780, 12, 30) == 95
     o = options(None, None, [dict(name="7-day pass", eff=95, days=7, price=780, flights=12, detail=s)], 10, 1)
     assert o[0]["flexible"] == 95 and s in o[0]["detail"]
+
+
+def test_hotel_page_lists_every_hotel_of_a_city_and_the_filters_map_and_table_agree(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime
+    from streamlit.testing.v1 import AppTest
+    import fetch_hotel
+    now, day = datetime.now().isoformat(timespec="seconds"), lambda i: (date.today() + timedelta(i)).isoformat()
+    places = {"Grand Hotel Here": dict(lat=50.110, lng=8.676, stars=5, rating=4.6, reviews=900, prices={day(5): 300, day(6): 250}),
+              "Cheap Inn": dict(lat=50.112, lng=8.678, stars=3, rating=3.9, reviews=40, prices={day(5): 70, day(6): 90}),
+              "Good Value": dict(lat=50.108, lng=8.672, stars=4, rating=4.7, reviews=300, prices={day(6): 95}),
+              "Far Away": dict(lat=50.300, lng=8.900, stars=3, rating=4.8, reviews=10, prices={day(5): 20})}
+    for name in ("PLACES", "NEARBY", "LANDMARKS"):
+        monkeypatch.setattr(fetch_hotel, name, tmp_path / f"{name.lower()}.csv")
+    fetch_hotel.save_places(hotels.place_rows(places, "Some Hotel Testtown", 2, 2, now), tmp_path / "places.csv")
+    fetch_hotel.save_nearby(hotels.day_rows(places, "Some Hotel Testtown", 2, 2, now), tmp_path / "nearby.csv")
+    page = os.path.abspath("views/hotel.py")
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(page, default_timeout=60)
+    at.query_params["nights"] = "2-7"  # the Overview's stay, as its links carry it
+    at.run()
+    assert at.number_input(key="ho-nights").value == 2
+    at.button_group(key="ho-mode").set_value("city").run()
+    at.text_input(key="ho-query").set_value("testtown").run()  # a saved search that names the town lists its hotels
+    assert not at.exception
+    table = at.dataframe[-1].value
+    assert list(table.Hotel) == ["Cheap Inn", "Good Value", "Grand Hotel Here"]  # Far Away is out of the default 3 km
+    assert any("The 3 hotels of the list below" in c.value for c in at.caption)  # the map shows exactly those
+    assert any("**3 of the 4** hotels" in m.value for m in at.markdown)
+    at.number_input(key="ho-stay-max").set_value(100).run()
+    at.button_group(key="ho-stay-stars").set_value(4).run()
+    assert list(at.dataframe[-1].value.Hotel) == ["Good Value"]
+    assert any("The 1 hotel of the list below" in c.value for c in at.caption)
+    assert not any("before city tax" in m.value for m in at.markdown)  # the price basis is said once, in a caption at the top
+    assert sum("before city tax" in c.value for c in at.caption) == 2  # at the top, and under the table for its € / night column

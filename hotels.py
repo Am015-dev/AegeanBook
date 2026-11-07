@@ -97,10 +97,15 @@ def sold_out(prices):
     return p > SOLD_OUT * p.median()
 
 
-def small_room(stars, price, area):
+def small_room(stars, price, area, rating=None, reviews=None):
     """One bool per listing: no star class and priced under SMALL times the area's middle price that night (`area`, NaN when
-    unknown). Such a price is often a bed in a shared room or a tiny room, so it should not headline "cheapest" or "best value"."""
-    return [bool(pd.isna(s) or s == "") and pd.notna(a) and pd.notna(p) and p < SMALL * a for s, p, a in zip(stars, price, area)]
+    unknown). Such a price is often a bed in a shared room or a tiny room, so it should not headline "cheapest" or "best value".
+    A listing many guests rate well (4.0+ from 50+ reviews, when given) is a real budget hotel, not flagged."""
+    n = len(stars)
+    rating, reviews = rating if rating is not None else [None] * n, reviews if reviews is not None else [None] * n
+    trusted = lambda r, v: pd.notna(r) and pd.notna(v) and r >= 4.0 and v >= 50
+    return [bool(pd.isna(s) or s == "") and pd.notna(a) and pd.notna(p) and p < SMALL * a and not trusted(r, v)
+            for s, p, a, r, v in zip(stars, price, area, rating, reviews)]
 
 
 def checked_on(fetched):

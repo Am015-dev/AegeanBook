@@ -146,6 +146,7 @@ def test_github_calls(monkeypatch):
     assert sent[0].full_url.endswith("/actions/workflows/fetch-route.yml/dispatches") and body["ref"] == "main"
     assert body["inputs"] == {"legs": "ATH,BIO,2026-11-03,2026-12-02", "nonstop": "1", "request": request, "airline": "A3"}
     assert sent[0].headers["Authorization"] == "Bearer tok"
+    assert sent[0].headers["Content-type"] == "application/json"  # without it urllib sends a form type and GitHub answers HTTP 415
     assert gh.run("tok", request) == dict(status="completed", conclusion="success", url="https://github.com/run/1")
 
 
@@ -270,13 +271,15 @@ def test_hotels_page_fetches_only_missing_check_ins_on_github(tmp_path, monkeypa
         t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "Steigenberger Frankfurt",
                                                                "Frankfurter Hof", 1, "Steigenberger", 200.0, datetime.now().isoformat(), 2))
     t.commit()
+    st_nights = 1  # the page opens on 2 nights; these rows are one-night stays
     started = []
     monkeypatch.setattr(gh, "token", lambda: "tok")
     monkeypatch.setattr(gh, "fetch_hotel", lambda tok, *a: started.append(a) or "h1")
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(hotels, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = AppTest.from_file(os.path.join(HERE, "views", "hotel.py"), default_timeout=60).run()
-    at.text_input(key="ho-link").set_value("g187337-d202275").run()  # the field is empty by default now: this hotel's key, pasted
+    at.text_input(key="ho-link").set_value("g187337-d202275")  # the field is empty by default now: this hotel's key, pasted
+    at.number_input(key="ho-nights").set_value(st_nights).run()
     at.button[0].click().run()  # Update prices
     assert not at.exception and len(started) == 1
     query, filt, hkey, nights, adults, ranges, booking = started[0]

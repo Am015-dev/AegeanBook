@@ -40,10 +40,13 @@ def token():
 
 
 def _api(tok, method, path, body=None, raw=False, timeout=20):
+    # a JSON body must say so: without the header urllib sends application/x-www-form-urlencoded and GitHub answers HTTP 415
+    headers = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28",
+               "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
     req = urllib.request.Request(f"https://api.github.com/repos/{REPO}{path}", method=method,
-                                 data=None if body is None else json.dumps(body).encode(),
-                                 headers={"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28",
-                                          "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json"})
+                                 data=None if body is None else json.dumps(body).encode(), headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = r.read()
