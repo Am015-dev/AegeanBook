@@ -15,16 +15,16 @@ import network
 import skyexpress as sx
 from collector import Airline, fetch_range, gaps
 from db import RETENTION_DAYS, connect, save_awards, saved_flight_days
-from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options
+from advice import STYLE as ADV_STYLE, card_html as adv_card, options as adv_options, winner as adv_winner
 from best_days import best_miles_days, best_miles_pairs, cheapest_days, cheapest_pairs
 from award_calendar import STYLE as CAL_STYLE, calendar_html, cells as cal_cells
 from award_view import best_award, load_award, miles_table, one_way_plan, return_plan
 from jobs import record, start_job, track
-from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass
+from pass_plan import DEFAULT_FLIGHTS, DEFAULT_TAXES, PASSES, assess as assess_pass, breakdown as pass_breakdown
 from trip_cost import hotel_options, night_prices, trip_costs
 from plain import checked_sentence, nearly, options_filters
 from layout import page_head
-from ui import (BUSINESS, ECONOMY, MUTED, aegean_rows, airport_picker, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
+from ui import (BUSINESS, ECONOMY, MUTED, aegean_rows, best_days, best_trips, excel_bytes, kpis, near_cheapest, on_weekdays,
                 price_chart, round_trips, route, schedule_note, window_picker, github_progress, github_note)
 
 if getattr(sx, "VERSION", 0) < 4:  # Streamlit Cloud keeps an older copy of a module across redeploys
@@ -79,14 +79,59 @@ def swap_airports():
     st.session_state["orig"], st.session_state["dest"] = st.session_state["dest"], st.session_state["orig"]
 
 
-page_head("Flights", "Every day's fare on one route, both ways, in cash or award miles, with the Aegean Pass and the Excel file.")
+def seed_from_overview():
+    """Start from the Overview's search (its widgets leave these keys in session_state), once per visit to this page."""
+    ss = st.session_state
+    if ss.get("fl-seeded"):
+        return
+    ss["fl-seeded"] = True
+    codes = {r["iata"] for r in aegean_rows()}
+    o = ss.get("ov-grid-orig")
+    if o in codes:
+        ss["orig"] = o
+        d = ss.get(f"ov-grid-dest-{o}")
+        if d in codes and d != o:
+            ss["dest"] = d
+    if ss.get("ov-trip") in ("return", "oneway"):
+        ss["fl-trip"] = {"return": "Return", "oneway": "One-way"}[ss["ov-trip"]]
+    if isinstance(ss.get("ov-nights"), (tuple, list)) and len(ss["ov-nights"]) == 2:
+        ss["fl-nights"] = tuple(ss["ov-nights"])
+    if ss.get("ov-grid-pay") in ("cash", "miles"):
+        ss["fl-pay"] = ss["ov-grid-pay"]
+    w = ss.get("ov-when")
+    if isinstance(w, (tuple, list)) and len(w) == 2 and all(isinstance(x, date) for x in w) and w[0] > today:
+        ss["fl-when"] = tuple(w)
+
+
+def pickers(c0, c2):
+    """From and To as 'Athens (ATH)'. To lists only airports AEGEAN flies from here (network check), saved ones first, then the others marked
+    'not searched yet'; the full airport names go in a line below."""
+    rows = {r["iata"]: r for r in aegean_rows()}
+    city = lambda a: f"{rows[a]['city']} ({a})"
+    orig = c0.selectbox("From", list(rows), index=list(rows).index("ATH"), format_func=city, key="orig",
+                        help="Type a city, airport name or code, for example Athens, Bilbao or FRA. Only AEGEAN's destinations are listed.")
+    saved = [r[0] for r in db.execute("SELECT dest FROM prices WHERE orig=? GROUP BY dest HAVING COUNT(price)>0 ORDER BY dest", (orig,))]
+    net_, home_ = network.current(), network.home_airports("A3")
+    ok = lambda a: a in rows and a != orig and network.flies(net_, "A3", orig, a, home_) is not False  # never a pair it does not fly
+    rest = sorted((a for a in rows if ok(a) and a not in saved), key=lambda a: rows[a]["city"])
+    options = [a for a in saved if ok(a)] + rest
+    label = lambda a: city(a) + ("" if a in saved else " · not searched yet") + (" · seasonal" if rows[a]["seasonal"] == "1" else "")
+    if st.session_state.get("dest") not in options:
+        st.session_state.pop("dest", None)
+    dest = c2.selectbox("To", options, index=options.index("FRA") if "FRA" in options else 0, format_func=label, key="dest",
+                        help="AEGEAN's destinations from here, those with saved fares first. The others have not been searched yet.")
+    return orig, dest, rows
+
+
+page_head("Flights", "Every day's fare on one route, in cash or award miles, and whether miles or an Aegean Pass beat paying cash.")
+seed_from_overview()
 with st.container(border=True, key="search"):
     c = st.columns([10, 1, 10], vertical_alignment="bottom")  # the swap button sits between the two boxes, level with them
-    orig = airport_picker(c[0], "From", "ATH", "orig")
     c[1].button("", icon=":material/swap_horiz:", key="swap-airports", on_click=swap_airports, help="Swap From and To")
-    dest = airport_picker(c[2], "To", "FRA", "dest")
+    orig, dest, ap_rows = pickers(c[0], c[2])
+    st.caption(f"{ap_rows[orig]['name']} → {ap_rows[dest]['name']}")
     c = st.columns([1, 2, 1])
-    trip = c[0].pills("Trip", ["One-way", "Return"], default="One-way", required=True, key="fl-trip",
+    trip = c[0].pills("Trip", ["One-way", "Return"], default="Return", required=True, key="fl-trip",
                       format_func={"One-way": "One way", "Return": "Return"}.get)
     nights = []
     if trip == "Return":  # the Overview's control: any stay from 1 to 60 nights, every length in the range is compared
@@ -136,6 +181,7 @@ if rend and rend > today + timedelta(HORIZON):
 stay = (f"return, {min(nights)}–{max(nights)} nights" if len(nights) > 1 else f"return, {nights[0]} nights") if nights else "one way"
 route(orig, dest, f"{start:%a %d %b} – {end:%a %d %b %Y} · {(end - start).days + 1} days · {stay} · AEGEAN")
 
+sec_verdict = st.container()  # the miles-or-cash answer, filled once the advice below is worked out
 sec_summary = st.container()  # filled once the figures below exist
 sec_prices = st.container()  # the chart, filled further down but shown first
 
@@ -296,18 +342,21 @@ if award_col:
     with award_col:
         st.subheader("Award miles", anchor=False)
         st.markdown(f'<p class="group">Award miles with Miles+Bonus, {"per flight (a return uses two)" if nights else "one way"}</p>', unsafe_allow_html=True)
-        st.caption("Miles+Bonus award seats, collected on the owner's computer; taxes not included.")
+        st.caption("Miles+Bonus award seats " + (f"as last checked on {pd.Timestamp(last_aw[:10]):%a %d %b}" if last_aw else "as last checked")
+                   + "; taxes not included. \"Per 1,000 mi\" is the cash you save for every 1,000 miles spent on that flight; "
+                   f"compare it with the €{st.session_state.get('mile_value', miles_value.WORTH):.0f} you say 1,000 miles are worth (see "
+                   "\"What should I book?\"): higher means use miles.")
         award_rows = [("Lowest economy award", eav, eas, ECONOMY), ("Lowest business award", bav, bas, BUSINESS)]
         for cab, cash_c, miles_c, tax_c, colour in (("economy", "economy", "econ_miles", "econ_taxes", ECONOMY),
                                                     ("business", "business", "biz_miles", "biz_taxes", BUSINESS)):
             b = miles_value.best_use(view[cash_c], view[miles_c], view.get(tax_c))
             if b:  # the day a seat replaces the most cash, and what each 1,000 miles is worth there
-                award_rows.append((f"Best day to use {cab} miles", f"€{b['value']:.0f} / 1,000 mi",
+                award_rows.append((f"Best day to use {cab} miles", f"€{b['value']:.0f} per 1,000 mi",
                                    f"{pd.Timestamp(b['day']):%a %d %b}: {b['miles']:,} miles" + (f" + €{b['taxes']:.0f}" if b["taxes"] else "")
                                    + f" instead of €{b['cash']:.0f}" + (" · worth it" if b["value"] >= miles_value.WORTH else " · cash is better"),
                                    colour))
         if view.value.notna().any():  # only when award prices were typed in by hand: they carry the taxes the collected miles lack
-            award_rows.append(("Best miles value", f"€{view.value.max():.0f} / 1,000 mi",
+            award_rows.append(("Best miles value", f"€{view.value.max():.0f} per 1,000 mi",
                                f"{pd.Timestamp(view.value.idxmax()):%a %d %b} · cash minus taxes per 1,000 miles", MUTED))
         kpis(award_rows)
 with sec_summary:  # top row: the three numbers people come for, one line of context each
@@ -368,7 +417,7 @@ if has_advice:  # nothing saved yet (a search still running, or not started): no
     empty = pd.Series(dtype=float)
     bam, bamt, _ = load_award(db, dest, orig, nonstop, rstart, rend) if nights else (pd.DataFrame(), pd.DataFrame(), None)  # miles on the way back
     day = lambda iso: f"{pd.Timestamp(iso):%a %d %b}"
-    cards = []
+    cards, verdicts = [], []
     for name, colour, cash_col, miles_col, taxes_col in (("Economy", ECONOMY, "economy", "econ_miles", "econ_taxes"),
                                                          ("Business", BUSINESS, "business", "biz_miles", "biz_taxes")):
         ow = one_way_plan(view, cash_col, miles_col, taxes_col)
@@ -395,13 +444,23 @@ if has_advice:  # nothing saved yet (a search still running, or not started): no
                 pa = assess_pass(out["economy"], price, pass_flights, pass_taxes, days_ahead, today) if price else None
                 shown = int(out["economy"].notna().sum())
                 if pa and pa["days"] * 2 >= shown:  # most of the dates shown can be booked that far ahead
-                    pass_in.append(dict(name=pname, eff=pa["effective"], days=days_ahead, price=price, flights=pass_flights))
+                    pass_in.append(dict(name=pname, eff=pa["effective"], days=days_ahead, price=price, flights=pass_flights,
+                                        detail=f"{pass_breakdown(price, pass_flights, pass_taxes)}; book {days_ahead}+ days ahead"))
                 elif price and shown:
                     notes.append(f"The {pname} is left out: only {pa['days'] if pa else 0} of the {shown} dates shown can be booked {days_ahead} or more "
                                  "days ahead. Choose a longer range at the top to include it.")
         else:
             notes.append("The Aegean Pass is an Economy Flex fare, so it is not compared for Business.")
-        cards.append((name, colour, adv_options(cash_in, miles_in, pass_in, per_k, 2 if nights else 1), notes))
+        opts_ = adv_options(cash_in, miles_in, pass_in, per_k, 2 if nights else 1)
+        cards.append((name, colour, opts_, notes))
+        if opts_:  # the one-line verdict for the top of the page: the best option for fixed dates against a typical cash fare
+            w_ = adv_winner(opts_, "fixed")
+            typ_ = next((o["fixed"] for o in opts_ if o["kind"] == "cash"), None)
+            verdicts.append(f"**{name}: {w_['name']} · €{w_['fixed']:.0f}**" + (f" (about €{typ_ - w_['fixed']:.0f} less than a typical fare)"
+                            if typ_ and w_["kind"] != "cash" and w_["fixed"] < typ_ else ""))
+    if verdicts:
+        sec_verdict.info("Best way to pay, per " + ("round trip" if nights else "flight") + " (details under \"What should I book?\"): "
+                         + " · ".join(verdicts), icon=":material/lightbulb:")
     st.markdown(ADV_STYLE, unsafe_allow_html=True)
     for ui_col, (name, colour, opts, notes) in zip(st.columns(2, gap="medium"), cards):
         with ui_col:

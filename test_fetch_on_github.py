@@ -196,6 +196,7 @@ def test_update_prices_fetches_on_github_and_shows_the_results(tmp_path, monkeyp
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": state["run"])
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = AppTest.from_file(os.path.join(HERE, "views", "flights.py"), default_timeout=60).run()
+    at.button_group(key="fl-trip").set_value("One-way").run()  # the page now starts as Return, like the Overview
     at.button[1].click().run()  # Update prices (the first button swaps the airports)
     assert not at.exception and len(started) == 1
     d = lambda i: date.today() + timedelta(i)

@@ -519,6 +519,7 @@ def test_flights_page_shows_miles_only_when_asked_and_keeps_the_filters_under_op
     page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
     _seed_fares(tmp_path, monkeypatch)
     at = AppTest.from_file(page, default_timeout=90).run()
+    at.button_group(key="fl-trip").set_value("One-way").run()  # the page now starts as Return, like the Overview
     assert not at.exception and at.button_group(key="fl-pay").value == "cash"
     shown = " ".join(m.value for m in at.markdown)
     assert "Cheapest economy" in shown and "Economy is cheapest on" in shown and "Award miles with Miles+Bonus" not in shown
@@ -528,7 +529,7 @@ def test_flights_page_shows_miles_only_when_asked_and_keeps_the_filters_under_op
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
     assert "Award miles with Miles+Bonus" in shown and "Not collected yet for this route" in shown and "Cheapest economy" in shown
-    assert "collected on the owner's computer; taxes not included" in " ".join(c.value for c in at.caption)  # the award section explains itself
+    assert "as last checked" in " ".join(c.value for c in at.caption) and "taxes not included" in " ".join(c.value for c in at.caption)  # the award section explains itself
 
 
 def test_flights_page_survives_missing_award_table(tmp_path, monkeypatch):
@@ -852,6 +853,7 @@ def test_what_should_i_book_shows_only_the_chosen_trip_type_and_leaves_out_impos
     page = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "flights.py")
     _seed_fares(tmp_path, monkeypatch)
     at = AppTest.from_file(page, default_timeout=90).run()
+    at.button_group(key="fl-trip").set_value("One-way").run()  # the page now starts as Return, like the Overview
     assert not at.exception
     shown = " ".join(m.value for m in at.markdown)
     assert "What should I book?" in shown and "Economy</div>" in shown and "Business</div>" in shown
@@ -1216,3 +1218,14 @@ def test_daily_hotel_run_also_saves_the_hotels_around_it(tmp_path, monkeypatch):
     got, missing = collect_daily.collect_hotel(google=google, rate=lambda *a, **k: 160, heat=lambda *a: {}, today=_d(2026, 12, 1),
                                                pause=0, places=places)
     assert places["Near Inn"]["prices"] and not missing
+
+
+def test_pass_per_flight_maths_is_spelled_out():
+    """'€780 for 12 flights' beside '€95' read as a wrong sum: the €95 is €65 (780/12) plus €30 taxes."""
+    import pass_plan
+    from advice import options
+    s = pass_plan.breakdown(780, 12, 30)
+    assert s == "€780 ÷ 12 flights = €65, plus €30 taxes = €95 for each flight"
+    assert pass_plan.effective_cost(780, 12, 30) == 95
+    o = options(None, None, [dict(name="7-day pass", eff=95, days=7, price=780, flights=12, detail=s)], 10, 1)
+    assert o[0]["flexible"] == 95 and s in o[0]["detail"]

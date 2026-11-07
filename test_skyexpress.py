@@ -287,6 +287,7 @@ def test_flights_page_fetches_sky_express_too_and_draws_it_dashed(tmp_path, monk
     monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
     monkeypatch.setattr(collector, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
     at = open_page("flights.py").run()
+    at.button_group(key="fl-trip").set_value("One-way").run()  # the page now starts as Return, like the Overview
     assert not at.exception and at.toggle(key="fl-gq-ATHFRA").value is True  # on by default, in sight
     assert not at.exception
     assert "The dashed line is Sky Express economy: cheapest €45" in " ".join(c.value for c in at.caption)
