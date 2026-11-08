@@ -7,7 +7,6 @@ import time
 import unicodedata
 from datetime import date, timedelta
 
-import pandas as pd
 import stays
 
 from par import parallel
@@ -93,6 +92,7 @@ def basis(adults):
 def sold_out(prices):
     """Boolean Series, same index: the nights priced above SOLD_OUT times the hotel's median night. When a hotel is nearly full the
     searches return only its suites, so those nights say "busy" rather than what a room costs, and would wreck any average."""
+    import pandas as pd  # here, not at the top: the daily runner imports this module without pandas installed
     p = pd.to_numeric(pd.Series(prices), errors="coerce")
     return p > SOLD_OUT * p.median()
 
@@ -101,6 +101,7 @@ def small_room(stars, price, area, rating=None, reviews=None):
     """One bool per listing: no star class and priced under SMALL times the area's middle price that night (`area`, NaN when
     unknown). Such a price is often a bed in a shared room or a tiny room, so it should not headline "cheapest" or "best value".
     A listing many guests rate well (4.0+ from 50+ reviews, when given) is a real budget hotel, not flagged."""
+    import pandas as pd  # here, not at the top: the daily runner imports this module without pandas installed
     n = len(stars)
     rating, reviews = rating if rating is not None else [None] * n, reviews if reviews is not None else [None] * n
     trusted = lambda r, v: pd.notna(r) and pd.notna(v) and r >= 4.0 and v >= 50
@@ -110,6 +111,7 @@ def small_room(stars, price, area, rating=None, reviews=None):
 
 def checked_on(fetched):
     """When a set of prices was checked, from their ISO timestamps: "2 Nov", or "2–5 Nov" when they span days; "" when unknown."""
+    import pandas as pd  # here, not at the top: the daily runner imports this module without pandas installed
     days = pd.to_datetime(pd.Series(fetched), errors="coerce").dropna().dt.normalize()
     if days.empty:
         return ""

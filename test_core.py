@@ -1291,3 +1291,12 @@ def test_city_mode_falls_back_to_the_stay_length_that_has_prices(tmp_path, monke
     assert not at.exception
     assert any("showing the prices saved for 1 night" in i.value for i in at.info)
     assert list(at.dataframe[-1].value.Hotel) == ["Cheap Inn"]
+
+
+def test_the_daily_runner_modules_import_without_pandas():
+    """daily.yml installs only flights and stays: collect_daily and fetch_route --plan crashed on 8 Nov when hotels.py imported pandas."""
+    import subprocess, sys
+    code = ("import sys; sys.modules['pandas'] = None; sys.modules['numpy'] = None; "
+            "import collect_daily, fetch_route, fetch_hotel, collector")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-800:]
