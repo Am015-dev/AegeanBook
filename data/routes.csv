@@ -1465,6 +1465,14 @@ day,orig,dest,cabin,price,source,fetched,nonstop
 2027-02-09,ATH,BRU,economy,229.0,calendar,2026-11-12T12:44:34,1
 2027-02-10,ATH,BRU,business,497.0,day search,2026-11-12T12:44:34,1
 2027-02-10,ATH,BRU,economy,114.0,calendar,2026-11-12T12:44:34,1
+2027-03-27,ATH,CAI,business,221.0,calendar,2026-11-12T19:50:14,1
+2027-03-27,ATH,CAI,economy,117.0,calendar,2026-11-12T19:50:14,1
+2027-03-28,ATH,CAI,business,221.0,calendar,2026-11-12T19:50:14,1
+2027-03-28,ATH,CAI,economy,104.0,calendar,2026-11-12T19:50:14,1
+2027-03-29,ATH,CAI,business,221.0,calendar,2026-11-12T19:50:14,1
+2027-03-29,ATH,CAI,economy,117.0,calendar,2026-11-12T19:50:14,1
+2027-03-30,ATH,CAI,business,197.0,calendar,2026-11-12T19:50:14,1
+2027-03-30,ATH,CAI,economy,93.0,calendar,2026-11-12T19:50:14,1
 2027-03-31,ATH,CAI,business,221.0,calendar,2026-11-12T16:04:11,1
 2027-03-31,ATH,CAI,economy,104.0,calendar,2026-11-12T16:04:11,1
 2027-04-01,ATH,CAI,business,197.0,calendar,2026-11-12T16:04:11,1
