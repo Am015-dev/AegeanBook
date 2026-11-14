@@ -35,6 +35,7 @@ HISTORY = {"A3": "history_prices.csv", "GQ": "history_skyexpress.csv"}  # IATA c
 FIELDS = ["day", "orig", "dest", "cabin", "price", "source", "fetched", "nonstop"]
 KEEP = 30  # days a fetch is kept in the file, as long as the app keeps it (db.RETENTION_DAYS)
 TRACK_DAYS, TRACK_MAX, REFRESH_DAYS = 60, 120, 90  # --refresh: routes searched this recently, at most this many, this far ahead at least
+BLOCKED = 2  # fetch(): give up after this many passes in a row with every request failed
 PER_JOB = 16  # --plan: routes per daily matrix job; a route takes seconds when Google's calendar answers, and GitHub bills each job a whole minute
 HORIZON = 330  # a tracked range never reaches further: Google's calendar stops there (trip_plan.HORIZON, views/flights.py)
 
@@ -122,6 +123,7 @@ def fetch(legs, nonstop, passes=3, pause=90, airline="A3"):
     rows, failed = [], 0
     end = time.monotonic() + float(os.environ.get("BUDGET_MIN") or "inf") * 60  # daily.yml: stop before the job's timeout kills it unsaved
     more = {} if airline == "A3" else dict(cabins=CABINS[airline], airline=Airline[airline])
+    blank = 0  # passes in a row where every request failed: Google is blocking this server, so waiting only burns Actions minutes
     for o, d, a, b in parse(legs):
         done = set()
         for n in range(passes):
@@ -137,6 +139,12 @@ def fetch(legs, nonstop, passes=3, pause=90, airline="A3"):
                 rows.append(dict(day=day.isoformat(), orig=o, dest=d, cabin=cabin, price="" if price is None else price,
                                  source=source, fetched=now, nonstop=int(nonstop)))
             print(f"{o}-{d} {a}..{b} pass {n + 1}: {len(done)} saved, {failed} failed")
+            blank = blank + 1 if failed and not done else 0
+            if blank >= BLOCKED:
+                print(f"blocked: {BLOCKED} passes in a row got nothing; {len(rows)} rows kept, the rest waits for tomorrow")
+                return rows, failed
+            if not done:  # nothing at all on this route: the next route, not a pause and a retry of this one
+                break
             if not failed or n == passes - 1 or time.monotonic() + pause > end:
                 break
             time.sleep(pause)  # lets a Google rate limit cool down

@@ -31,6 +31,7 @@ def collect(fetch=fetch_range, today=None, pause=PAUSE):
             for d in (start + timedelta(i) for i in range(DAYS))}
     got = {}
     for n in range(PASSES):
+        before = len(got)
         for o, t in LEGS:
             skip = {(day, c) for day, o2, t2, c in got if (o2, t2) == (o, t)}
             if len(skip) == 2 * DAYS:
@@ -42,7 +43,7 @@ def collect(fetch=fetch_range, today=None, pause=PAUSE):
                     print(f"  {o}-{t} {d} {cabin}: {err}")
         missing = want - got.keys()
         print(f"pass {n + 1}: {len(got)}/{len(want)} collected, {len(missing)} missing", flush=True)
-        if not missing:
+        if not missing or (n and len(got) == before):  # a retry pass that got nothing new: Google is blocking, stop paying for waits
             break
         if n < PASSES - 1:
             time.sleep(pause)

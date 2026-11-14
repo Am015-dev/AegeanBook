@@ -1300,3 +1300,17 @@ def test_the_daily_runner_modules_import_without_pandas():
             "import collect_daily, fetch_route, fetch_hotel, collector")
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-800:]
+
+
+def test_fetch_route_gives_up_quickly_when_google_blocks_every_request(monkeypatch):
+    """14 Nov: a refresh job spent 25 minutes on 3 passes x 90 s pauses per route and saved nothing. Two blank passes end it."""
+    import fetch_route
+    calls = []
+    def blocked(a, b, o, d, **k):
+        calls.append(o + d)
+        return iter([(a, "economy", None, "", "error", "HTTP 429")])
+    monkeypatch.setattr(fetch_route, "fetch_range", blocked)
+    monkeypatch.setattr(fetch_route.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("no pause when nothing came back")))
+    d0 = date(2026, 12, 1)
+    rows, failed = fetch_route.fetch(";".join(f"ATH,{x},{d0},{d0}" for x in ("FRA", "ZRH", "MUC", "LHR")), True)
+    assert rows == [] and failed and calls == ["ATHFRA", "ATHZRH"]

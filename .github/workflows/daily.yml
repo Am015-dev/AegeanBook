@@ -89,7 +89,7 @@ jobs:
           LEGS: ${{ matrix.legs }}
           NONSTOP: ${{ matrix.nonstop }}
           AIRLINE: ${{ matrix.airline }}
-          BUDGET_MIN: "24"  # stop fetching after 24 of the job's 30 minutes, so what was fetched is still saved (rate limits made 3 of 7 jobs time out)
+          BUDGET_MIN: "12"  # stop fetching after 12 minutes (Actions budget; the job's timeout is 30), so what was fetched is still saved (rate limits made 3 of 7 jobs time out)
       - name: Commit results
         env:
           AIRLINE: ${{ matrix.airline }}
