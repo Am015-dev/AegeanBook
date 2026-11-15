@@ -36,3 +36,25 @@ if st.button("Run checks", type="primary"):
                 "If it keeps failing, the app needs an update.")
 else:
     st.caption("Takes about 10 seconds.")
+
+st.markdown('<p class="card-title">Hotel prices with taxes</p>', unsafe_allow_html=True)
+if st.button("Check whether this server gets prices with taxes", key="tax-probe"):
+    with st.spinner("Asking Google Hotels twice…"):
+        import hotels as _h  # sets the country on Google's requests
+        from stays.search import client as _c
+        import stays as _stays
+        got = {}
+        for label, q in (("with the country", f"?hl=en&gl={_h.COUNTRY}"), ("without", "")):
+            _c.Client.ENDPOINT = _c.Client.ENDPOINT.split("?")[0] + q
+            _c._shared_client = None
+            try:
+                r = _stays.search_hotels("Amrâth Grand Hotel De L'Empereur Maastricht", check_in="2026-12-04", check_out="2026-12-07",
+                                         adults=2, currency="EUR")
+                got[label] = {x["name"]: x["display_price"] for x in r["hotels"]}.get("Amrâth Grand Hotel de l'Empereur")
+            except Exception as e:  # noqa: BLE001
+                got[label] = f"error: {e}"
+        _c.Client.ENDPOINT = _c.Client.ENDPOINT.split("?")[0] + f"?hl=en&gl={_h.COUNTRY}"
+        _c._shared_client = None
+    st.write(f"Amrâth Maastricht, 4–7 Dec, 2 adults, a night: {got['with the country']} with the country, {got['without']} without. "
+             + ("Different: this server gets prices with taxes." if got["with the country"] != got["without"] else
+                "The same: Google ignores the country here, so prices from this server are before taxes."))
