@@ -583,7 +583,7 @@ if len(here):
             else:
                 c1.link_button(f"Check {best.hotel} on Booking.com", links.hotel_url(best.hotel, b_day, int(nights), int(adults)),
                                icon=":material/open_in_new:", width="stretch")
-            c2.link_button("See it on Google Hotels", "https://www.google.com/travel/search?q=" + urllib.parse.quote(f"{best.hotel} {query}"),
+            c2.link_button("See it on Google Hotels", "https://www.google.com/travel/search?q=" + urllib.parse.quote(f"{best.hotel} hotel"),
                            icon=":material/open_in_new:", width="stretch")
             st.caption(f"Site prices: the room rate each site reports to TripAdvisor for {int(adults)} adult{'s' * (adults > 1)} and "
                        f"{int(nights)} night{'s' * (nights > 1)}, asked live for the {len(got)} cheapest hotels; before city tax, which every "
