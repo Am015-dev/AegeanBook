@@ -1,46 +1,61 @@
 source,day,hotel,price,tier,fetched,query,filt,hkey,nights,adults
-google,2026-12-01,Amrâth Grand Hotel de l'Empereur,87,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-01,,,high,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-11-27,Amrâth Grand Hotel de l'Empereur,188,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-11-27,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-11-28,Amrâth Grand Hotel de l'Empereur,133,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-11-28,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+booking,2026-11-29,,74,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-11-29,Amrâth Grand Hotel de l'Empereur,70,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-11-29,,,cheap,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-11-30,Amrâth Grand Hotel de l'Empereur,75,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-11-30,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-01,Amrâth Grand Hotel de l'Empereur,78,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-01,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 booking,2026-12-02,,121,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-02,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-02,,,cheap,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-03,Amrâth Grand Hotel de l'Empereur,138,,2026-11-02T17:24:30,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-03,,,high,2026-11-02T17:24:30,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-04,Amrâth Grand Hotel de l'Empereur,129,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-04,,,high,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-05,Amrâth Grand Hotel de l'Empereur,102,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-05,,,high,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-booking,2026-12-06,,76,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-06,Amrâth Grand Hotel de l'Empereur,67,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-06,,,cheap,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-booking,2026-12-07,,73,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-07,Amrâth Grand Hotel de l'Empereur,70,,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-07,,,cheap,2026-11-15T14:10:54,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-08,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-08,,,average,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-02,Amrâth Grand Hotel de l'Empereur,102,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-02,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-03,Amrâth Grand Hotel de l'Empereur,136,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-03,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-04,Amrâth Grand Hotel de l'Empereur,130,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-04,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-05,Amrâth Grand Hotel de l'Empereur,102,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-05,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+booking,2026-12-06,,76,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-06,Amrâth Grand Hotel de l'Empereur,67,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-06,,,cheap,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+booking,2026-12-07,,73,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-07,Amrâth Grand Hotel de l'Empereur,70,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-07,,,cheap,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+booking,2026-12-08,,98,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-08,Amrâth Grand Hotel de l'Empereur,87,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-08,,,cheap,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 booking,2026-12-09,,179,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-09,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-09,,,cheap,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-10,Amrâth Grand Hotel de l'Empereur,256,,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-10,,,average,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-11,Amrâth Grand Hotel de l'Empereur,239,,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-11,,,high,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-12,Amrâth Grand Hotel de l'Empereur,176,,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-12,,,high,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-13,Amrâth Grand Hotel de l'Empereur,98,,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-13,,,high,2026-11-02T22:13:15,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-09,Amrâth Grand Hotel de l'Empereur,214,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-09,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-10,Amrâth Grand Hotel de l'Empereur,301,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-10,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-11,Amrâth Grand Hotel de l'Empereur,322,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-11,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-12,Amrâth Grand Hotel de l'Empereur,196,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-12,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-13,Amrâth Grand Hotel de l'Empereur,109,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-13,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 booking,2026-12-14,,77,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-14,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-14,,,cheap,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-14,Amrâth Grand Hotel de l'Empereur,72,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-14,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 booking,2026-12-15,,80,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-15,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-15,,,cheap,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-16,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-16,,,average,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-17,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-heat,2026-12-17,,,average,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-18,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
-google,2026-12-19,,,,2026-11-02T22:14:57,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-15,Amrâth Grand Hotel de l'Empereur,83,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-15,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+booking,2026-12-16,,143,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-16,Amrâth Grand Hotel de l'Empereur,129,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-16,,,cheap,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-17,Amrâth Grand Hotel de l'Empereur,216,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-17,,,average,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-18,Amrâth Grand Hotel de l'Empereur,250,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-18,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-19,Amrâth Grand Hotel de l'Empereur,191,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-19,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+google,2026-12-20,Amrâth Grand Hotel de l'Empereur,107,,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
+heat,2026-12-20,,,high,2026-11-15T16:17:52,Amrâth Grand Hotel De L'Empereur,Amrâth Grand Hotel De L'Empereur,g188575-d230890,3,2
 google,2026-12-04,,,,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
 google,2026-12-04,Amrâth Grand Hotel de l'Empereur,130,,2026-11-02T16:36:41,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188575-d230890,3,2
 heat,2026-12-04,,,high,2026-11-02T16:30:04,Amrâth Grand Hotel de l’Empereur,Amrâth Grand Hotel de l’Empereur,g188063-d23286800,3,2
