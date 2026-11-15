@@ -489,7 +489,7 @@ if len(here):
         stay = stay[ok | yours]
         stay = stay.assign(total=stay.price * nights).sort_values("total")
         # no star class and under half the area's middle price that night: maybe a bed in a shared room; listed, never the headline
-        stay["small"] = small_room(stay.stars, stay.price, stay.day.map(area), stay.rating, stay.reviews) if len(area) else False
+        stay["small"] = small_room(stay.stars, stay.price, stay.day.map(area), stay.rating, stay.reviews, stay.hotel) if len(area) else False
         stay["small"] &= stay.hotel != (me.hotel if me is not None else None)
         mine_name = me.hotel if me is not None else None
         listed = pool.hotel[pool.hotel != mine_name].nunique()  # the other hotels with a price on these check-in days

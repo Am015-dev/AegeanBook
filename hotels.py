@@ -97,16 +97,22 @@ def sold_out(prices):
     return p > SOLD_OUT * p.median()
 
 
-def small_room(stars, price, area, rating=None, reviews=None):
+HOSTEL = ("hostel", "dorm", "capsule", "pod hotel", "backpack")  # a hostel's lowest rate for 2 is usually 2 beds in a shared room
+
+
+def small_room(stars, price, area, rating=None, reviews=None, names=None):
     """One bool per listing: no star class and priced under SMALL times the area's middle price that night (`area`, NaN when
     unknown). Such a price is often a bed in a shared room or a tiny room, so it should not headline "cheapest" or "best value".
-    A listing many guests rate well (4.0+ from 50+ reviews, when given) is a real budget hotel, not flagged."""
+    A listing many guests rate well (4.0+ from 50+ reviews, when given) is a real budget hotel, not flagged; a hostel always is
+    (its name says so): its lowest rate for two is usually two beds in a shared room."""
     import pandas as pd  # here, not at the top: the daily runner imports this module without pandas installed
     n = len(stars)
     rating, reviews = rating if rating is not None else [None] * n, reviews if reviews is not None else [None] * n
     trusted = lambda r, v: pd.notna(r) and pd.notna(v) and r >= 4.0 and v >= 50
-    return [bool(pd.isna(s) or s == "") and pd.notna(a) and pd.notna(p) and p < SMALL * a and not trusted(r, v)
-            for s, p, a, r, v in zip(stars, price, area, rating, reviews)]
+    names = names if names is not None else [""] * n
+    hostel = lambda h: any(k in str(h).lower() for k in HOSTEL)
+    return [hostel(h) or (bool(pd.isna(s) or s == "") and pd.notna(a) and pd.notna(p) and p < SMALL * a and not trusted(r, v))
+            for s, p, a, r, v, h in zip(stars, price, area, rating, reviews, names)]
 
 
 def checked_on(fetched):

@@ -34,3 +34,8 @@ def test_a_well_rated_hotel_without_stars_is_not_called_a_shared_room():
     from math import nan
     from hotels import small_room
     assert small_room([nan, nan], [35, 35], [160, 160], [4.5, 3.1], [900, 104]) == [False, True]
+
+
+def test_a_hostel_is_always_flagged_whatever_its_rating():
+    from hotels import small_room
+    assert small_room([None], [73], [160], [4.4], [1487], ["The Green Elephant Hostel & Spa"]) == [True]
