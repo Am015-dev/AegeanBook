@@ -18,6 +18,13 @@ import gh
 
 if not hasattr(links, "hotel_url"):  # Streamlit Cloud can keep an older booking module loaded across a redeploy
     importlib.reload(links)
+import hotels as _hotels  # noqa: E402
+import xotelo as _xotelo  # noqa: E402
+
+for _m, _names in ((_hotels, ("HOSTEL", "basis", "checked_on", "sold_out", "small_room")),
+                   (_xotelo, ("site_rates", "sites_text", "town", "key_for", "location", "site_url"))):
+    if not all(hasattr(_m, n) for n in _names):  # an older copy kept across a redeploy (ImportError on 15 Nov)
+        importlib.reload(_m)
 from collector import gaps
 from db import DAILY_HOTEL, HOTEL_SEARCHES, RETENTION_DAYS, connect, cutoff, saved_hotel_days
 from fetch_hotel import LANDMARKS, NEARBY, PLACES, save_nearby, save_places

@@ -1,6 +1,9 @@
 import streamlit as st
 
-from ui import CSS, footer
+import fresh
+
+fresh.reload_changed()  # before anything else: new pages never run against an old copy of a shared module
+from ui import CSS, footer  # noqa: E402
 
 st.set_page_config(page_title="FlyCheap · AEGEAN and Sky Express fares, hotels and when to book", page_icon="✈️", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
