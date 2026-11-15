@@ -1,0 +1,22 @@
+name: diag hotels
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q stays==0.1.1
+      - run: |
+          python - <<'P'
+          import stays
+          from stays.search import client as C
+          base = C.Client.ENDPOINT
+          for q in ("", "?hl=en&gl=gr", "?hl=en-GB&gl=gr", "?hl=el&gl=gr", "?hl=en&gl=nl"):
+              C.Client.ENDPOINT = base + q; C._shared_client = None
+              r = stays.search_hotels("Amrâth Grand Hotel De L'Empereur Maastricht", check_in="2026-12-04", check_out="2026-12-07", adults=2, currency="EUR")
+              p = {h["name"]: h["display_price"] for h in r["hotels"]}
+              print(repr(q), p.get("Amrâth Grand Hotel de l'Empereur"), p.get("The Dutch"))
+          P
