@@ -1122,9 +1122,9 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     at.number_input(key="ho-nights").set_value(3)
     at.run()
     assert not at.exception
-    said = [m.value for m in at.markdown if "Cheapest:" in m.value][0]
-    assert "Cheapest: **Cheap Inn**, €210 for the 3 nights (€70 a night)" in said  # far away hotel left out
-    assert "Grand Hotel Here is €750" in said and "1 cheaper listing without a star class is left out" in said  # the dorm bed: listed only
+    said = [m.value for m in at.markdown if "Cheapest for your stay:" in m.value][0]
+    assert "Cheapest for your stay: Cheap Inn**, €210 for 3 nights from" in said  # far away hotel left out
+    assert "less than Grand Hotel Here (€750" in said and "Not counted: 1 cheaper listing" in said  # the dorm bed: listed only
     table = at.dataframe[-1].value
     assert table.set_index("Hotel").Note["Bed In A Dorm"] == "shared or small room?"
     # the hotel's own fresher prices replace the neighbours' snapshot everywhere, and a suites-only night stays out of the statistics
@@ -1134,14 +1134,14 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     t.commit()
     at.run()
     assert not at.exception
-    said = [m.value for m in at.markdown if "Cheapest:" in m.value][0]
-    assert "Grand Hotel Here is €720" in said  # €240 a night from its own prices, not €250 from the older snapshot
+    said = [m.value for m in at.markdown if "Cheapest for your stay:" in m.value][0]
+    assert "less than Grand Hotel Here (€720" in said  # €240 a night from its own prices, not €250 from the older snapshot
     cards = " ".join(m.value for m in at.markdown)
     assert "Only expensive rooms left" in cards and "€900" in cards and "Typical night" in cards and "Average night" not in cards
     assert "Dearest night" in cards and "€260" in cards
     assert any("Prices of the hotels around it checked" in c.value for c in at.caption)
     at.button_group(key="ho-stay-rating").set_value(4.5).run()
-    assert "**Good Value**, €285 for the 3 nights" in [m.value for m in at.markdown if "Cheapest:" in m.value][0]
+    assert "Cheapest for your stay: Good Value**, €285 for 3 nights" in [m.value for m in at.markdown if "Cheapest for your stay:" in m.value][0]
 
 
 def test_hotel_fetch_finds_the_tripadvisor_key_itself_when_none_is_given(tmp_path):
@@ -1263,7 +1263,7 @@ def test_hotel_page_lists_every_hotel_of_a_city_and_the_filters_map_and_table_ag
     table = at.dataframe[-1].value
     assert list(table.Hotel) == ["Cheap Inn", "Good Value", "Grand Hotel Here"]  # Far Away is out of the default 3 km
     assert any("The 3 hotels of the list below" in c.value for c in at.caption)  # the map shows exactly those
-    assert any("**3 of the 4** hotels" in m.value for m in at.markdown)
+    assert any("3 of the 4 hotels with prices fit your filters" in m.value for m in at.markdown)
     at.number_input(key="ho-stay-max").set_value(100).run()
     at.button_group(key="ho-stay-stars").set_value(4).run()
     assert list(at.dataframe[-1].value.Hotel) == ["Good Value"]

@@ -1,5 +1,6 @@
 import logging
 import os
+import urllib.parse
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -504,21 +505,27 @@ if len(here):
             fair = stay[~stay.small]
             best = (fair if len(fair) else stay).iloc[0]
             mine_row = stay[stay.hotel == me.hotel] if me is not None else stay.iloc[0:0]
-            sentence = (f"**{n_ok} of the {listed}** {'other ' if me is not None else ''}hotels with a price on these check-in days match. "
-                        f"Cheapest: **{best.hotel}**, " + (f"€{best.total:,.0f} for the {int(nights)} nights (€{best.price:,.0f} a night)"
-                                                             if nights > 1 else f"€{best.price:,.0f} a night") + f", checking in {pd.Timestamp(best.day):%a %-d %b}")
+            day_ = f"{pd.Timestamp(best.day):%a %-d %b}"
+            sentence = (f"**Cheapest for your stay: {best.hotel}**, " + (f"€{best.total:,.0f} for {int(nights)} nights from {day_} (€{best.price:,.0f} a night)"
+                        if nights > 1 else f"€{best.price:,.0f} for the night of {day_}") + f", a room for {int(adults)} adult{'s' * (adults > 1)}.")
             if len(mine_row) and mine_row.iloc[0].hotel != best.hotel:
                 y = mine_row.iloc[0]
-                sentence += (f". {y.hotel} is €{y.total:,.0f} checking in {pd.Timestamp(y.day):%a %-d %b}, "
-                             f"€{y.total - best.total:,.0f} more.")
-            else:
-                sentence += "."
+                same = y.day == best.day
+                sentence += (f" That is €{y.total - best.total:,.0f} less than {y.hotel} (€{y.total:,.0f}"
+                             + ("" if same else f", checking in {pd.Timestamp(y.day):%a %-d %b}") + ").")
+            sentence += f" {n_ok} of the {listed} {'other ' if me is not None else ''}hotels with prices fit your filters."
             k = int(stay.small.sum())
             if k and len(fair):
-                sentence += (f" {k} cheaper listing{'s' * (k > 1)} without a star class {'are' if k > 1 else 'is'} left out: under half the "
-                             + ("middle price around them, they may be shared or small rooms, check them" if k > 1 else
-                                "middle price around it, it may be a shared or small room, check it") + " (marked in the table).")
+                sentence += (f" Not counted: {k} cheaper listing{'s' * (k > 1)} that may be a bed in a shared room or a very small room "
+                             "(hostels, and places without stars at under half the usual price), marked in the table.")
             st.markdown(sentence)
+            c1, c2 = st.columns(2)
+            c1.link_button(f"Check {best.hotel} on Booking.com", links.hotel_url(best.hotel, pd.Timestamp(best.day).date(), int(nights), int(adults)),
+                           icon=":material/open_in_new:", width="stretch")
+            c2.link_button("See it on Google Hotels", "https://www.google.com/travel/search?q=" + urllib.parse.quote(f"{best.hotel} {query}"),
+                           icon=":material/open_in_new:", width="stretch")
+            st.caption("The price is Google Hotels' lowest across the booking sites it compares, often a non-refundable rate; Booking.com or "
+                       "the hotel's own site is usually a little higher. On Google Hotels set the same dates and guests to see it.")
             if checked_on(others.fetched):
                 st.caption(f"Prices of the {'hotels' if city else 'hotels around it'} checked {checked_on(others.fetched)}"
                            + (f"; {me.hotel}'s are its own freshest, checked {checked_on(p.groupby('day').fetched.max())}" if me is not None and len(fresh) else "")
