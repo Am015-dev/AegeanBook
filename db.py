@@ -179,7 +179,7 @@ def connect(path="tracker.db"):
             load(db, path)
     for t in ("prices", "gq_prices", "hotel", "heat", "booking"):
         db.execute(f"DELETE FROM {t} WHERE fetched < ?", (cutoff(),))
-    db.execute("DELETE FROM hotel WHERE fetched < ?", ("2026-11-15T16:00:00",))  # hotels.TAXED_SINCE: Google's pre-tax US-style prices
+    db.execute("DELETE FROM hotel WHERE fetched < ?", ("2026-11-15T16:30:00",))  # hotels.TAXED_SINCE: Google's pre-tax US-style prices
     # award miles live as long as the flight day is ahead: they come from the repo's CSV, so the 5-day fetch retention would make
     # them vanish from the deployed app whenever the owner's computer skips a few days
     db.execute("DELETE FROM award_miles WHERE day <= ?", (datetime.now().date().isoformat(),))

@@ -94,7 +94,8 @@ def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_ran
                 print(f"  heatmap: {type(e).__name__}: {e}")
         skip = {d for src, d in got if src == "google"}
         more = {} if places is None else dict(places=places)  # every hotel of each answer: the hotels around it, for the Hotels page
-        for d, name, price, status, err in google(start, end, h["query"], h["filt"], h["nights"], h["adults"], skip=skip, **more):
+        for d, name, price, status, err in (google(start, end, h["query"], h["filt"], h["nights"], h["adults"], skip=skip, **more)
+                                            if google else ()):
             if status != "error":
                 got[("google", d.isoformat())] = (name, price, None)
             elif err:
@@ -105,7 +106,7 @@ def collect_hotel(google=hotels.fetch_range, rate=booking_rate, heat=heatmap_ran
                 print(f"  Booking.com {d}: {err}")
             else:
                 got[("booking", d.isoformat())] = (None, price, None)
-        missing = sum((src, d.isoformat()) not in got for src in ("google", "booking") for d in days)
+        missing = sum((src, d.isoformat()) not in got for src in (("google", "booking") if google else ("booking",)) for d in days)
         print(f"hotel pass {n + 1}: {2 * DAYS - missing}/{2 * DAYS} collected, {missing} missing", flush=True)
         if not missing:
             break
@@ -144,7 +145,9 @@ if __name__ == "__main__":
     priced = sum(p is not None for p, _ in got.values())
     print(f"flights done: {priced} prices, {len(got) - priced} days with no flight, {len(missing)} missing")
     places = {}
-    hgot, hmissing = collect_hotel(places=places)
+    # Google Hotels answers GitHub's servers with prices before taxes whatever country is asked (15 Nov), so the daily run keeps only
+    # Booking.com and the cheap-day calendar; the app's own server fetches Google's prices with taxes when a hotel is searched
+    hgot, hmissing = collect_hotel(google=None if os.environ.get("GITHUB_ACTIONS") == "true" else hotels.fetch_range, places=places)
     save_hotel(hgot)
     if around := os.environ.get("HOTEL_AROUND"):  # daily.yml merges these into hotel_places.csv / hotel_nearby.csv on the newest main
         import fetch_hotel

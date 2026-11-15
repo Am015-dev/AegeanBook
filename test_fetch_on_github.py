@@ -262,32 +262,26 @@ def test_fetch_hotel_checks_the_search_and_fetches_calendar_booking_and_google(m
     assert len(fetch_hotel.read(out)) == len(rows) + 1
 
 
-def test_hotels_page_fetches_only_missing_check_ins_on_github(tmp_path, monkeypatch):
+def test_hotels_page_searches_from_its_own_server_never_github(tmp_path, monkeypatch):
+    """Google Hotels answers GitHub's servers with prices before taxes whatever country is asked (15 Nov), so the page never starts
+    a hotel fetch there: it searches from its own server, only the check-ins not saved yet."""
     from streamlit.testing.v1 import AppTest
-    import hotels
+    import jobs
     monkeypatch.chdir(tmp_path)
     t = db.connect(str(tmp_path / "tracker.db"))
     for i in range(1, 6):  # the first 5 check-ins of the default search are saved already
         t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(i)).isoformat(), "Steigenberger Frankfurt",
                                                                "Frankfurter Hof", 1, "Steigenberger", 200.0, datetime.now().isoformat(), 2))
     t.commit()
-    st_nights = 1  # the page opens on 2 nights; these rows are one-night stays
     started = []
     monkeypatch.setattr(gh, "token", lambda: "tok")
-    monkeypatch.setattr(gh, "fetch_hotel", lambda tok, *a: started.append(a) or "h1")
-    monkeypatch.setattr(gh, "run", lambda tok, request, workflow="fetch-route.yml": None)
-    monkeypatch.setattr(hotels, "fetch_range", lambda *a, **k: pytest.fail("must not search from the app's own server"))
+    monkeypatch.setattr(gh, "fetch_hotel", lambda *a: pytest.fail("hotel prices must not be fetched on GitHub"))
+    monkeypatch.setattr(jobs, "start_job", lambda key, total, *a, **k: started.append(total))
     at = AppTest.from_file(os.path.join(HERE, "views", "hotel.py"), default_timeout=60).run()
-    at.text_input(key="ho-link").set_value("g187337-d202275")  # the field is empty by default now: this hotel's key, pasted
-    at.number_input(key="ho-nights").set_value(st_nights).run()
+    at.text_input(key="ho-link").set_value("g187337-d202275")
+    at.number_input(key="ho-nights").set_value(1).run()
     at.button[0].click().run()  # Update prices
-    assert not at.exception and len(started) == 1
-    query, filt, hkey, nights, adults, ranges, booking = started[0]
-    d = lambda i: date.today() + timedelta(i)
-    assert (query, filt, hkey, nights, adults) == ("Steigenberger Frankfurt", "Frankfurter Hof", "g187337-d202275", 1, 2)
-    assert ranges == [(d(6), d(30))]  # only the check-ins not saved yet
-    info = " ".join(i.value for i in at.info)
-    assert "Searching on GitHub" in info and "already saved" not in info
+    assert not at.exception and started and started[0] > 0
 
 
 def far_month(today):

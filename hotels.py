@@ -18,7 +18,7 @@ from par import parallel
 COUNTRY = "gr"
 if "?" not in _client.Client.ENDPOINT:
     _client.Client.ENDPOINT += f"?hl=en&gl={COUNTRY}"
-TAXED_SINCE = "2026-11-15T16:00:00"  # Google prices fetched before this were the US-style ones: never shown again
+TAXED_SINCE = "2026-11-15T16:30:00"  # Google prices fetched before this were the US-style ones: never shown again
 
 
 def plain(text):

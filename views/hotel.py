@@ -261,8 +261,10 @@ if fetch:
                              "fetched for every night instead. Google's prices will be added once it answers again.")
             booking_days([start + timedelta(i) for i in range((end - start).days + 1)])
 
-    tok = gh.token()
-    if total > 0 and tok:  # Google rate-limits Streamlit Cloud's shared server, and what is saved there is lost on a restart
+    # always from this server: from GitHub's servers Google ignores the country and answers with prices before taxes (checked 15 Nov:
+    # €129 there against €165 here for the same room); what is saved here is lost on a restart, the price of correct numbers
+    tok = None
+    if total > 0 and tok:
         missing = gaps(start, end, {(d, "google") for d in skip}, cabins=("google",))
         if not missing:  # every check-in is saved; GitHub would search them all again for the calendar alone
             total = 0
