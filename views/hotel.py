@@ -31,7 +31,8 @@ from insights import FULL, weekday_chart, weekday_stats
 from layout import page_head
 from ui import (BOOKING, ECONOMY, FONT, INK, MUTED, TIER_COLORS, best_days, excel_bytes, heat_strip, kpis, near_cheapest, on_weekdays,
                 price_chart, route, window_picker, github_progress, github_note)
-from xotelo import booking_rate, heatmap_range, hotel_key
+import xotelo
+from xotelo import booking_rate, heatmap_range, hotel_key, key_for, location, site_url
 
 db = connect()
 today = date.today()
@@ -49,6 +50,39 @@ STYLE = """<style>
 </style>"""
 st.markdown(STYLE, unsafe_allow_html=True)
 HORIZON = 330  # Google Hotels prices about a year ahead
+LIVE = 8  # hotels whose sites are asked live on one page view (the chosen one and the cheapest around it)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def live_rates(key, day, nights, adults):
+    """Each site's rate for this hotel, check-in `day` (ISO), exactly `nights` and `adults`, from Xotelo (TripAdvisor's comparison)."""
+    out = (date.fromisoformat(day) + timedelta(nights)).isoformat()
+    return xotelo.site_rates(xotelo._get("rates", hotel_key=key, chk_in=day, chk_out=out, currency="EUR", adults=adults), nights)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def town_hotels(loc):
+    """[(name, TripAdvisor key)] of a town's hotels, to find the key of each hotel Google lists there."""
+    return xotelo.town(loc)
+
+
+def stay_day_changed():
+    """A check-in picked in the list of hotels around it: the per-site prices at the top follow it."""
+    d = st.session_state.get("ho-stay-day")
+    if d and d != "any":
+        st.session_state["ho-site-day"] = date.fromisoformat(d)
+
+
+def site_day_changed():
+    """A check-in picked for the per-site prices: the list of hotels around it follows, when it has prices for that day."""
+    d = st.session_state.get("ho-site-day")
+    if d and d.isoformat() in st.session_state.get("ho-stay-options", ()):
+        st.session_state["ho-stay-day"] = d.isoformat()
+
+
+def asked(adults, nights, day):
+    """The stay a price was asked for, in words: '2 adults, 3 nights from Fri 4 Dec 2026'."""
+    return f"{int(adults)} adult{'s' * (adults > 1)}, {int(nights)} night{'s' * (nights > 1)} from {pd.Timestamp(day):%a %-d %b %Y}"
 
 page_head("Hotels", "Every hotel in a city for your stay, or what a stay costs at your hotel and when to stay.")
 # --- the hotels collected so far: pick one to open it with its saved dates, or download every price ------------------------------
@@ -262,7 +296,7 @@ if city:
 if checked:
     st.caption(checked)
 head = st.container()  # the chosen hotel's summary card, filled at the end once its place and rating are known
-me, spot = None, {}
+me, spot, ta = None, {}, []  # ta: the town's hotels with their TripAdvisor keys, once read below
 # --- the hotels around it, read once: their place (data/hotel_places.csv) and price each check-in day (data/hotel_nearby.csv) ----------
 
 
@@ -464,7 +498,8 @@ if len(here):
     else:
         ANY = "any"
         c = st.columns([2, 1, 1], vertical_alignment="bottom") + st.columns([1, 1, 1], vertical_alignment="bottom")
-        day = c[0].selectbox("Check-in", [ANY] + sorted(pool.day.unique()), key="ho-stay-day",
+        st.session_state["ho-stay-options"] = set(pool.day)  # what the per-site check-in at the top may set this to
+        day = c[0].selectbox("Check-in", [ANY] + sorted(pool.day.unique()), key="ho-stay-day", on_change=stay_day_changed,
                              format_func=lambda d: "Any day: each hotel's cheapest check-in" if d == ANY else f"{pd.Timestamp(d):%a %-d %b %Y}")
         cap = c[1].number_input("Max € a night", min_value=0, value=None, step=10, key="ho-stay-max", placeholder="Any",
                                 help=f"The most a night may cost ({UNIT}).")
@@ -493,6 +528,26 @@ if len(here):
         stay["small"] = small_room(stay.stars, stay.price, stay.day.map(area), stay.rating, stay.reviews, stay.hotel) if len(area) else False
         stay["small"] &= stay.hotel != (me.hotel if me is not None else None)
         mine_name = me.hotel if me is not None else None
+        # each site's own rate for the cheapest hotels, asked live for exactly this check-in, nights and adults (Google's is one number,
+        # its cheapest site's, unnamed): TripAdvisor keys from the town's list, matched by name
+        loc = location(hkey) or next((location(k) for (q, _), k in keys.items() if same_search(q) and location(k)), None)
+        try:
+            ta = town_hotels(loc) if loc else []
+        except Exception as e:  # Xotelo down: Google's prices only, labelled so
+            logging.warning("Xotelo town list for %s: %s", loc, e)
+            ta = []
+        stay["ta_key"] = [hkey if hkey and h == mine_name else key_for(h, ta) if ta else None for h in stay.hotel]
+        top = stay[~stay.small | (stay.hotel == mine_name)].head(LIVE)
+        ask = [(i, r.ta_key, r.day) for i, r in top.iterrows() if r.ta_key]
+        got = {a[0]: rows for a, rows, err in parallel(ask, lambda a: live_rates(a[1], a[2], int(nights), int(adults)), workers=4, retries=0)
+               if not err and rows}
+        first = lambda i, f: got[i][0][f] if i in got else None
+        stay["site_night"] = pd.to_numeric(pd.Series([first(i, "night") for i in stay.index], index=stay.index), errors="coerce")
+        stay["site"] = [first(i, "site") for i in stay.index]
+        stay["site_code"] = [first(i, "code") for i in stay.index]
+        stay["booking_night"] = [next((x["night"] for x in got.get(i, []) if x["code"] == "BookingCom"), None) for i in stay.index]
+        stay["sites"] = [xotelo.sites_text(got[i]) if i in got else "" for i in stay.index]
+        stay["eff"] = stay.site_night.fillna(stay.price) * nights  # the stay at its cheapest named site, else Google's lowest
         listed = pool.hotel[pool.hotel != mine_name].nunique()  # the other hotels with a price on these check-in days
         n_ok = int((stay.hotel != mine_name).sum())
         if not listed:  # only your hotel has prices for this stay: nothing to rank it against yet
@@ -503,16 +558,16 @@ if len(here):
                        "stars or rating, or widen the distance.")
         else:
             fair = stay[~stay.small]
-            best = (fair if len(fair) else stay).iloc[0]
+            cand = fair if len(fair) else stay
+            best = cand.loc[cand.eff.idxmin()]
             mine_row = stay[stay.hotel == me.hotel] if me is not None else stay.iloc[0:0]
-            day_ = f"{pd.Timestamp(best.day):%a %-d %b}"
-            sentence = (f"**Cheapest for your stay: {best.hotel}**, " + (f"€{best.total:,.0f} for {int(nights)} nights from {day_} (€{best.price:,.0f} a night)"
-                        if nights > 1 else f"€{best.price:,.0f} for the night of {day_}") + f", a room for {int(adults)} adult{'s' * (adults > 1)}.")
+            where = lambda r: (f"on {r.site} (€{r.site_night:,.0f} a night" + (f"; Booking.com €{r.booking_night:,.0f} a night"
+                               if pd.notna(r.booking_night) and r.site_code != "BookingCom" else "") + ")" if pd.notna(r.site_night)
+                               else f"at Google's lowest, site unknown (€{r.price:,.0f} a night)")
+            sentence = f"**Cheapest for your stay: {best.hotel}**, €{best.eff:,.0f} for {asked(adults, nights, best.day)} {where(best)}, before city tax."
             if len(mine_row) and mine_row.iloc[0].hotel != best.hotel:
                 y = mine_row.iloc[0]
-                same = y.day == best.day
-                sentence += (f" That is €{y.total - best.total:,.0f} less than {y.hotel} (€{y.total:,.0f}"
-                             + ("" if same else f", checking in {pd.Timestamp(y.day):%a %-d %b}") + ").")
+                sentence += (f" That is €{y.eff - best.eff:,.0f} less than {y.hotel}: €{y.eff:,.0f} for {asked(adults, nights, y.day)} {where(y)}.")
             sentence += f" {n_ok} of the {listed} {'other ' if me is not None else ''}hotels with prices fit your filters."
             k = int(stay.small.sum())
             if k and len(fair):
@@ -520,12 +575,20 @@ if len(here):
                              "(hostels, and places without stars at under half the usual price), marked in the table.")
             st.markdown(sentence)
             c1, c2 = st.columns(2)
-            c1.link_button(f"Check {best.hotel} on Booking.com", links.hotel_url(best.hotel, pd.Timestamp(best.day).date(), int(nights), int(adults)),
-                           icon=":material/open_in_new:", width="stretch")
+            b_day = pd.Timestamp(best.day).date()
+            if pd.notna(best.site_night):
+                url, shows = site_url(best.site_code, best.hotel, best.ta_key, b_day, int(nights), int(adults))
+                c1.link_button(f"See €{best.site_night:,.0f} a night on {best.site}" if not shows.startswith("compare") else
+                               f"Compare {best.site}'s €{best.site_night:,.0f} on TripAdvisor", url, icon=":material/open_in_new:", width="stretch")
+            else:
+                c1.link_button(f"Check {best.hotel} on Booking.com", links.hotel_url(best.hotel, b_day, int(nights), int(adults)),
+                               icon=":material/open_in_new:", width="stretch")
             c2.link_button("See it on Google Hotels", "https://www.google.com/travel/search?q=" + urllib.parse.quote(f"{best.hotel} {query}"),
                            icon=":material/open_in_new:", width="stretch")
-            st.caption("The price is Google Hotels' lowest across the booking sites it compares, often a non-refundable rate; Booking.com or "
-                       "the hotel's own site is usually a little higher. On Google Hotels set the same dates and guests to see it.")
+            st.caption(f"Site prices: the room rate each site reports to TripAdvisor for {int(adults)} adult{'s' * (adults > 1)} and "
+                       f"{int(nights)} night{'s' * (nights > 1)}, asked live for the {len(got)} cheapest hotels; before city tax, which every "
+                       "site adds at checkout. The final price on the site can be higher: city tax, a different room or a refundable rate. "
+                       "\"Google's lowest\" is the one price Google Hotels shows, its cheapest site's, often non-refundable, site not named.")
             if checked_on(others.fetched):
                 st.caption(f"Prices of the {'hotels' if city else 'hotels around it'} checked {checked_on(others.fetched)}"
                            + (f"; {me.hotel}'s are its own freshest, checked {checked_on(p.groupby('day').fetched.max())}" if me is not None and len(fresh) else "")
@@ -586,24 +649,30 @@ if len(here):
                                                 for v, r in zip(stay.stars, stay.rating)],
                              "Note": ["shared or small room?" if sm else "only suites left" if me is not None and h == me.hotel and d in suites.index
                                       else "Best value" if i == top else "" for i, (sm, h, d) in enumerate(zip(stay.small, stay.hotel, stay.day))]})
-        total = f"€ for {int(nights)} night{'s' * (nights > 1)}"
+        total, night, sites = f"Google € for {int(nights)} night{'s' * (nights > 1)}", "Google € / night", "Sites, € a night"
         short = me.hotel.split(",")[0] if me is not None else "this hotel"
         km_col = f"km from {short}" if me is not None else "km to centre"
-        out = out.rename(columns={"hotel": "Hotel", "price": "€ / night", "total": total, far: km_col, "saves": "You save"})
-        cols = ["Hotel", "Check-in", total] + (["€ / night"] if nights > 1 else []) + (["You save"] if out["You save"].notna().any() else []) + \
+        out = out.rename(columns={"hotel": "Hotel", "price": night, "total": total, far: km_col, "saves": "You save", "sites": sites})
+        has_sites = sites in out and (out[sites].fillna("") != "").any()
+        cols = ["Hotel", "Check-in"] + ([sites] if has_sites else []) + [total] + ([night] if nights > 1 else []) + \
+               (["You save"] if out["You save"].notna().any() else []) + \
                ["Stars · rating"] + ([km_col] if km_col in out and out[km_col].notna().any() else []) + (["Note"] if (out.Note != "").any() else [])
         # fixed widths that add up to the card, the name taking what is left: a wider table hid its last column behind a scroll
         # ponytail: sized for the desktop card (~880 px less a scrollbar); a phone still scrolls the table sideways
-        px = {"Check-in": 90, total: 100, "€ / night": 80, "You save": 85, "Stars · rating": 110, km_col: 85, "Note": 150}
+        px = {"Check-in": 90, sites: 210, total: 100, night: 80, "You save": 85, "Stars · rating": 110, km_col: 85, "Note": 150}
         rest_px = max(160, 800 - sum(px[c_] for c_ in cols if c_ in px))
-        conf = {c_: st.column_config.NumberColumn(format="€%d", width=px[c_], help=UNIT if c_ == "€ / night" else None)
-                for c_ in cols if c_.startswith("€") or c_ == "You save"}
+        conf = {c_: st.column_config.NumberColumn(format="€%d", width=px[c_], help=UNIT if c_ == night else None)
+                for c_ in cols if c_.startswith("Google €") or c_ == "You save"}
         conf |= {km_col: st.column_config.NumberColumn(format="%.1f", width=px[km_col]), "Hotel": st.column_config.TextColumn(width=rest_px),
                  "Check-in": st.column_config.TextColumn(width=px["Check-in"]),
+                 sites: st.column_config.TextColumn(width=px[sites], help="Each site's own rate a night for these adults, nights and check-in"),
                  "Stars · rating": st.column_config.TextColumn(width=px["Stars · rating"], help="Google's star class and guest rating out of 5"),
                  "Note": st.column_config.TextColumn(width=px["Note"])}
         st.dataframe(out[cols], hide_index=True, width="stretch", height=min(36 * len(out) + 38, 400), column_config=conf)
-        st.caption(f"€ / night: {basis(adults)}. " + ("Best value: the highest guest rating per euro of the stay, among hotels rated 4.0 or more by at least 20 guests. "
+        st.caption((f"{sites}: each site's own rate for {int(adults)} adult{'s' * (adults > 1)}, {int(nights)} night{'s' * (nights > 1)} from the "
+                    f"check-in shown, before city tax, asked live for the {len(got)} cheapest hotels found on TripAdvisor. " if has_sites else "")
+                   + f"Google €: Google Hotels' lowest, {basis(adults)}, site not named. "
+                   + ("Best value: the highest guest rating per euro of the stay, among hotels rated 4.0 or more by at least 20 guests. "
                     if top is not None else "")
                    + (f"You save: how much less the stay costs than at {short} checking in the same day (negative: it costs more). "
                       if out["You save"].notna().any() else "")
@@ -624,12 +693,44 @@ if not city:  # a city search has no hotel of its own to sum up
         if main:
             col = pd.to_numeric(s[main], errors="coerce").dropna()
             h_day, h_price = col.idxmin(), col.min()
-            facts = (f'<div class="hrow"><div><b>€{h_price:.0f}</b><span>cheapest night, checking in {ts(h_day)}</span></div>'
-                     f'<div><b>€{h_price * nights:,.0f}</b><span>the whole stay of {int(nights)} night{"s" * (nights > 1)}</span></div></div>')
+            src = "Google's lowest, site unknown" if main == "price" else "Booking.com"
+            facts = (f'<div class="hrow"><div><b>€{h_price:.0f}</b><span>a night, {src}, {escape(asked(adults, nights, h_day))}</span></div>'
+                     f'<div><b>€{h_price * nights:,.0f}</b><span>that stay of {int(nights)} night{"s" * (nights > 1)}, before city tax</span></div></div>')
         else:
             facts = '<div class="hmeta" style="margin-top:8px">No prices saved for these dates yet: press Update prices.</div>'
         st.markdown(f'<div class="hcard"><h3>{escape(h_name)}</h3><div class="hmeta">{" · ".join(meta) or escape(query)}</div>{facts}</div>',
                     unsafe_allow_html=True)
-        if main:
-            st.link_button(f"Check it on Booking.com: {date.fromisoformat(h_day):%a %-d %b}",
+        # every site's price for exactly this stay, asked live: what the traveller can check on each site
+        site_key = hkey or (key_for(h_name, ta) if ta else None)
+        picked = st.session_state.get("ho-stay-day")
+        default = date.fromisoformat(picked if picked and picked != "any" else h_day if main else start.isoformat())
+        sig = f"{query}|{filt}|{nights}|{adults}|{start}|{end}"  # another hotel or stay: start again from its cheapest check-in
+        if st.session_state.get("ho-site-sig") != sig or not st.session_state.get("ho-site-day"):
+            st.session_state["ho-site-sig"], st.session_state["ho-site-day"] = sig, default
+        if site_key:
+            chk = st.date_input("Check-in for the prices per site", min_value=today, max_value=today + timedelta(HORIZON),
+                                key="ho-site-day", on_change=site_day_changed, format="DD/MM/YYYY",
+                                help="Each site's price is asked live for this check-in, with the nights and adults above.")
+            st.markdown(f'<p class="group">Prices for {escape(asked(adults, nights, chk))}</p>', unsafe_allow_html=True)
+            try:
+                rows = live_rates(site_key, chk.isoformat(), int(nights), int(adults))
+            except Exception as e:
+                rows = None
+                logging.warning("Xotelo rates for %s: %s", site_key, e)
+                st.caption(f"Each site's price could not be fetched right now ({type(e).__name__}): reload the page in a minute.")
+            if rows == []:
+                st.info(f"No site lists {h_name} for {asked(adults, nights, chk)}: it may be full. Try another check-in.")
+            elif rows:
+                # a plain table: a few rows, each with a link that opens the same price on the site
+                lines = [f"| Site | € a night | € for {int(nights)} night{'s' * (nights > 1)} | See it |", "|---|---:|---:|---|"]
+                for r in rows:
+                    url, shows = site_url(r["code"], h_name, site_key, chk, int(nights), int(adults))
+                    lines.append(f"| {r['site']} | €{r['night']:,.0f} | €{r['total']:,.0f} | [{shows}]({url}) |")
+                st.markdown("\n".join(lines))
+                taxed = [f"{r['site']} €{r['tax']:,.0f}" for r in rows if r.get("tax")]
+                st.caption(f"The room rate each site reports to TripAdvisor for {asked(adults, nights, chk)}, checked within the hour; "
+                           "before city tax, which every site adds at checkout. The final price on the site can be higher: city tax, a "
+                           "different room or a refundable rate." + (f" City tax reported: {', '.join(taxed)}." if taxed else ""))
+        elif main:
+            st.link_button(f"Check it on Booking.com: {asked(adults, nights, h_day)}",
                            links.hotel_url(h_name, date.fromisoformat(h_day), int(nights), int(adults)), icon=":material/open_in_new:")

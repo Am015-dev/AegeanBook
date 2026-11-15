@@ -45,6 +45,68 @@ def booking_rate(key, day, nights=1, adults=2):
     return next((x["rate"] for x in r["rates"] if x["code"] == "BookingCom"), None)
 
 
+def location(key):
+    """TripAdvisor's town code ('g188575') out of a hotel key or URL; None if absent."""
+    m = re.search(r"g\d+(?=-d\d+)", key or "")
+    return m.group(0) if m else None
+
+
+def site_rates(result, nights):
+    """Every site's offer in a Xotelo rates answer, cheapest first: [dict(site, code, night, total, tax)]. `night` is the site's
+    nightly rate for the dates and adults asked, `total` that times the nights; sites without a rate are left out."""
+    rows = [dict(site=r.get("name") or r["code"], code=r["code"], night=r["rate"], total=r["rate"] * nights, tax=r.get("tax"))
+            for r in result.get("rates") or [] if r.get("rate")]
+    return sorted(rows, key=lambda r: r["night"])
+
+
+def sites_text(rows):
+    """One hotel's site_rates in a few words: "Booking.com €143 / cheapest site €126 (Agoda.com)"."""
+    if not rows:
+        return ""
+    b, low = next((r for r in rows if r["code"] == "BookingCom"), None), rows[0]
+    if b is low:
+        return f"Booking.com €{b['night']:,.0f} (the cheapest site)"
+    return (f"Booking.com €{b['night']:,.0f} / " if b else "") + f"cheapest site €{low['night']:,.0f} ({low['site']})"
+
+
+def town(location_key, get=None, most=300):
+    """[(name, key)] of the hotels TripAdvisor lists in a town, from Xotelo's free list (100 a call, at most `most`)."""
+    get, out = get or _get, []
+    for offset in range(0, most, 100):
+        r = get("list", location_key=location_key, limit=100, offset=offset)
+        out += [(h["name"], h["key"]) for h in r.get("list") or [] if h.get("name") and h.get("key")]
+        if offset + 100 >= (r.get("total_count") or 0):
+            break
+    return out
+
+
+def key_for(name, listed, plain=None):
+    """The key of the hotel called `name` among `listed` [(name, key)]: the same name as plain() reads it, else the one hotel whose
+    name holds all the words of the other's. None when no hotel, or several, fit: a wrong hotel's price is worse than none."""
+    import hotels
+    plain = plain or hotels.plain
+    same = [k for n, k in listed if plain(n) == plain(name)]
+    near = same or [k for n, k in listed if _same(n, name, plain)]
+    return near[0] if len(set(near)) == 1 else None
+
+
+def site_url(code, name, key, day, nights, adults):
+    """(url, what it shows) where the traveller sees that site's price: Booking.com, Agoda and Trip.com searched for the hotel with the
+    dates and adults filled in; any other site through the TripAdvisor page Xotelo's numbers come from (dates set there)."""
+    from booking import hotel_url
+    out, q = day + timedelta(nights), urllib.parse.quote(name)
+    who = f"{adults} adult{'s' * (adults > 1)}"
+    if code == "BookingCom":
+        return hotel_url(name, day, nights, adults), f"Booking.com, these dates, {who}"
+    if code == "Agoda":
+        return (f"https://www.agoda.com/search?textToSearch={q}&checkIn={day.isoformat()}&los={nights}&rooms=1&adults={adults}&children=0",
+                f"Agoda, these dates, {who}")
+    if code.startswith("Ctrip"):
+        return (f"https://www.trip.com/hotels/list?keyword={q}&checkin={day.isoformat()}&checkout={out.isoformat()}&adult={adults}&crn=1",
+                f"Trip.com, these dates, {who}")
+    return f"https://www.tripadvisor.com/Hotel_Review-{key}-Reviews.html", "compare on TripAdvisor (set the dates there)"
+
+
 RAPID = "https://xotelo-hotel-prices.p.rapidapi.com/api/search"  # Xotelo's name search: only through RapidAPI, with a key (free plan)
 
 
