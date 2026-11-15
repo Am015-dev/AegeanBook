@@ -28,7 +28,9 @@ def hotel_url(name, check_in, nights, adults):
     """Booking.com's search for this hotel, these dates and this many adults in one room: the traveller checks the price there."""
     out = check_in + timedelta(nights)
     return "https://www.booking.com/searchresults.html?" + urlencode(
-        dict(ss=name, checkin=check_in.isoformat(), checkout=out.isoformat(), group_adults=adults, no_rooms=1, group_children=0))
+        dict(ss=name, checkin=check_in.isoformat(), checkout=out.isoformat(), checkin_year=check_in.year, checkin_month=check_in.month,
+             checkin_monthday=check_in.day, checkout_year=out.year, checkout_month=out.month, checkout_monthday=out.day,
+             group_adults=adults, no_rooms=1, group_children=0, selected_currency="EUR"))  # both date styles Booking.com reads
 
 
 def aegean_url(orig, dest, depart, back=None, adults=1, cabin="economy"):

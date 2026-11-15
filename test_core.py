@@ -1012,7 +1012,7 @@ def test_hotel_page_lists_the_hotels_collected_and_opens_one(tmp_path, monkeypat
                                                                  "Kempinski Palace", 300.0 + i, now, 2))
     # the same hotel typed another way, for one night, checked earlier: one entry in the list, both stays named on it
     t.execute("INSERT INTO hotel VALUES(?,?,?,?,?,?,?,?)", ((date.today() + timedelta(41)).isoformat(), "kempinski engelberg", "KEMPINSKI", 1,
-                                                         "Kempinski Palace", 350.0, (datetime.now() - timedelta(hours=1)).isoformat(), 2))
+                                                         "Kempinski Palace", 350.0, (datetime.now() - timedelta(minutes=1)).isoformat(), 2))
     t.commit()
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(page, default_timeout=60).run()
@@ -1123,7 +1123,7 @@ def test_hotel_page_ranks_the_hotels_around_by_the_total_for_the_stay(tmp_path, 
     at.run()
     assert not at.exception
     said = [m.value for m in at.markdown if "Cheapest for your stay:" in m.value][0]
-    assert "Cheapest for your stay: Cheap Inn**, €210 for 2 adults, 3 nights from" in said and "Google's lowest, site unknown" in said  # far away hotel left out
+    assert "Cheapest for your stay: Cheap Inn**, €210 for 2 adults, 3 nights from" in said and "a night with taxes, Google Hotels" in said  # far away hotel left out
     assert "less than Grand Hotel Here: €750" in said and "Not counted: 1 cheaper listing" in said  # the dorm bed: listed only
     table = at.dataframe[-1].value
     assert table.set_index("Hotel").Note["Bed In A Dorm"] == "shared or small room?"
@@ -1268,8 +1268,8 @@ def test_hotel_page_lists_every_hotel_of_a_city_and_the_filters_map_and_table_ag
     at.button_group(key="ho-stay-stars").set_value(4).run()
     assert list(at.dataframe[-1].value.Hotel) == ["Good Value"]
     assert any("The 1 hotel of the list below" in c.value for c in at.caption)
-    assert any("before city tax" in m.value for m in at.markdown if "Cheapest for your stay" in m.value)  # every price says what it is
-    assert sum("before city tax" in c.value for c in at.caption) == 3  # at the top, under the headline and under the table
+    assert any("with taxes" in m.value for m in at.markdown if "Cheapest for your stay" in m.value)  # every price says what it is
+    assert any("taxes included" in c.value for c in at.caption)  # the price basis, said at the top
 
 
 def test_city_mode_falls_back_to_the_stay_length_that_has_prices(tmp_path, monkeypatch):

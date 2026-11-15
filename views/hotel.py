@@ -21,7 +21,7 @@ if not hasattr(links, "hotel_url"):  # Streamlit Cloud can keep an older booking
 import hotels as _hotels  # noqa: E402
 import xotelo as _xotelo  # noqa: E402
 
-for _m, _names in ((_hotels, ("HOSTEL", "basis", "checked_on", "sold_out", "small_room")),
+for _m, _names in ((_hotels, ("HOSTEL", "TAXED_SINCE", "basis", "checked_on", "sold_out", "small_room")),
                    (_xotelo, ("site_rates", "sites_text", "town", "key_for", "location", "site_url"))):
     if not all(hasattr(_m, n) for n in _names):  # an older copy kept across a redeploy (ImportError on 15 Nov)
         importlib.reload(_m)
@@ -316,6 +316,7 @@ def both_copies(repo_path, local, columns):
 
 pl = both_copies("data/hotel_places.csv", PLACES, [])
 by_day = both_copies("data/hotel_nearby.csv", NEARBY, ["query", "nights", "adults", "day", "hotel", "price", "fetched"])
+by_day = by_day[by_day.fetched.astype(str) >= _hotels.TAXED_SINCE]  # older Google prices were US-style, before taxes
 # the searches this page reads: a hotel's own search (however its apostrophes were typed), or for a city every saved search that names
 # it ("Frankfurt" reads "Steigenberger Frankfurt"'s hotels too: Google lists the hotels of the whole town for either)
 same_search = (lambda q: matches(q, query)) if city else (lambda q: plain(q) == plain(query))
@@ -554,7 +555,7 @@ if len(here):
         stay["site_code"] = [first(i, "code") for i in stay.index]
         stay["booking_night"] = [next((x["night"] for x in got.get(i, []) if x["code"] == "BookingCom"), None) for i in stay.index]
         stay["sites"] = [xotelo.sites_text(got[i]) if i in got else "" for i in stay.index]
-        stay["eff"] = stay.site_night.fillna(stay.price) * nights  # the stay at its cheapest named site, else Google's lowest
+        stay["eff"] = stay.price * nights  # Google's price as a traveller in Greece sees it, taxes included; the sites' own are before taxes
         listed = pool.hotel[pool.hotel != mine_name].nunique()  # the other hotels with a price on these check-in days
         n_ok = int((stay.hotel != mine_name).sum())
         if not listed:  # only your hotel has prices for this stay: nothing to rank it against yet
@@ -568,10 +569,10 @@ if len(here):
             cand = fair if len(fair) else stay
             best = cand.loc[cand.eff.idxmin()]
             mine_row = stay[stay.hotel == me.hotel] if me is not None else stay.iloc[0:0]
-            where = lambda r: (f"on {r.site} (€{r.site_night:,.0f} a night" + (f"; Booking.com €{r.booking_night:,.0f} a night"
-                               if pd.notna(r.booking_night) and r.site_code != "BookingCom" else "") + ")" if pd.notna(r.site_night)
-                               else f"at Google's lowest, site unknown (€{r.price:,.0f} a night)")
-            sentence = f"**Cheapest for your stay: {best.hotel}**, €{best.eff:,.0f} for {asked(adults, nights, best.day)} {where(best)}, before city tax."
+            where = lambda r: (f"(€{r.price:,.0f} a night with taxes, Google Hotels" + (f"; before taxes {r.site} reports €{r.site_night:,.0f}"
+                               + (f", Booking.com €{r.booking_night:,.0f}" if pd.notna(r.booking_night) and r.site_code != "BookingCom" else "")
+                               if pd.notna(r.site_night) else "") + ")")
+            sentence = f"**Cheapest for your stay: {best.hotel}**, €{best.eff:,.0f} for {asked(adults, nights, best.day)} {where(best)}."
             if len(mine_row) and mine_row.iloc[0].hotel != best.hotel:
                 y = mine_row.iloc[0]
                 sentence += (f" That is €{y.eff - best.eff:,.0f} less than {y.hotel}: €{y.eff:,.0f} for {asked(adults, nights, y.day)} {where(y)}.")
@@ -592,10 +593,9 @@ if len(here):
                                icon=":material/open_in_new:", width="stretch")
             c2.link_button("See it on Google Hotels", "https://www.google.com/travel/search?q=" + urllib.parse.quote(f"{best.hotel} hotel"),
                            icon=":material/open_in_new:", width="stretch")
-            st.caption(f"Site prices: the room rate each site reports to TripAdvisor for {int(adults)} adult{'s' * (adults > 1)} and "
-                       f"{int(nights)} night{'s' * (nights > 1)}, asked live for the {len(got)} cheapest hotels; before city tax, which every "
-                       "site adds at checkout. The final price on the site can be higher: city tax, a different room or a refundable rate. "
-                       "\"Google's lowest\" is the one price Google Hotels shows, its cheapest site's, often non-refundable, site not named.")
+            st.caption(f"Main prices: Google Hotels as a traveller in Greece sees it, taxes included, for {int(adults)} adult{'s' * (adults > 1)} "
+                       f"and {int(nights)} night{'s' * (nights > 1)}: its cheapest site, often a non-refundable rate. The sites' own figures "
+                       "(from TripAdvisor) are before VAT and city tax, so they read lower than what the site charges at checkout.")
             if checked_on(others.fetched):
                 st.caption(f"Prices of the {'hotels' if city else 'hotels around it'} checked {checked_on(others.fetched)}"
                            + (f"; {me.hotel}'s are its own freshest, checked {checked_on(p.groupby('day').fetched.max())}" if me is not None and len(fresh) else "")
@@ -736,8 +736,8 @@ if not city:  # a city search has no hotel of its own to sum up
                 st.markdown("\n".join(lines))
                 taxed = [f"{r['site']} €{r['tax']:,.0f}" for r in rows if r.get("tax")]
                 st.caption(f"The room rate each site reports to TripAdvisor for {asked(adults, nights, chk)}, checked within the hour; "
-                           "before city tax, which every site adds at checkout. The final price on the site can be higher: city tax, a "
-                           "different room or a refundable rate." + (f" City tax reported: {', '.join(taxed)}." if taxed else ""))
+                           "before VAT and city tax, which every site adds at checkout, so the site's final price is higher (and higher again for a "
+                           "different room or a refundable rate)." + (f" City tax reported: {', '.join(taxed)}." if taxed else ""))
         elif main:
             st.link_button(f"Check it on Booking.com: {asked(adults, nights, h_day)}",
                            links.hotel_url(h_name, date.fromisoformat(h_day), int(nights), int(adults)), icon=":material/open_in_new:")

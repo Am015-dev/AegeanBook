@@ -40,7 +40,7 @@ def test_site_url_fills_in_the_hotel_dates_and_adults():
     url, shows = site_url("BookingCom", "Amrâth Grand Hotel", "g188575-d230890", d, 3, 2)
     assert "checkin=2026-12-04" in url and "checkout=2026-12-07" in url and "group_adults=2" in url and "no_rooms=1" in url
     assert shows == "Booking.com, these dates, 2 adults"
-    assert "checkIn=2026-12-04&los=3&rooms=1&adults=2" in site_url("Agoda", "X", "g1-d2", d, 3, 2)[0]
+    assert site_url("Agoda", "X", "g1-d2", d, 3, 2)[0].startswith("https://www.tripadvisor.com/")  # Agoda's link needs its own city id
     assert "checkout=2026-12-07&adult=2" in site_url("CtripTA", "X", "g1-d2", d, 3, 2)[0]
     url, shows = site_url("TravelClickCPA", "X", "g188575-d230890", d, 3, 2)
     assert url == "https://www.tripadvisor.com/Hotel_Review-g188575-d230890-Reviews.html" and shows.startswith("compare on TripAdvisor")
@@ -79,10 +79,10 @@ def test_hotel_page_shows_each_sites_price_for_the_adults_and_nights_asked(tmp_p
     assert ("g777-d1", day, out, 2) in asked and all(a[3] == 2 for a in asked)  # exactly the dates and adults asked
     sites = next(m.value for m in at.markdown if m.value.startswith("| Site |")).splitlines()
     assert sites[0] == "| Site | € a night | € for 3 nights | See it |"
-    assert sites[2].startswith("| Agoda.com | €126 | €378 | [Agoda, these dates, 2 adults](https://www.agoda.com/search?")
+    assert sites[2].startswith("| Agoda.com | €126 | €378 | [compare on TripAdvisor")
     assert sites[3].startswith("| Official Hotel | €137 | €411 | [compare on TripAdvisor")
     assert sites[4].startswith("| Booking.com | €143 | €429 | [Booking.com, these dates, 2 adults](") and "group_adults=2" in sites[4]
     assert any(m.value.startswith('<p class="group">Prices for 2 adults, 3 nights from') for m in at.markdown)
     said = [m.value for m in at.markdown if "Cheapest for your stay:" in m.value][0]
-    assert "**Cheapest for your stay: The Dutch**, €312 for 2 adults, 3 nights from" in said and "on Agoda.com (€104 a night; Booking.com €110" in said
-    assert "Plain Inn" not in said and "less than Grand Hotel Here: €378" in said
+    assert "**Cheapest for your stay: The Dutch**, €297 for 2 adults, 3 nights from" in said and "(€99 a night with taxes, Google Hotels; before taxes Agoda.com reports" in said
+    assert "Plain Inn" not in said and "less than Grand Hotel Here: €387" in said

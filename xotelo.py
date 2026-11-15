@@ -98,9 +98,7 @@ def site_url(code, name, key, day, nights, adults):
     who = f"{adults} adult{'s' * (adults > 1)}"
     if code == "BookingCom":
         return hotel_url(name, day, nights, adults), f"Booking.com, these dates, {who}"
-    if code == "Agoda":
-        return (f"https://www.agoda.com/search?textToSearch={q}&checkIn={day.isoformat()}&los={nights}&rooms=1&adults={adults}&children=0",
-                f"Agoda, these dates, {who}")
+    # Agoda: its search link needs Agoda's own city id (a name only lands on the home page, checked 15 Nov): through TripAdvisor
     if code.startswith("Ctrip"):
         return (f"https://www.trip.com/hotels/list?keyword={q}&checkin={day.isoformat()}&checkout={out.isoformat()}&adult={adults}&crn=1",
                 f"Trip.com, these dates, {who}")

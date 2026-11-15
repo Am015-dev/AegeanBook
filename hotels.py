@@ -8,8 +8,17 @@ import unicodedata
 from datetime import date, timedelta
 
 import stays
+from stays.search import client as _client
 
 from par import parallel
+
+# Google Hotels answers in the style of the asker's country, and the library sends none: from a server it got US-style prices before
+# VAT and city tax (Amrâth Maastricht, 4-7 Dec, 2 adults: €129 a night, while from Greece Google shows €165 and Booking.com totals
+# €504 for the 3 nights). Asking as a traveller in Greece gives the prices a Greek user sees, taxes included.
+COUNTRY = "gr"
+if "?" not in _client.Client.ENDPOINT:
+    _client.Client.ENDPOINT += f"?hl=en&gl={COUNTRY}"
+TAXED_SINCE = "2026-11-15T16:00:00"  # Google prices fetched before this were the US-style ones: never shown again
 
 
 def plain(text):
@@ -85,8 +94,8 @@ SMALL = 0.5  # a listing without a star class under this share of the area's mid
 
 
 def basis(adults):
-    """What every hotel price on the page is: Google's and Booking.com's nightly rate for the whole room, city tax not included."""
-    return f"a night for the room, {int(adults)} adult{'s' * (int(adults) > 1)}, before city tax"
+    """What the page's main hotel prices are: Google Hotels' nightly rate for the whole room as a traveller in Greece sees it."""
+    return f"a night for the room, {int(adults)} adult{'s' * (int(adults) > 1)}, taxes included"
 
 
 def sold_out(prices):
