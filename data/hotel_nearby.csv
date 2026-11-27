@@ -1,24 +1,4 @@
 query,nights,adults,day,hotel,price,fetched
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Alex Maastricht,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Amrâth Grand Hotel de l'Empereur,188,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Amrâth Hotel Bigarré,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Amrâth Hotel DuCasque,281,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Derlon Hotel Maastricht,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Exclusive Residence - Two-Bedroom Apartment,632,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Garner Hotel Maastricht by IHG,181,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Group accommodation Maastricht,897,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Hotel Beaumont,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Hotel Maison Maastricht Centrum - Handwritten Collection,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Hotel NH Maastricht,160,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Hotel Sansa,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Kaboom Hotel,172,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Kruisherenhotel Maastricht,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Leonardo Boutique Hotel Maastricht City Center,215,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Maison Haas Hustinx & Sanctum Spa,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,The Green Elephant Hostel & Spa,135,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Van der Valk Hotel Maastricht,621,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,Van der Valk Hotel Maastricht-Maas,175,2026-11-15T16:18:09
-Amrâth Grand Hotel De L'Empereur,3,2,2026-11-27,WYCK-END boutique hotel,175,2026-11-15T16:18:09
 Amrâth Grand Hotel De L'Empereur,3,2,2026-11-28,Alex Maastricht,175,2026-11-15T16:18:09
 Amrâth Grand Hotel De L'Empereur,3,2,2026-11-28,Amrâth Grand Hotel de l'Empereur,133,2026-11-15T16:18:09
 Amrâth Grand Hotel De L'Empereur,3,2,2026-11-28,Amrâth Hotel Bigarré,175,2026-11-15T16:18:09
@@ -511,26 +491,6 @@ Amrâth Grand Hotel De L'Empereur,3,2,2026-12-20,Van der Valk Hotel Maastricht,1
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-20,Van der Valk Hotel Maastricht-Maas,201,2026-11-15T16:18:09
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-20,W Y C K - E N D boutique hotel - Deluxe Double Room,175,2026-11-15T16:18:09
 Amrâth Grand Hotel De L'Empereur,3,2,2026-12-20,WYCK-END boutique hotel,175,2026-11-15T16:18:09
-Hotel Krallerhof,1,2,2026-11-27,Apart Herzog - Design Apartments Leogang,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Birnhornblick,228,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Birnhornblick - Superior Two-Bedroom Apartment,222,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Chalet Leogang - Eder,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Good Life Resort Riederalm,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Haus Weitblick,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Holzhotel Forsthofalm,285,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Hotel Gasthof Brentwirt,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Hotel Krallerhof,633,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Hotel Leonhard in Leogang,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Hotel Rupertus,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Hotel Salzburger Hof Leogang,325,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Naturhotel Forsthofgut,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,PRIESTEREGG Premium ECO Resort,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,PURADIES Naturresort,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,SENHOOG Luxus Wellness Chalet,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Sinnlehenhof,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Stockinggut by AvenidA,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,Stockis Mountain Destillerie & Living,175,2026-11-03T08:39:14
-Hotel Krallerhof,1,2,2026-11-27,mama thresl,175,2026-11-03T08:39:14
 Hotel Krallerhof,1,2,2026-11-28,Apart Herzog - Design Apartments Leogang,175,2026-11-03T08:39:14
 Hotel Krallerhof,1,2,2026-11-28,Appartments Niedermoser - Two-Bedroom Apartment,237,2026-11-03T08:39:14
 Hotel Krallerhof,1,2,2026-11-28,Birnhornblick,228,2026-11-03T08:39:14
@@ -4907,7 +4867,6 @@ Hotel Krallerhof,1,2,2027-07-31,SENHOOG Luxus Wellness Chalet,175,2026-11-03T08:
 Hotel Krallerhof,1,2,2027-07-31,Stockinggut by AvenidA,229,2026-11-03T08:37:02
 Hotel Krallerhof,1,2,2027-07-31,Stockis Mountain Destillerie & Living,175,2026-11-03T08:37:02
 Hotel Krallerhof,1,2,2027-07-31,mama thresl,175,2026-11-03T08:37:02
-Kempinski Palace Engelberg,1,2,2026-11-27,Kempinski Palace Engelberg,574,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-28,Kempinski Palace Engelberg,607,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-29,Kempinski Palace Engelberg,614,2026-11-02T17:21:06
 Kempinski Palace Engelberg,1,2,2026-11-30,'DAHElM',304,2026-11-02T17:21:06
@@ -5013,47 +4972,6 @@ Kempinski Palace Engelberg,1,2,2026-12-21,Panorama Lakeside Retreat Seelisberg,2
 Kempinski Palace Engelberg,1,2,2026-12-21,Serviced Apartments – Kirchbühl@home,345,2026-11-02T16:48:59
 Kempinski Palace Engelberg,1,2,2026-12-21,Serviced Apartments – Kirchbühl@home - Studio (502),404,2026-11-02T16:48:59
 Kempinski Palace Engelberg,1,2,2026-12-21,Wohnung mit Herz,232,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Adina Apartment Hotel Frankfurt Neue Oper,145,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Bed and Pool - One-Bedroom Apartment,151,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Boutique Kaiser - Hotel Apartments - Deluxe Studio,118,2026-11-12T12:43:59
-Steigenberger Frankfurt,1,2,2026-11-27,Boutique Kaiser - Hotel Apartments - Family Studio,232,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Boutique Kaiser - Hotel Apartments - Superior Studio,125,2026-11-14T11:30:03
-Steigenberger Frankfurt,1,2,2026-11-27,"Capri by Fraser, Frankfurt - Deluxe Studio",105,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Citadines City Centre Frankfurt - Classic Double Room,97,2026-11-11T11:54:43
-Steigenberger Frankfurt,1,2,2026-11-27,Frankfurt Marriott Hotel,141,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Grandhotel Hessischer Hof,123,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,HAN Frankfurt 4 Bedrooms 8 Guests Group Stay,564,2026-11-13T12:14:00
-Steigenberger Frankfurt,1,2,2026-11-27,Hilton Frankfurt City Centre,132,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Homburg Residenz,172,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel Liebig,145,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel Motel One Frankfurt-Römer,144,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel NH Collection Frankfurt Spin Tower,208,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel Ocean Pearl Frankfurt Central Station,58,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel Schopenhauer Hof,212,2026-11-14T11:30:03
-Steigenberger Frankfurt,1,2,2026-11-27,Hotel nhow Frankfurt,179,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,IntercityHotel Frankfurt,97,2026-11-08T11:28:26
-Steigenberger Frankfurt,1,2,2026-11-27,JW Marriott Hotel Frankfurt,249,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Kimpton Main Frankfurt by IHG,163,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,"LUME Boutique Hotel, Autograph Collection",142,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Le Méridien Frankfurt,126,2026-11-14T11:30:03
-Steigenberger Frankfurt,1,2,2026-11-27,Leonardo Royal Hotel Frankfurt,63,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Lindenberg,175,2026-11-13T12:14:00
-Steigenberger Frankfurt,1,2,2026-11-27,Main Plaza | Suite Tower,138,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,"Numa Frankfurt Bloc - Medium Room, Stairs Access Only",132,2026-11-10T12:40:10
-Steigenberger Frankfurt,1,2,2026-11-27,Premier Inn Frankfurt Westend Hotel,56,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,Residence Inn Frankfurt City Center,167,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,"Roomers Frankfurt Central, Autograph Collection",133,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Ruby Louise Hotel Frankfurt by IHG,119,2026-11-12T12:43:59
-Steigenberger Frankfurt,1,2,2026-11-27,SAKS Urban Design Hotel Frankfurt,127,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Sofitel Frankfurt Opera,227,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Steigenberger Airport Hotel Frankfurt,129,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Steigenberger Frankfurter Hof,280,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,Steigenberger Hotel Bad Homburg,79,2026-11-02T16:48:59
-Steigenberger Frankfurt,1,2,2026-11-27,The Doorman Welle Frankfurt am Main - Studio,126,2026-11-14T11:30:03
-Steigenberger Frankfurt,1,2,2026-11-27,The Westin Grand Frankfurt,179,2026-11-15T11:58:59
-Steigenberger Frankfurt,1,2,2026-11-27,VILLA FLORENTINA,175,2026-11-13T12:14:00
-Steigenberger Frankfurt,1,2,2026-11-27,Wyndham Grand Frankfurt,146,2026-11-13T12:14:00
-Steigenberger Frankfurt,1,2,2026-11-27,smartments Frankfurt Airport,64,2026-11-11T11:54:43
 Steigenberger Frankfurt,1,2,2026-11-28,Adina Apartment Hotel Frankfurt Neue Oper,143,2026-11-15T11:58:59
 Steigenberger Frankfurt,1,2,2026-11-28,Bed and Pool - One-Bedroom Apartment,151,2026-11-02T16:48:59
 Steigenberger Frankfurt,1,2,2026-11-28,Boutique Kaiser - Hotel Apartments - Deluxe Studio,118,2026-11-15T11:58:59
